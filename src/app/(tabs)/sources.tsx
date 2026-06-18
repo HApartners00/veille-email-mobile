@@ -15,11 +15,9 @@ import { apiGet, apiPost } from '@/lib/api';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Mailbox = {
-  id: string;
+  email: string;
   provider: 'gmail' | 'outlook';
   label: string;
-  email: string | null;
-  connectedAt: string | null;
 };
 
 export default function Sources() {
@@ -28,6 +26,7 @@ export default function Sources() {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  // clé d'identité d'une boîte = son adresse email
 
   const loadMailboxes = useCallback(async () => {
     try {
@@ -66,7 +65,7 @@ export default function Sources() {
   function confirmDisconnect(mb: Mailbox) {
     Alert.alert(
       'Déconnecter cette boîte ?',
-      `${mb.label}${mb.email ? ` (${mb.email})` : ''} ne sera plus relevée. Vos emails déjà triés restent consultables. Vous pourrez la reconnecter à tout moment.`,
+      `${mb.email} ne sera plus relevée. Vos emails déjà triés restent consultables. Vous pourrez la reconnecter à tout moment.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -79,11 +78,11 @@ export default function Sources() {
   }
 
   async function disconnect(mb: Mailbox) {
-    setDisconnecting(mb.id);
+    setDisconnecting(mb.email);
     setError(null);
     try {
-      await apiPost('/api/connect/disconnect', { source_id: mb.id });
-      setMailboxes((prev) => prev.filter((m) => m.id !== mb.id));
+      await apiPost('/api/connect/disconnect', { email: mb.email });
+      setMailboxes((prev) => prev.filter((m) => m.email !== mb.email));
     } catch (e: any) {
       setError(e?.message || 'Déconnexion impossible.');
     } finally {
@@ -107,13 +106,15 @@ export default function Sources() {
           </Text>
         ) : (
           mailboxes.map((mb) => (
-            <View key={mb.id} style={styles.mbRow}>
+            <View key={mb.email} style={styles.mbRow}>
               <View style={[styles.dot, mb.provider === 'gmail' ? styles.dotGmail : styles.dotOutlook]} />
               <View style={styles.mbInfo}>
-                <Text style={styles.mbLabel}>{mb.label}</Text>
-                {mb.email ? <Text style={styles.mbEmail}>{mb.email}</Text> : null}
+                <Text style={styles.mbLabel} numberOfLines={1}>
+                  {mb.email}
+                </Text>
+                <Text style={styles.mbEmail}>{mb.label}</Text>
               </View>
-              {disconnecting === mb.id ? (
+              {disconnecting === mb.email ? (
                 <ActivityIndicator color={colors.danger} style={styles.mbAction} />
               ) : (
                 <Pressable
