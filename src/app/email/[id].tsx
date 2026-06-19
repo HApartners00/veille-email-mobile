@@ -14,7 +14,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
-import { effectivePriority, type Rule } from '@/lib/priority';
+import {
+  effectivePriority,
+  PRIORITIES,
+  PRIORITY_KEYS,
+  domainOf,
+  extractEmail,
+  type Rule,
+} from '@/lib/priority';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Item = {
@@ -29,6 +36,14 @@ type Item = {
   tags: string[];
   received_at: string;
 };
+
+// Reformulations rapides du brouillon (identiques au web).
+const QUICK_REFINEMENTS: { label: string; instruction: string }[] = [
+  { label: 'Plus professionnel', instruction: 'Rends le ton plus professionnel et formel.' },
+  { label: 'Plus court', instruction: "Raccourcis nettement le message, va à l'essentiel." },
+  { label: 'Plus chaleureux', instruction: 'Rends le ton plus chaleureux et cordial.' },
+  { label: 'Plus direct', instruction: 'Sois plus direct et factuel, sans fioritures.' },
+];
 
 function decodeEntities(t: string): string {
   return t
@@ -74,6 +89,13 @@ export default function EmailDetail() {
   const [pushing, setPushing] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  // Reclassement (changer la catégorie / créer une règle)
+  const [pendingCat, setPendingCat] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState('');
+  const [reBusy, setReBusy] = useState(false);
+  const [reNote, setReNote] = useState<string | null>(null);
+  const [reError, setReError] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       const [itemRes, rulesRes] = await Promise.all([
@@ -106,13 +128,14 @@ export default function EmailDetail() {
     })();
   }, [id]);
 
-  async function generate(adjust: boolean) {
+  async function generate(adjust: boolean, explicitInstruction?: string) {
+    const instr = explicitInstruction ?? instructions;
     setGenLoading(true);
     setMsg(null);
     try {
       const res = await apiPost<{ draft: string }>('/api/draft', {
         id,
-        instructions: adjust ? instructions : undefined,
+        instructions: adjust ? instr : undefined,
         previousDraft: adjust ? draft : undefined,
       });
       setDraft(res.draft);
@@ -138,7 +161,69 @@ export default function EmailDetail() {
     }
   }
 
+  const catLabel = (k: string) => PRIORITIES.find((p) => p.key === k)?.label ?? k;
+
+  // Reclasser uniquement cet email : on réécrit ses tags de priorité.
+  async function applyThisEmail(cat: string) {
+    if (reBusy || !item) return;
+    setReBusy(true);
+    setReError(null);
+    const base = (item.tags || []).filter((t) => !PRIORITY_KEYS.includes((t || '').toLowerCase()));
+    const nextTags = [...base, cat];
+    const { error: e } = await supabase.from('items').update({ tags: nextTags }).eq('id', id);
+    setReBusy(false);
+    if (e) {
+      setReError(e.message);
+      return;
+    }
+    setItem({ ...item, tags: nextTags });
+    setPendingCat(null);
+    setKeyword('');
+    setReNote('Cet email a été reclassé.');
+  }
+
+  // Créer une règle (expéditeur / domaine / mot-clé) → catégorie.
+  async function applyRule(type: 'sender' | 'domain' | 'keyword', value: string, cat: string) {
+    const v = (value || '').trim().toLowerCase();
+    if (reBusy || !v) return;
+    setReBusy(true);
+    setReError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setReBusy(false);
+      setReError('Non authentifié.');
+      return;
+    }
+    const { error: e } = await supabase.from('classification_rules').upsert(
+      { user_id: user.id, match_type: type, match_value: v, category: cat },
+      { onConflict: 'user_id,match_type,match_value' },
+    );
+    setReBusy(false);
+    if (e) {
+      setReError(e.message);
+      return;
+    }
+    // Refléter la règle localement pour mettre à jour la priorité affichée.
+    setRules((prev) => [
+      ...prev.filter((r) => !(r.match_type === type && r.match_value === v)),
+      { match_type: type, match_value: v, category: cat },
+    ]);
+    const label =
+      type === 'sender'
+        ? `les emails de ${v}`
+        : type === 'domain'
+          ? `le domaine @${v}`
+          : `les sujets contenant « ${v} »`;
+    setPendingCat(null);
+    setKeyword('');
+    setReNote(`Règle créée : ${label} → ${catLabel(cat)}.`);
+  }
+
   const p = item ? effectivePriority(item, rules) : null;
+  const senderEmail = item ? extractEmail(item.author) : '';
+  const senderDomain = item ? domainOf(item.author) : '';
   // Corps complet nettoyé ; si le nettoyage laisse des balises (HTML récalcitrant),
   // on retombe sur l'aperçu propre extrait par le pipeline.
   let body = htmlToText(item?.content || item?.body || '');
@@ -186,6 +271,99 @@ export default function EmailDetail() {
             })}
           </Text>
 
+          {/* Reclassement : changer la catégorie / créer une règle */}
+          <View style={styles.reclassify}>
+            <Text style={styles.reLabel}>Catégorie</Text>
+            <View style={styles.chipsWrap}>
+              {PRIORITIES.map((c) => {
+                const active = p?.key === c.key;
+                return (
+                  <Pressable
+                    key={c.key}
+                    disabled={reBusy}
+                    onPress={() => (active ? undefined : setPendingCat(c.key))}
+                    style={[
+                      styles.catChip,
+                      active
+                        ? { backgroundColor: c.color, borderColor: c.color }
+                        : { borderColor: colors.cardline },
+                    ]}
+                  >
+                    <Text style={[styles.catChipText, { color: active ? '#ffffff' : c.color }]}>
+                      {c.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {pendingCat ? (
+              <View style={styles.reBox}>
+                <View style={styles.reBoxTop}>
+                  <Text style={styles.reBoxTitle}>
+                    Classer comme <Text style={{ fontWeight: '700' }}>{catLabel(pendingCat)}</Text> —
+                    appliquer à :
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setPendingCat(null);
+                      setKeyword('');
+                    }}
+                  >
+                    <Text style={styles.reCancel}>Annuler</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.chipsWrap}>
+                  <Pressable
+                    style={styles.targetChip}
+                    disabled={reBusy}
+                    onPress={() => applyThisEmail(pendingCat)}
+                  >
+                    <Text style={styles.targetChipText}>Cet email seulement</Text>
+                  </Pressable>
+                  {senderEmail ? (
+                    <Pressable
+                      style={styles.targetChip}
+                      disabled={reBusy}
+                      onPress={() => applyRule('sender', senderEmail, pendingCat)}
+                    >
+                      <Text style={styles.targetChipText}>Tous les emails de {senderEmail}</Text>
+                    </Pressable>
+                  ) : null}
+                  {senderDomain ? (
+                    <Pressable
+                      style={styles.targetChip}
+                      disabled={reBusy}
+                      onPress={() => applyRule('domain', senderDomain, pendingCat)}
+                    >
+                      <Text style={styles.targetChipText}>Le domaine @{senderDomain}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={styles.kwRow}>
+                  <TextInput
+                    style={styles.kwInput}
+                    value={keyword}
+                    onChangeText={setKeyword}
+                    placeholder="…ou sujets contenant ce mot-clé"
+                    placeholderTextColor={colors.hint}
+                    autoCapitalize="none"
+                  />
+                  <Pressable
+                    style={[styles.kwBtn, (reBusy || !keyword.trim()) && styles.btnDisabled]}
+                    disabled={reBusy || !keyword.trim()}
+                    onPress={() => applyRule('keyword', keyword, pendingCat)}
+                  >
+                    <Text style={styles.kwBtnText}>Créer</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
+            {reNote ? <Text style={styles.reNote}>{reNote}</Text> : null}
+            {reError ? <Text style={styles.reErr}>{reError}</Text> : null}
+          </View>
+
           <View style={styles.divider} />
           <Text style={styles.sectionLabel}>Résumé</Text>
           {summaryLoading ? (
@@ -229,11 +407,27 @@ export default function EmailDetail() {
                   multiline
                   textAlignVertical="top"
                 />
+
+                {/* Reformulations rapides */}
+                <Text style={styles.refineLabel}>Ajuster :</Text>
+                <View style={styles.chipsWrap}>
+                  {QUICK_REFINEMENTS.map((q) => (
+                    <Pressable
+                      key={q.label}
+                      style={styles.refineChip}
+                      disabled={genLoading}
+                      onPress={() => generate(true, q.instruction)}
+                    >
+                      <Text style={styles.refineChipText}>{q.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
                 <TextInput
                   style={styles.instr}
                   value={instructions}
                   onChangeText={setInstructions}
-                  placeholder="Ajuster (ex. plus court, plus formel)…"
+                  placeholder="…ou une consigne libre (ex. propose 9h, ajoute mon numéro)"
                   placeholderTextColor={colors.hint}
                 />
                 <View style={styles.row}>
@@ -242,7 +436,7 @@ export default function EmailDetail() {
                     onPress={() => generate(true)}
                     disabled={!instructions.trim()}
                   >
-                    <Text style={styles.secondaryBtnText}>Ajuster</Text>
+                    <Text style={styles.secondaryBtnText}>Reformuler</Text>
                   </Pressable>
                   <Pressable style={[styles.cta, styles.flex1]} onPress={pushToMailbox} disabled={pushing}>
                     {pushing ? (
@@ -278,6 +472,62 @@ const styles = StyleSheet.create({
   subject: { fontSize: 22, fontWeight: '700', color: colors.ink, lineHeight: 28 },
   meta: { fontSize: 14, color: colors.ink2, marginTop: spacing.md },
   metaDate: { fontSize: 12, color: colors.hint, marginTop: 2, textTransform: 'capitalize' },
+
+  // Reclassement
+  reclassify: { marginTop: spacing.lg },
+  reLabel: { fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.xs },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  catChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  catChipText: { fontSize: 12, fontWeight: '600' },
+  reBox: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  reBoxTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
+  reBoxTitle: { flex: 1, fontSize: 13, color: colors.ink2, lineHeight: 18 },
+  reCancel: { fontSize: 12, color: colors.muted },
+  targetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    backgroundColor: colors.cream,
+  },
+  targetChipText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
+  kwRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  kwInput: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  kwBtn: {
+    backgroundColor: colors.ink,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kwBtnText: { color: colors.cream, fontWeight: '600', fontSize: 13 },
+  reNote: { fontSize: 12, color: colors.muted, marginTop: spacing.sm },
+  reErr: { fontSize: 12, color: colors.danger, marginTop: spacing.xs },
+
   divider: { height: 1, backgroundColor: colors.cardline, marginVertical: spacing.lg },
   sectionLabel: {
     fontSize: 11,
@@ -312,6 +562,16 @@ const styles = StyleSheet.create({
     color: colors.ink2,
     lineHeight: 22,
   },
+  refineLabel: { fontSize: 12, color: colors.muted },
+  refineChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    backgroundColor: colors.surface,
+  },
+  refineChipText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
   instr: {
     backgroundColor: colors.surface,
     borderColor: colors.cardline,

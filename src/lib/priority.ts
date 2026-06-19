@@ -13,6 +13,8 @@ export const PRIORITY_BY_KEY: Record<string, Priority> = Object.fromEntries(
   PRIORITIES.map((p) => [p.key, p]),
 );
 
+export const PRIORITY_KEYS: string[] = PRIORITIES.map((p) => p.key);
+
 export type Rule = { match_type: string; match_value: string; category: string };
 
 export type ClassifiableItem = {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import { useAuth } from '@/context/auth';
 import { apiGet, apiPost } from '@/lib/api';
@@ -15,6 +16,27 @@ const DAYS: { value: number; label: string }[] = [
   { value: 0, label: 'Dim' },
 ];
 
+// Libellé du prix (facultatif) — défini par EXPO_PUBLIC_PLAN_PRICE_LABEL, ex. « 9,99 €/mois ».
+const PRICE_LABEL = process.env.EXPO_PUBLIC_PLAN_PRICE_LABEL || '';
+
+type BillingStatus = {
+  status: string;
+  entitled: boolean;
+  hasCustomer: boolean;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  trial_end: string | null;
+};
+
+function formatDate(value: string | null): string {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return '—';
+  }
+}
+
 export default function Settings() {
   const { session, signOut } = useAuth();
   const email = session?.user?.email ?? '—';
@@ -25,6 +47,11 @@ export default function Settings() {
   const [days, setDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Abonnement (Stripe)
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billingUi, setBillingUi] = useState<'loading' | 'ready' | 'redirecting' | 'error'>('loading');
+  const [billingMsg, setBillingMsg] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -71,6 +98,56 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiGet<BillingStatus>('/api/billing/status');
+        setBilling(r);
+        setBillingUi('ready');
+      } catch (e: any) {
+        setBillingUi('error');
+        setBillingMsg(e?.message || 'Lecture impossible.');
+      }
+    })();
+  }, []);
+
+  async function goBilling(endpoint: '/api/billing/checkout' | '/api/billing/portal') {
+    setBillingUi('redirecting');
+    setBillingMsg(null);
+    try {
+      const r = await apiPost<{ url?: string }>(endpoint, {});
+      if (r?.url) {
+        await WebBrowser.openBrowserAsync(r.url);
+        setBillingUi('ready');
+      } else {
+        setBillingUi('error');
+        setBillingMsg('Action impossible.');
+      }
+    } catch (e: any) {
+      setBillingUi('error');
+      setBillingMsg(e?.message || 'Action impossible.');
+    }
+  }
+
+  function billingStatusText(): string {
+    const s = billing?.status || 'none';
+    if (s === 'trialing')
+      return `Essai gratuit en cours${
+        billing?.trial_end ? `, jusqu'au ${formatDate(billing.trial_end)}` : ''
+      }.`;
+    if (s === 'active')
+      return billing?.cancel_at_period_end
+        ? `Abonnement actif — se termine le ${formatDate(billing?.current_period_end || null)} (résiliation programmée).`
+        : `Abonnement actif — prochain renouvellement le ${formatDate(billing?.current_period_end || null)}.`;
+    if (s === 'past_due' || s === 'unpaid')
+      return 'Paiement en échec. Mettez à jour votre moyen de paiement pour conserver le service.';
+    if (s === 'canceled')
+      return 'Abonnement résilié. Réabonnez-vous pour relancer votre veille quotidienne.';
+    return `Démarrez votre essai gratuit de 14 jours${
+      PRICE_LABEL ? `, puis ${PRICE_LABEL}` : ''
+    }. Sans abonnement actif, le rapport quotidien est suspendu.`;
   }
 
   return (
@@ -140,6 +217,51 @@ export default function Settings() {
         )}
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Abonnement</Text>
+        <Text style={styles.hint}>Votre accès au tri quotidien et aux brouillons IA.</Text>
+        {billingUi === 'loading' ? (
+          <ActivityIndicator color={colors.terracotta} style={{ marginVertical: spacing.md }} />
+        ) : (
+          <>
+            <Text style={styles.billingStatus}>{billingStatusText()}</Text>
+            <View style={styles.billingBtns}>
+              {billing?.hasCustomer ? (
+                <Pressable
+                  style={[styles.manageBtn, billingUi === 'redirecting' && styles.btnDisabled]}
+                  onPress={() => goBilling('/api/billing/portal')}
+                  disabled={billingUi === 'redirecting'}
+                >
+                  <Text style={styles.manageBtnText}>
+                    {billingUi === 'redirecting' ? 'Ouverture…' : 'Gérer mon abonnement'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {!billing?.entitled ? (
+                <Pressable
+                  style={[
+                    styles.saveBtn,
+                    styles.subscribeBtn,
+                    billingUi === 'redirecting' && styles.btnDisabled,
+                  ]}
+                  onPress={() => goBilling('/api/billing/checkout')}
+                  disabled={billingUi === 'redirecting'}
+                >
+                  <Text style={styles.saveBtnText}>
+                    {billingUi === 'redirecting' ? 'Redirection…' : "Démarrer l'essai gratuit"}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {billingMsg ? (
+              <Text style={[styles.msg, billingUi === 'error' ? styles.msgErr : styles.msgOk]}>
+                {billingMsg}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </View>
+
       <Pressable style={styles.signout} onPress={signOut}>
         <Text style={styles.signoutText}>Se déconnecter</Text>
       </Pressable>
@@ -202,6 +324,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: { color: colors.onDark, fontWeight: '700', fontSize: 15 },
+  billingStatus: { fontSize: 14, color: colors.ink2, lineHeight: 20, marginTop: spacing.xs },
+  billingBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  manageBtn: {
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageBtnText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  subscribeBtn: { marginTop: 0, paddingHorizontal: spacing.lg, flexGrow: 1 },
   btnDisabled: { opacity: 0.5 },
   msg: { fontSize: 13, marginTop: spacing.sm },
   msgOk: { color: colors.sage },

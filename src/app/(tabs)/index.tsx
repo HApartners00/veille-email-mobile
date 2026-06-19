@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
-import { effectivePriority, type Rule } from '@/lib/priority';
+import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Item = {
@@ -63,6 +65,15 @@ function formatDate(value: string): string {
   }
 }
 
+const SELECT = 'id, title, author, preview, url, status, tags, received_at';
+const LIMIT = 100;
+
+// Onglets de filtre : Tous + une entrée par catégorie de priorité.
+const FILTERS: { key: string; label: string }[] = [
+  { key: 'all', label: 'Tous' },
+  ...PRIORITIES.map((p) => ({ key: p.key, label: p.label })),
+];
+
 export default function Feed() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
@@ -72,14 +83,25 @@ export default function Feed() {
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // Recherche + filtres
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+
+  const load = useCallback(async (q: string) => {
     setError(null);
+    let qb = supabase
+      .from('items')
+      .select(SELECT)
+      .order('received_at', { ascending: false })
+      .limit(LIMIT);
+    const term = (q || '').trim().replace(/[,%]/g, ' ').trim();
+    if (term) {
+      qb = qb.or(`title.ilike.%${term}%,author.ilike.%${term}%`);
+    }
     const [itemsRes, rulesRes] = await Promise.all([
-      supabase
-        .from('items')
-        .select('id, title, author, preview, url, status, tags, received_at')
-        .order('received_at', { ascending: false })
-        .limit(50),
+      qb,
       supabase.from('classification_rules').select('match_type, match_value, category'),
     ]);
     if (itemsRes.error) {
@@ -92,14 +114,25 @@ export default function Feed() {
   }, []);
 
   useEffect(() => {
-    load();
+    load('');
   }, [load]);
+
+  // Debounce de la recherche → requête Supabase (titre + expéditeur/adresse).
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    load(debouncedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    await load(debouncedQuery);
     setRefreshing(false);
-  }, [load]);
+  }, [load, debouncedQuery]);
 
   // Relève immédiate (ingestion seule) côté serveur, puis rechargement du feed.
   const refreshNow = useCallback(async () => {
@@ -112,13 +145,36 @@ export default function Feed() {
     }
     // Laisser le temps à l'ingestion (idempotente), puis recharger le feed.
     setTimeout(async () => {
-      await load();
+      await load(debouncedQuery);
       setRefreshingNow(false);
     }, 7000);
-  }, [load, refreshingNow]);
+  }, [load, debouncedQuery, refreshingNow]);
+
+  const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
+
+  // Compteurs par catégorie (sur les items chargés).
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: items.length };
+    PRIORITIES.forEach((p) => (c[p.key] = 0));
+    items.forEach((it) => {
+      const k = prio(it).key;
+      c[k] = (c[k] ?? 0) + 1;
+    });
+    return c;
+  }, [items, prio]);
+
+  const unreadCount = useMemo(() => items.filter((it) => it.status === 'unread').length, [items]);
+
+  const visible = useMemo(() => {
+    return items.filter((it) => {
+      if (filter !== 'all' && prio(it).key !== filter) return false;
+      if (unreadOnly && it.status !== 'unread') return false;
+      return true;
+    });
+  }, [items, filter, unreadOnly, prio]);
 
   function renderItem({ item }: { item: Item }) {
-    const p = effectivePriority(item, rules);
+    const p = prio(item);
     const unread = item.status === 'unread';
     return (
       <Pressable
@@ -159,37 +215,92 @@ export default function Feed() {
     <FlatList
       style={styles.screen}
       contentContainerStyle={styles.content}
-      data={items}
+      data={visible}
       keyExtractor={(it) => it.id}
       renderItem={renderItem}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
+      }
       ListHeaderComponent={
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerTexts}>
-              <Text style={styles.greeting}>Bonjour.</Text>
-              <Text style={styles.sub}>
-                {items.length > 0 ? 'Vos emails récents, triés.' : 'Rien à afficher pour le moment.'}
-              </Text>
+        <View>
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerTexts}>
+                <Text style={styles.greeting}>Bonjour.</Text>
+                <Text style={styles.sub}>
+                  {items.length > 0 ? 'Vos emails récents, triés.' : 'Rien à afficher pour le moment.'}
+                </Text>
+              </View>
+              <Pressable
+                style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
+                onPress={refreshNow}
+                disabled={refreshingNow}
+              >
+                {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
+                <Text style={styles.refreshBtnText}>
+                  {refreshingNow ? 'Actualisation…' : '↻ Actualiser'}
+                </Text>
+              </Pressable>
             </View>
+
+            {/* Recherche */}
+            <TextInput
+              style={styles.search}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Rechercher (titre ou expéditeur)…"
+              placeholderTextColor={colors.hint}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+          </View>
+
+          {/* Filtres par catégorie + non lus */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipsList}
+            contentContainerStyle={styles.chipsContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {FILTERS.map((f) => {
+              const active = filter === f.key;
+              return (
+                <Pressable
+                  key={f.key}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setFilter(f.key)}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {f.label} {counts[f.key] ?? 0}
+                  </Text>
+                </Pressable>
+              );
+            })}
             <Pressable
-              style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
-              onPress={refreshNow}
-              disabled={refreshingNow}
+              style={[styles.chip, unreadOnly && styles.chipActive]}
+              onPress={() => setUnreadOnly((v) => !v)}
             >
-              {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
-              <Text style={styles.refreshBtnText}>
-                {refreshingNow ? 'Actualisation…' : '↻ Actualiser'}
+              <Text style={[styles.chipText, unreadOnly && styles.chipTextActive]}>
+                Non lus {unreadCount}
               </Text>
             </Pressable>
-          </View>
+          </ScrollView>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
       ListEmptyComponent={
         !error ? (
           <Text style={styles.empty}>
-            Les emails apparaîtront ici dès le prochain rapport matinal.
+            {debouncedQuery
+              ? 'Aucun email ne correspond à cette recherche.'
+              : filter !== 'all' || unreadOnly
+                ? 'Aucun email dans ce filtre.'
+                : 'Les emails apparaîtront ici dès le prochain rapport matinal.'}
           </Text>
         ) : null
       }
@@ -202,7 +313,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { paddingBottom: spacing.xxl },
-  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
+  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTexts: { flex: 1, paddingRight: spacing.md },
   refreshBtn: {
@@ -211,7 +322,7 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderColor: colors.terracotta,
-    borderRadius: radius.pill ?? 999,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     marginTop: spacing.xs,
@@ -220,8 +331,40 @@ const styles = StyleSheet.create({
   refreshBtnText: { color: colors.terracotta, fontSize: 12, fontWeight: '600' },
   greeting: { fontSize: 30, fontWeight: '700', color: colors.ink },
   sub: { fontSize: 14, color: colors.muted, marginTop: spacing.xs },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
-  empty: { textAlign: 'center', color: colors.hint, fontSize: 14, paddingHorizontal: spacing.xl, marginTop: spacing.xl },
+  search: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  chipsList: { flexGrow: 0 },
+  chipsContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md, gap: spacing.xs },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    backgroundColor: colors.surface,
+    marginRight: spacing.xs,
+  },
+  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipText: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  chipTextActive: { color: colors.cream },
+  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
+  empty: {
+    textAlign: 'center',
+    color: colors.hint,
+    fontSize: 14,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+    lineHeight: 20,
+  },
   row: { flexDirection: 'row', backgroundColor: colors.surface, paddingRight: spacing.lg, paddingVertical: spacing.md },
   accent: { width: 3, borderRadius: 2, marginRight: spacing.md },
   rowBody: { flex: 1 },

@@ -18,9 +18,14 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.terracotta,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.cardline },
+        // Bandeau du bas en charbon, comme le bandeau du haut.
+        tabBarActiveTintColor: colors.terracottaLight,
+        tabBarInactiveTintColor: colors.onDarkMuted,
+        tabBarStyle: {
+          backgroundColor: colors.charcoal,
+          borderTopColor: colors.charline,
+        },
+        tabBarLabelStyle: { fontWeight: '600' },
         headerStyle: { backgroundColor: colors.charcoal },
         headerTitleStyle: { color: colors.onDark, fontWeight: '700' },
         headerShadowVisible: false,
@@ -38,6 +43,13 @@ export default function TabsLayout() {
         options={{
           title: 'Sources',
           tabBarIcon: ({ color }) => <TabIcon glyph="✉" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="rules"
+        options={{
+          title: 'Règles',
+          tabBarIcon: ({ color }) => <TabIcon glyph="⚑" color={color} />,
         }}
       />
       <Tabs.Screen
