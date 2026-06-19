@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
-import { apiPost } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -88,6 +88,8 @@ export default function Feed() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [mailboxes, setMailboxes] = useState<{ email: string; provider: string }[]>([]);
+  const [selectedBox, setSelectedBox] = useState('');
 
   const load = useCallback(async (q: string) => {
     setError(null);
@@ -116,6 +118,20 @@ export default function Feed() {
   useEffect(() => {
     load('');
   }, [load]);
+
+  // Boîtes connectées (pour le tri par adresse).
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiGet<{ mailboxes: { email: string; provider: string }[] }>(
+          '/api/connect/list',
+        );
+        setMailboxes(r.mailboxes || []);
+      } catch {
+        // pas bloquant
+      }
+    })();
+  }, []);
 
   // Debounce de la recherche → requête Supabase (titre + expéditeur/adresse).
   useEffect(() => {
@@ -166,12 +182,14 @@ export default function Feed() {
   const unreadCount = useMemo(() => items.filter((it) => it.status === 'unread').length, [items]);
 
   const visible = useMemo(() => {
+    const boxTag = selectedBox ? `box:${selectedBox.toLowerCase()}` : '';
     return items.filter((it) => {
       if (filter !== 'all' && prio(it).key !== filter) return false;
       if (unreadOnly && it.status !== 'unread') return false;
+      if (boxTag && !(it.tags || []).map((t) => (t || '').toLowerCase()).includes(boxTag)) return false;
       return true;
     });
-  }, [items, filter, unreadOnly, prio]);
+  }, [items, filter, unreadOnly, selectedBox, prio]);
 
   function renderItem({ item }: { item: Item }) {
     const p = prio(item);
@@ -257,6 +275,40 @@ export default function Feed() {
               clearButtonMode="while-editing"
             />
           </View>
+
+          {/* Sélecteur de boîte connectée */}
+          {mailboxes.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipsList}
+              contentContainerStyle={styles.chipsContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Pressable
+                style={[styles.boxChip, selectedBox === '' && styles.boxChipActive]}
+                onPress={() => setSelectedBox('')}
+              >
+                <Text style={[styles.boxChipText, selectedBox === '' && styles.boxChipTextActive]}>
+                  ✉ Toutes les boîtes
+                </Text>
+              </Pressable>
+              {mailboxes.map((m) => {
+                const active = selectedBox.toLowerCase() === m.email.toLowerCase();
+                return (
+                  <Pressable
+                    key={m.email}
+                    style={[styles.boxChip, active && styles.boxChipActive]}
+                    onPress={() => setSelectedBox(active ? '' : m.email)}
+                  >
+                    <Text style={[styles.boxChipText, active && styles.boxChipTextActive]}>
+                      {m.email}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
 
           {/* Filtres par catégorie + non lus */}
           <ScrollView
@@ -356,6 +408,18 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   chipText: { fontSize: 12, fontWeight: '600', color: colors.muted },
   chipTextActive: { color: colors.cream },
+  boxChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    backgroundColor: colors.surface,
+    marginRight: spacing.xs,
+  },
+  boxChipActive: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
+  boxChipText: { fontSize: 12, fontWeight: '600', color: colors.terracotta },
+  boxChipTextActive: { color: colors.surface },
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
   empty: {
     textAlign: 'center',

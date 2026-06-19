@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -89,6 +90,11 @@ export default function EmailDetail() {
   const [pushing, setPushing] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  // Envoi direct (avec confirmation)
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
   // Reclassement (changer la catégorie / créer une règle)
   const [pendingCat, setPendingCat] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -158,6 +164,21 @@ export default function EmailDetail() {
       setMsg({ type: 'err', text: e?.message || "Échec de l'envoi en boîte." });
     } finally {
       setPushing(false);
+    }
+  }
+
+  async function sendReply() {
+    if (!draft.trim() || sending) return;
+    setSending(true);
+    setMsg(null);
+    try {
+      await apiPost('/api/send-reply', { id, draft });
+      setSent(true);
+    } catch (e: any) {
+      setShowConfirm(false);
+      setMsg({ type: 'err', text: e?.message || "Échec de l'envoi." });
+    } finally {
+      setSending(false);
     }
   }
 
@@ -446,6 +467,17 @@ export default function EmailDetail() {
                     )}
                   </Pressable>
                 </View>
+
+                {/* Envoi direct depuis l'app (avec confirmation) */}
+                <Pressable
+                  style={styles.sendBtn}
+                  onPress={() => {
+                    setSent(false);
+                    setShowConfirm(true);
+                  }}
+                >
+                  <Text style={styles.sendBtnText}>Envoyer directement →</Text>
+                </Pressable>
               </>
             ) : null}
 
@@ -453,6 +485,66 @@ export default function EmailDetail() {
               <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
             ) : null}
           </View>
+
+          {/* Écran de confirmation d'envoi */}
+          <Modal
+            visible={showConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => (sending ? undefined : setShowConfirm(false))}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                {sent ? (
+                  <>
+                    <Text style={styles.modalTitle}>✓ Réponse envoyée</Text>
+                    <Text style={styles.modalSub}>
+                      Votre réponse a bien été envoyée dans le fil d&apos;origine.
+                    </Text>
+                    <Pressable
+                      style={styles.cta}
+                      onPress={() => {
+                        setShowConfirm(false);
+                        router.back();
+                      }}
+                    >
+                      <Text style={styles.ctaText}>Fermer</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalTitle}>Envoyer cette réponse ?</Text>
+                    <Text style={styles.modalSub}>
+                      Elle partira directement depuis votre messagerie, dans le fil d&apos;origine.
+                    </Text>
+                    <ScrollView style={styles.modalPreview}>
+                      <Text style={styles.modalPreviewText}>{draft}</Text>
+                    </ScrollView>
+                    <View style={styles.row}>
+                      <Pressable
+                        style={[styles.secondaryBtn, styles.flex1]}
+                        onPress={() => setShowConfirm(false)}
+                        disabled={sending}
+                      >
+                        <Text style={styles.secondaryBtnText}>Annuler</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.cta, styles.flex1]}
+                        onPress={sendReply}
+                        disabled={sending}
+                      >
+                        {sending ? (
+                          <ActivityIndicator color={colors.onDark} />
+                        ) : (
+                          <Text style={styles.ctaText}>Confirmer l&apos;envoi</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       )}
     </View>
@@ -607,4 +699,38 @@ const styles = StyleSheet.create({
   msg: { fontSize: 13, marginTop: spacing.sm },
   msgOk: { color: colors.sage },
   msgErr: { color: colors.danger },
+
+  sendBtn: {
+    backgroundColor: colors.ink,
+    borderRadius: radius.sm,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendBtnText: { color: colors.cream, fontWeight: '700', fontSize: 15 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20,18,15,0.55)',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
+  modalSub: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  modalPreview: {
+    maxHeight: 220,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginVertical: spacing.sm,
+  },
+  modalPreviewText: { fontSize: 14, color: colors.ink2, lineHeight: 21 },
 });
