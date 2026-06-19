@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
+import { apiPost } from '@/lib/api';
 import { effectivePriority, type Rule } from '@/lib/priority';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -68,6 +69,7 @@ export default function Feed() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -98,6 +100,22 @@ export default function Feed() {
     await load();
     setRefreshing(false);
   }, [load]);
+
+  // Relève immédiate (ingestion seule) côté serveur, puis rechargement du feed.
+  const refreshNow = useCallback(async () => {
+    if (refreshingNow) return;
+    setRefreshingNow(true);
+    try {
+      await apiPost('/api/refresh', {});
+    } catch {
+      // On rechargera quand même : l'ingestion a pu démarrer côté serveur.
+    }
+    // Laisser le temps à l'ingestion (idempotente), puis recharger le feed.
+    setTimeout(async () => {
+      await load();
+      setRefreshingNow(false);
+    }, 7000);
+  }, [load, refreshingNow]);
 
   function renderItem({ item }: { item: Item }) {
     const p = effectivePriority(item, rules);
@@ -147,10 +165,24 @@ export default function Feed() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.greeting}>Bonjour.</Text>
-          <Text style={styles.sub}>
-            {items.length > 0 ? 'Vos emails récents, triés.' : 'Rien à afficher pour le moment.'}
-          </Text>
+          <View style={styles.headerTop}>
+            <View style={styles.headerTexts}>
+              <Text style={styles.greeting}>Bonjour.</Text>
+              <Text style={styles.sub}>
+                {items.length > 0 ? 'Vos emails récents, triés.' : 'Rien à afficher pour le moment.'}
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
+              onPress={refreshNow}
+              disabled={refreshingNow}
+            >
+              {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
+              <Text style={styles.refreshBtnText}>
+                {refreshingNow ? 'Actualisation…' : '↻ Actualiser'}
+              </Text>
+            </Pressable>
+          </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
@@ -171,6 +203,21 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { paddingBottom: spacing.xxl },
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerTexts: { flex: 1, paddingRight: spacing.md },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    borderRadius: radius.pill ?? 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  refreshBtnBusy: { opacity: 0.6 },
+  refreshBtnText: { color: colors.terracotta, fontSize: 12, fontWeight: '600' },
   greeting: { fontSize: 30, fontWeight: '700', color: colors.ink },
   sub: { fontSize: 14, color: colors.muted, marginTop: spacing.xs },
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
