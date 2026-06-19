@@ -89,7 +89,12 @@ export default function Feed() {
   const [filter, setFilter] = useState('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [mailboxes, setMailboxes] = useState<{ email: string; provider: string }[]>([]);
-  const [selectedBox, setSelectedBox] = useState('');
+  const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
+
+  function toggleBox(email: string) {
+    const e = email.toLowerCase();
+    setSelectedBoxes((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
+  }
 
   const load = useCallback(async (q: string) => {
     setError(null);
@@ -169,27 +174,39 @@ export default function Feed() {
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
 
   // Compteurs par catégorie (sur les items chargés).
+  // Items restreints aux boîtes sélectionnées (base des compteurs ET du feed).
+  const boxFiltered = useMemo(() => {
+    if (selectedBoxes.length === 0) return items;
+    const wanted = selectedBoxes.map((b) => `box:${b.toLowerCase()}`);
+    return items.filter((it) => {
+      const tags = (it.tags || []).map((t) => (t || '').toLowerCase());
+      return wanted.some((bt) => tags.includes(bt));
+    });
+  }, [items, selectedBoxes]);
+
+  // Compteurs calculés sur le périmètre des boîtes sélectionnées (et non le total).
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: items.length };
+    const c: Record<string, number> = { all: boxFiltered.length };
     PRIORITIES.forEach((p) => (c[p.key] = 0));
-    items.forEach((it) => {
+    boxFiltered.forEach((it) => {
       const k = prio(it).key;
       c[k] = (c[k] ?? 0) + 1;
     });
     return c;
-  }, [items, prio]);
+  }, [boxFiltered, prio]);
 
-  const unreadCount = useMemo(() => items.filter((it) => it.status === 'unread').length, [items]);
+  const unreadCount = useMemo(
+    () => boxFiltered.filter((it) => it.status === 'unread').length,
+    [boxFiltered],
+  );
 
   const visible = useMemo(() => {
-    const boxTag = selectedBox ? `box:${selectedBox.toLowerCase()}` : '';
-    return items.filter((it) => {
+    return boxFiltered.filter((it) => {
       if (filter !== 'all' && prio(it).key !== filter) return false;
       if (unreadOnly && it.status !== 'unread') return false;
-      if (boxTag && !(it.tags || []).map((t) => (t || '').toLowerCase()).includes(boxTag)) return false;
       return true;
     });
-  }, [items, filter, unreadOnly, selectedBox, prio]);
+  }, [boxFiltered, filter, unreadOnly, prio]);
 
   function renderItem({ item }: { item: Item }) {
     const p = prio(item);
@@ -286,22 +303,25 @@ export default function Feed() {
               keyboardShouldPersistTaps="handled"
             >
               <Pressable
-                style={[styles.boxChip, selectedBox === '' && styles.boxChipActive]}
-                onPress={() => setSelectedBox('')}
+                style={[styles.boxChip, selectedBoxes.length === 0 && styles.boxChipActive]}
+                onPress={() => setSelectedBoxes([])}
               >
-                <Text style={[styles.boxChipText, selectedBox === '' && styles.boxChipTextActive]}>
+                <Text
+                  style={[styles.boxChipText, selectedBoxes.length === 0 && styles.boxChipTextActive]}
+                >
                   ✉ Toutes les boîtes
                 </Text>
               </Pressable>
               {mailboxes.map((m) => {
-                const active = selectedBox.toLowerCase() === m.email.toLowerCase();
+                const active = selectedBoxes.includes(m.email.toLowerCase());
                 return (
                   <Pressable
                     key={m.email}
                     style={[styles.boxChip, active && styles.boxChipActive]}
-                    onPress={() => setSelectedBox(active ? '' : m.email)}
+                    onPress={() => toggleBox(m.email)}
                   >
                     <Text style={[styles.boxChipText, active && styles.boxChipTextActive]}>
+                      {active ? '✓ ' : ''}
                       {m.email}
                     </Text>
                   </Pressable>

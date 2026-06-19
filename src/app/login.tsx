@@ -57,7 +57,7 @@ export default function Login() {
       setError(err.message);
       return;
     }
-    router.replace('/(tabs)');
+    router.replace('/(tabs)/accueil');
   }
 
   return (
