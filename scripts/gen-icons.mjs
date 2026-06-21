@@ -1,11 +1,20 @@
 // Génère les PNG d'icône à partir des sources vectorielles (assets/brand/*.svg).
+// Le V est rendu avec la VRAIE police Georgia de Windows (rendu exact, identique
+// au favicon web).
+//
 // Usage : depuis la racine du projet mobile →  node scripts/gen-icons.mjs
-// Prérequis : sharp (npm i -D sharp si absent).
-import sharp from 'sharp';
-import { fileURLToPath } from 'url';
+// Prérequis : npm i -D @resvg/resvg-js
+import { Resvg } from '@resvg/resvg-js';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
 const f = (p) => fileURLToPath(new URL(p, root));
+
+// Polices Georgia (Windows). Si absentes, on retombe sur les polices système.
+const fontFiles = ['C:/Windows/Fonts/georgia.ttf', 'C:/Windows/Fonts/georgiab.ttf'].filter((p) =>
+  existsSync(p),
+);
 
 // [source svg, sortie png, taille px]
 const jobs = [
@@ -17,11 +26,14 @@ const jobs = [
 ];
 
 for (const [src, out, size] of jobs) {
-  await sharp(f(src), { density: 512 })
-    .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toFile(f(out));
-  console.log('✓', out, size + 'px');
+  const svg = readFileSync(f(src), 'utf8');
+  const r = new Resvg(svg, {
+    fitTo: { mode: 'width', value: size },
+    font: { fontFiles, loadSystemFonts: true, defaultFontFamily: 'Georgia' },
+    background: 'rgba(0,0,0,0)',
+  });
+  writeFileSync(f(out), r.render().asPng());
+  console.log('OK', out, size + 'px');
 }
 
-console.log('\nIcônes générées dans assets/images/. Pense à : npx expo start -c');
+console.log('\nIcônes générées dans assets/images/. Ensuite : npx expo start -c');

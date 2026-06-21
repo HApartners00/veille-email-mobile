@@ -1,7 +1,3 @@
 <svg width="1024" height="1024" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(18.5 19.2) scale(0.63)" fill="#ffffff">
-    <path d="M12 24 L50 84 L88 24 L70 24 L50 64 L30 24 Z"/>
-    <rect x="6" y="20.5" width="30" height="5" rx="1"/>
-    <rect x="64" y="20.5" width="30" height="5" rx="1"/>
-  </g>
+  <text x="50" y="66" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="600" font-size="46" fill="#ffffff">V</text>
 </svg>
