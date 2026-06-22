@@ -13,6 +13,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { apiGet, apiPost } from '@/lib/api';
 import { colors, radius, spacing } from '@/lib/theme';
+import { GMAIL_ENABLED } from '@/lib/flags';
 
 type Mailbox = {
   email: string;
@@ -102,7 +103,7 @@ export default function Sources() {
           </View>
         ) : mailboxes.length === 0 ? (
           <Text style={styles.cardText}>
-            Aucune boîte connectée pour l&apos;instant. Connectez Gmail ou Outlook ci-dessous.
+            Aucune boîte connectée pour l&apos;instant. Connectez {GMAIL_ENABLED ? 'Gmail ou Outlook' : 'Outlook'} ci-dessous.
           </Text>
         ) : (
           mailboxes.map((mb) => (
@@ -135,21 +136,25 @@ export default function Sources() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Connecter une boîte mail</Text>
         <Text style={styles.cardText}>
-          Autorisez l&apos;accès à votre boîte via la connexion officielle Google ou Microsoft. Vous
+          Autorisez l&apos;accès à votre boîte via la connexion officielle{' '}
+          {GMAIL_ENABLED ? 'Google ou Microsoft' : 'Microsoft'}. Vous
           choisirez l&apos;heure et les jours de votre rapport, puis vous reviendrez ici.
         </Text>
 
-        <Pressable
-          style={[styles.btn, styles.gmail, busy === 'gmail' && styles.btnDisabled]}
-          onPress={() => connect('gmail')}
-          disabled={!!busy}
-        >
-          {busy === 'gmail' ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.btnText}>Connecter Gmail</Text>
-          )}
-        </Pressable>
+        {/* Bouton Gmail masqué au lancement (flag GMAIL_ENABLED). Réversible : voir src/lib/flags.ts. */}
+        {GMAIL_ENABLED ? (
+          <Pressable
+            style={[styles.btn, styles.gmail, busy === 'gmail' && styles.btnDisabled]}
+            onPress={() => connect('gmail')}
+            disabled={!!busy}
+          >
+            {busy === 'gmail' ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Connecter Gmail</Text>
+            )}
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={[styles.btn, styles.outlook, busy === 'outlook' && styles.btnDisabled]}
