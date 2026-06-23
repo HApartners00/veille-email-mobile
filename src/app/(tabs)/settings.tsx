@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { useAuth } from '@/context/auth';
+import { useI18n } from '@/context/i18n';
 import { apiGet, apiPost } from '@/lib/api';
+import { isRtl, locales, localeNames, type Locale } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
 
-const DAYS: { value: number; label: string }[] = [
-  { value: 1, label: 'Lun' },
-  { value: 2, label: 'Mar' },
-  { value: 3, label: 'Mer' },
-  { value: 4, label: 'Jeu' },
-  { value: 5, label: 'Ven' },
-  { value: 6, label: 'Sam' },
-  { value: 0, label: 'Dim' },
-];
+// Jours dans l'ordre Lun→Dim ; le libellé vient du dictionnaire (daysShort, indexé 0=Dim).
+const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
 // Libellé du prix (facultatif) — défini par EXPO_PUBLIC_PLAN_PRICE_LABEL, ex. « 9,99 €/mois ».
 const PRICE_LABEL = process.env.EXPO_PUBLIC_PLAN_PRICE_LABEL || '';
@@ -28,10 +23,10 @@ type BillingStatus = {
   trial_end: string | null;
 };
 
-function formatDate(value: string | null): string {
+function formatDate(value: string | null, intl: string): string {
   if (!value) return '—';
   try {
-    return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date(value).toLocaleDateString(intl, { day: 'numeric', month: 'long', year: 'numeric' });
   } catch {
     return '—';
   }
@@ -39,6 +34,7 @@ function formatDate(value: string | null): string {
 
 export default function Settings() {
   const { session, signOut } = useAuth();
+  const { t, f, intl, locale, setLocale } = useI18n();
   const email = session?.user?.email ?? '—';
 
   const [loading, setLoading] = useState(true);
@@ -92,9 +88,9 @@ export default function Settings() {
     try {
       const daysStr = Array.from(days).sort((a, b) => a - b).join(',');
       await apiPost('/api/digest-settings', { hour, days: daysStr });
-      setMsg({ type: 'ok', text: 'Enregistré ✓' });
+      setMsg({ type: 'ok', text: t.settings.saved });
     } catch (e: any) {
-      setMsg({ type: 'err', text: e?.message || 'Enregistrement impossible.' });
+      setMsg({ type: 'err', text: e?.message || t.settings.saveErr });
     } finally {
       setSaving(false);
     }
@@ -108,7 +104,7 @@ export default function Settings() {
         setBillingUi('ready');
       } catch (e: any) {
         setBillingUi('error');
-        setBillingMsg(e?.message || 'Lecture impossible.');
+        setBillingMsg(e?.message || t.settings.readImpossible);
       }
     })();
   }, []);
@@ -123,53 +119,77 @@ export default function Settings() {
         setBillingUi('ready');
       } else {
         setBillingUi('error');
-        setBillingMsg('Action impossible.');
+        setBillingMsg(t.settings.actionImpossible);
       }
     } catch (e: any) {
       setBillingUi('error');
-      setBillingMsg(e?.message || 'Action impossible.');
+      setBillingMsg(e?.message || t.settings.actionImpossible);
     }
   }
 
   function billingStatusText(): string {
     const s = billing?.status || 'none';
     if (s === 'trialing')
-      return `Essai gratuit en cours${
-        billing?.trial_end ? `, jusqu'au ${formatDate(billing.trial_end)}` : ''
-      }.`;
+      return billing?.trial_end
+        ? f(t.settings.trialOngoing, { date: formatDate(billing.trial_end, intl) })
+        : t.settings.trialOngoingNoDate;
     if (s === 'active')
       return billing?.cancel_at_period_end
-        ? `Abonnement actif — se termine le ${formatDate(billing?.current_period_end || null)} (résiliation programmée).`
-        : `Abonnement actif — prochain renouvellement le ${formatDate(billing?.current_period_end || null)}.`;
-    if (s === 'past_due' || s === 'unpaid')
-      return 'Paiement en échec. Mettez à jour votre moyen de paiement pour conserver le service.';
-    if (s === 'canceled')
-      return 'Abonnement résilié. Réabonnez-vous pour relancer votre veille quotidienne.';
-    return `Démarrez votre essai gratuit de 14 jours${
-      PRICE_LABEL ? `, puis ${PRICE_LABEL}` : ''
-    }. Sans abonnement actif, le rapport quotidien est suspendu.`;
+        ? f(t.settings.activeCancel, { date: formatDate(billing?.current_period_end || null, intl) })
+        : f(t.settings.activeRenew, { date: formatDate(billing?.current_period_end || null, intl) });
+    if (s === 'past_due' || s === 'unpaid') return t.settings.pastDue;
+    if (s === 'canceled') return t.settings.canceled;
+    return PRICE_LABEL
+      ? f(t.settings.noneWithPrice, { price: PRICE_LABEL })
+      : t.settings.noneNoPrice;
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.card}>
-        <Text style={styles.label}>Connecté en tant que</Text>
+        <Text style={styles.label}>{t.settings.connectedAs}</Text>
         <Text style={styles.value}>{email}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Rapport quotidien</Text>
+        <Text style={styles.cardTitle}>{t.settings.language}</Text>
+        <Text style={styles.hint}>{t.settings.languageHint}</Text>
+        <View style={styles.langRow}>
+          {locales.map((lng) => {
+            const on = locale === lng;
+            return (
+              <Pressable
+                key={lng}
+                style={[styles.langChip, on && styles.langChipOn]}
+                onPress={() => {
+                  if (on) return;
+                  const rtlChange = isRtl(lng as Locale) !== isRtl(locale);
+                  void setLocale(lng as Locale);
+                  if (rtlChange) {
+                    Alert.alert(localeNames[lng], t.settings.rtlRestart);
+                  }
+                }}
+              >
+                <Text style={[styles.langChipText, on && styles.langChipTextOn]}>
+                  {localeNames[lng]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{t.settings.dailyReport}</Text>
         {loading ? (
           <ActivityIndicator color={colors.terracotta} style={{ marginVertical: spacing.md }} />
         ) : (
           <>
             {!hasAccounts ? (
-              <Text style={styles.hint}>
-                Connectez une boîte (onglet Sources) pour régler l&apos;heure et les jours.
-              </Text>
+              <Text style={styles.hint}>{t.settings.connectBoxHint}</Text>
             ) : null}
 
-            <Text style={styles.subLabel}>Heure</Text>
+            <Text style={styles.subLabel}>{t.settings.hourLabel}</Text>
             <View style={styles.hourRow}>
               <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.max(0, h - 1))}>
                 <Text style={styles.hourBtnText}>−</Text>
@@ -180,17 +200,19 @@ export default function Settings() {
               </Pressable>
             </View>
 
-            <Text style={styles.subLabel}>Jours</Text>
+            <Text style={styles.subLabel}>{t.settings.daysLabel}</Text>
             <View style={styles.daysRow}>
-              {DAYS.map((d) => {
-                const on = days.has(d.value);
+              {DAY_VALUES.map((value) => {
+                const on = days.has(value);
                 return (
                   <Pressable
-                    key={d.value}
+                    key={value}
                     style={[styles.day, on && styles.dayOn]}
-                    onPress={() => toggleDay(d.value)}
+                    onPress={() => toggleDay(value)}
                   >
-                    <Text style={[styles.dayText, on && styles.dayTextOn]}>{d.label}</Text>
+                    <Text style={[styles.dayText, on && styles.dayTextOn]}>
+                      {t.settings.daysShort[value]}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -204,7 +226,7 @@ export default function Settings() {
               {saving ? (
                 <ActivityIndicator color={colors.onDark} />
               ) : (
-                <Text style={styles.saveBtnText}>Enregistrer</Text>
+                <Text style={styles.saveBtnText}>{t.settings.saveBtn}</Text>
               )}
             </Pressable>
 
@@ -218,8 +240,8 @@ export default function Settings() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Abonnement</Text>
-        <Text style={styles.hint}>Votre accès au tri quotidien et aux brouillons IA.</Text>
+        <Text style={styles.cardTitle}>{t.settings.subscription}</Text>
+        <Text style={styles.hint}>{t.settings.subHint}</Text>
         {billingUi === 'loading' ? (
           <ActivityIndicator color={colors.terracotta} style={{ marginVertical: spacing.md }} />
         ) : (
@@ -233,7 +255,7 @@ export default function Settings() {
                   disabled={billingUi === 'redirecting'}
                 >
                   <Text style={styles.manageBtnText}>
-                    {billingUi === 'redirecting' ? 'Ouverture…' : 'Gérer mon abonnement'}
+                    {billingUi === 'redirecting' ? t.settings.opening : t.settings.manage}
                   </Text>
                 </Pressable>
               ) : null}
@@ -248,7 +270,7 @@ export default function Settings() {
                   disabled={billingUi === 'redirecting'}
                 >
                   <Text style={styles.saveBtnText}>
-                    {billingUi === 'redirecting' ? 'Redirection…' : "Démarrer l'essai gratuit"}
+                    {billingUi === 'redirecting' ? t.settings.redirecting : t.settings.startTrial}
                   </Text>
                 </Pressable>
               ) : null}
@@ -263,7 +285,7 @@ export default function Settings() {
       </View>
 
       <Pressable style={styles.signout} onPress={signOut}>
-        <Text style={styles.signoutText}>Se déconnecter</Text>
+        <Text style={styles.signoutText}>{t.settings.signOut}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -304,6 +326,18 @@ const styles = StyleSheet.create({
   },
   hourBtnText: { fontSize: 24, color: colors.ink, lineHeight: 26 },
   hourValue: { fontSize: 26, fontWeight: '700', color: colors.ink, minWidth: 110, textAlign: 'center' },
+  langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  langChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    backgroundColor: colors.cream,
+  },
+  langChipOn: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
+  langChipText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  langChipTextOn: { color: colors.surface },
   daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
   day: {
     paddingHorizontal: 12,

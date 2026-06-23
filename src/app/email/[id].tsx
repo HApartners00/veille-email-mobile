@@ -13,6 +13,7 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
 import {
@@ -23,6 +24,7 @@ import {
   extractEmail,
   type Rule,
 } from '@/lib/priority';
+import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Item = {
@@ -37,14 +39,6 @@ type Item = {
   tags: string[];
   received_at: string;
 };
-
-// Reformulations rapides du brouillon (identiques au web).
-const QUICK_REFINEMENTS: { label: string; instruction: string }[] = [
-  { label: 'Plus professionnel', instruction: 'Rends le ton plus professionnel et formel.' },
-  { label: 'Plus court', instruction: "Raccourcis nettement le message, va à l'essentiel." },
-  { label: 'Plus chaleureux', instruction: 'Rends le ton plus chaleureux et cordial.' },
-  { label: 'Plus direct', instruction: 'Sois plus direct et factuel, sans fioritures.' },
-];
 
 function decodeEntities(t: string): string {
   return t
@@ -75,6 +69,16 @@ function htmlToText(input: string): string {
 export default function EmailDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t, f, intl } = useI18n();
+
+  // Reformulations rapides du brouillon (identiques au web).
+  const QUICK_REFINEMENTS: { label: string; instruction: string }[] = [
+    { label: t.email.refMoreProfessional, instruction: t.email.instrMoreProfessional },
+    { label: t.email.refShorter, instruction: t.email.instrShorter },
+    { label: t.email.refWarmer, instruction: t.email.instrWarmer },
+    { label: t.email.refMoreDirect, instruction: t.email.instrMoreDirect },
+  ];
+
   const [item, setItem] = useState<Item | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +128,7 @@ export default function EmailDetail() {
     (async () => {
       setSummaryLoading(true);
       try {
-        const r = await apiPost<{ summary: string }>('/api/summary', { id });
+        const r = await apiPost<{ summary: string }>('/api/summary', { id, locale });
         setSummary(r.summary);
       } catch {
         setSummary('');
@@ -132,7 +136,7 @@ export default function EmailDetail() {
         setSummaryLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, locale]);
 
   async function generate(adjust: boolean, explicitInstruction?: string) {
     const instr = explicitInstruction ?? instructions;
@@ -147,7 +151,7 @@ export default function EmailDetail() {
       setDraft(res.draft);
       setInstructions('');
     } catch (e: any) {
-      setMsg({ type: 'err', text: e?.message || 'Échec de la génération.' });
+      setMsg({ type: 'err', text: e?.message || t.email.genFail });
     } finally {
       setGenLoading(false);
     }
@@ -159,9 +163,9 @@ export default function EmailDetail() {
     setMsg(null);
     try {
       await apiPost('/api/push-to-mailbox', { id, draft });
-      setMsg({ type: 'ok', text: 'Brouillon créé dans votre messagerie ✓' });
+      setMsg({ type: 'ok', text: t.email.draftCreated });
     } catch (e: any) {
-      setMsg({ type: 'err', text: e?.message || "Échec de l'envoi en boîte." });
+      setMsg({ type: 'err', text: e?.message || t.email.pushFail });
     } finally {
       setPushing(false);
     }
@@ -176,13 +180,13 @@ export default function EmailDetail() {
       setSent(true);
     } catch (e: any) {
       setShowConfirm(false);
-      setMsg({ type: 'err', text: e?.message || "Échec de l'envoi." });
+      setMsg({ type: 'err', text: e?.message || t.email.sendFail });
     } finally {
       setSending(false);
     }
   }
 
-  const catLabel = (k: string) => PRIORITIES.find((p) => p.key === k)?.label ?? k;
+  const catLabel = (k: string) => prioLabel(t, k);
 
   // Reclasser uniquement cet email : on réécrit ses tags de priorité.
   async function applyThisEmail(cat: string) {
@@ -200,7 +204,7 @@ export default function EmailDetail() {
     setItem({ ...item, tags: nextTags });
     setPendingCat(null);
     setKeyword('');
-    setReNote('Cet email a été reclassé.');
+    setReNote(t.email.reclassified);
   }
 
   // Créer une règle (expéditeur / domaine / mot-clé) → catégorie.
@@ -214,7 +218,7 @@ export default function EmailDetail() {
     } = await supabase.auth.getUser();
     if (!user) {
       setReBusy(false);
-      setReError('Non authentifié.');
+      setReError(t.email.notAuth);
       return;
     }
     const { error: e } = await supabase.from('classification_rules').upsert(
@@ -233,13 +237,13 @@ export default function EmailDetail() {
     ]);
     const label =
       type === 'sender'
-        ? `les emails de ${v}`
+        ? f(t.email.labelSender, { v })
         : type === 'domain'
-          ? `le domaine @${v}`
-          : `les sujets contenant « ${v} »`;
+          ? f(t.email.labelDomain, { v })
+          : f(t.email.labelKeyword, { v });
     setPendingCat(null);
     setKeyword('');
-    setReNote(`Règle créée : ${label} → ${catLabel(cat)}.`);
+    setReNote(f(t.email.ruleCreated, { label, cat: catLabel(cat) }));
   }
 
   const p = item ? effectivePriority(item, rules) : null;
@@ -258,7 +262,7 @@ export default function EmailDetail() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.back}>‹ Retour</Text>
+            <Text style={styles.back}>{t.email.back}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -269,7 +273,7 @@ export default function EmailDetail() {
         </View>
       ) : !item ? (
         <View style={styles.center}>
-          <Text style={styles.empty}>Email introuvable.</Text>
+          <Text style={styles.empty}>{t.email.notFound}</Text>
         </View>
       ) : (
         <ScrollView
@@ -279,11 +283,13 @@ export default function EmailDetail() {
           automaticallyAdjustKeyboardInsets
           contentInsetAdjustmentBehavior="automatic"
         >
-          {p ? <Text style={[styles.prio, { color: p.color }]}>{p.label.toUpperCase()}</Text> : null}
-          <Text style={styles.subject}>{item.title || '(Sans objet)'}</Text>
-          <Text style={styles.meta}>{item.author ?? 'Expéditeur inconnu'}</Text>
+          {p ? (
+            <Text style={[styles.prio, { color: p.color }]}>{prioLabel(t, p.key).toUpperCase()}</Text>
+          ) : null}
+          <Text style={styles.subject}>{item.title || t.common.noSubject}</Text>
+          <Text style={styles.meta}>{item.author ?? t.common.unknownSender}</Text>
           <Text style={styles.metaDate}>
-            {new Date(item.received_at).toLocaleString('fr-FR', {
+            {new Date(item.received_at).toLocaleString(intl, {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
@@ -294,7 +300,7 @@ export default function EmailDetail() {
 
           {/* Reclassement : changer la catégorie / créer une règle */}
           <View style={styles.reclassify}>
-            <Text style={styles.reLabel}>Catégorie</Text>
+            <Text style={styles.reLabel}>{t.email.category}</Text>
             <View style={styles.chipsWrap}>
               {PRIORITIES.map((c) => {
                 const active = p?.key === c.key;
@@ -311,7 +317,7 @@ export default function EmailDetail() {
                     ]}
                   >
                     <Text style={[styles.catChipText, { color: active ? '#ffffff' : c.color }]}>
-                      {c.label}
+                      {prioLabel(t, c.key)}
                     </Text>
                   </Pressable>
                 );
@@ -322,8 +328,9 @@ export default function EmailDetail() {
               <View style={styles.reBox}>
                 <View style={styles.reBoxTop}>
                   <Text style={styles.reBoxTitle}>
-                    Classer comme <Text style={{ fontWeight: '700' }}>{catLabel(pendingCat)}</Text> —
-                    appliquer à :
+                    {t.email.classifyPrefix}
+                    <Text style={{ fontWeight: '700' }}>{catLabel(pendingCat)}</Text>
+                    {t.email.classifySuffix}
                   </Text>
                   <Pressable
                     onPress={() => {
@@ -331,7 +338,7 @@ export default function EmailDetail() {
                       setKeyword('');
                     }}
                   >
-                    <Text style={styles.reCancel}>Annuler</Text>
+                    <Text style={styles.reCancel}>{t.common.cancel}</Text>
                   </Pressable>
                 </View>
                 <View style={styles.chipsWrap}>
@@ -340,7 +347,7 @@ export default function EmailDetail() {
                     disabled={reBusy}
                     onPress={() => applyThisEmail(pendingCat)}
                   >
-                    <Text style={styles.targetChipText}>Cet email seulement</Text>
+                    <Text style={styles.targetChipText}>{t.email.thisEmailOnly}</Text>
                   </Pressable>
                   {senderEmail ? (
                     <Pressable
@@ -348,7 +355,9 @@ export default function EmailDetail() {
                       disabled={reBusy}
                       onPress={() => applyRule('sender', senderEmail, pendingCat)}
                     >
-                      <Text style={styles.targetChipText}>Tous les emails de {senderEmail}</Text>
+                      <Text style={styles.targetChipText}>
+                        {f(t.email.allFrom, { email: senderEmail })}
+                      </Text>
                     </Pressable>
                   ) : null}
                   {senderDomain ? (
@@ -357,7 +366,9 @@ export default function EmailDetail() {
                       disabled={reBusy}
                       onPress={() => applyRule('domain', senderDomain, pendingCat)}
                     >
-                      <Text style={styles.targetChipText}>Le domaine @{senderDomain}</Text>
+                      <Text style={styles.targetChipText}>
+                        {f(t.email.domainTarget, { domain: senderDomain })}
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -366,7 +377,7 @@ export default function EmailDetail() {
                     style={styles.kwInput}
                     value={keyword}
                     onChangeText={setKeyword}
-                    placeholder="…ou sujets contenant ce mot-clé"
+                    placeholder={t.email.keywordPlaceholder}
                     placeholderTextColor={colors.hint}
                     autoCapitalize="none"
                   />
@@ -375,7 +386,7 @@ export default function EmailDetail() {
                     disabled={reBusy || !keyword.trim()}
                     onPress={() => applyRule('keyword', keyword, pendingCat)}
                   >
-                    <Text style={styles.kwBtnText}>Créer</Text>
+                    <Text style={styles.kwBtnText}>{t.email.create}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -386,36 +397,36 @@ export default function EmailDetail() {
           </View>
 
           <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>Résumé</Text>
+          <Text style={styles.sectionLabel}>{t.email.summary}</Text>
           {summaryLoading ? (
             <View style={styles.genLoading}>
               <ActivityIndicator color={colors.terracotta} />
-              <Text style={styles.genLoadingText}>L&apos;IA résume…</Text>
+              <Text style={styles.genLoadingText}>{t.email.aiSummarizing}</Text>
             </View>
           ) : (
-            <Text style={styles.content}>{summary || body || 'Pas d’aperçu disponible.'}</Text>
+            <Text style={styles.content}>{summary || body || t.email.noPreview}</Text>
           )}
 
           {item.url ? (
             <Pressable style={styles.linkBtn} onPress={() => Linking.openURL(item.url as string)}>
-              <Text style={styles.linkBtnText}>Ouvrir dans la messagerie →</Text>
+              <Text style={styles.linkBtnText}>{t.email.openInMail}</Text>
             </Pressable>
           ) : null}
 
           {/* Brouillon IA */}
           <View style={styles.draftSection}>
-            <Text style={styles.draftTitle}>Brouillon de réponse</Text>
+            <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
 
             {!draft && !genLoading ? (
               <Pressable style={styles.cta} onPress={() => generate(false)}>
-                <Text style={styles.ctaText}>Générer un brouillon</Text>
+                <Text style={styles.ctaText}>{t.email.generateDraft}</Text>
               </Pressable>
             ) : null}
 
             {genLoading ? (
               <View style={styles.genLoading}>
                 <ActivityIndicator color={colors.terracotta} />
-                <Text style={styles.genLoadingText}>L&apos;IA rédige…</Text>
+                <Text style={styles.genLoadingText}>{t.email.aiWriting}</Text>
               </View>
             ) : null}
 
@@ -430,7 +441,7 @@ export default function EmailDetail() {
                 />
 
                 {/* Reformulations rapides */}
-                <Text style={styles.refineLabel}>Ajuster :</Text>
+                <Text style={styles.refineLabel}>{t.email.adjust}</Text>
                 <View style={styles.chipsWrap}>
                   {QUICK_REFINEMENTS.map((q) => (
                     <Pressable
@@ -448,7 +459,7 @@ export default function EmailDetail() {
                   style={styles.instr}
                   value={instructions}
                   onChangeText={setInstructions}
-                  placeholder="…ou une consigne libre (ex. propose 9h, ajoute mon numéro)"
+                  placeholder={t.email.instrPlaceholder}
                   placeholderTextColor={colors.hint}
                 />
                 <View style={styles.row}>
@@ -457,13 +468,13 @@ export default function EmailDetail() {
                     onPress={() => generate(true)}
                     disabled={!instructions.trim()}
                   >
-                    <Text style={styles.secondaryBtnText}>Reformuler</Text>
+                    <Text style={styles.secondaryBtnText}>{t.email.reformulate}</Text>
                   </Pressable>
                   <Pressable style={[styles.cta, styles.flex1]} onPress={pushToMailbox} disabled={pushing}>
                     {pushing ? (
                       <ActivityIndicator color={colors.onDark} />
                     ) : (
-                      <Text style={styles.ctaText}>Mettre dans ma boîte</Text>
+                      <Text style={styles.ctaText}>{t.email.putInMailbox}</Text>
                     )}
                   </Pressable>
                 </View>
@@ -476,7 +487,7 @@ export default function EmailDetail() {
                     setShowConfirm(true);
                   }}
                 >
-                  <Text style={styles.sendBtnText}>Envoyer directement →</Text>
+                  <Text style={styles.sendBtnText}>{t.email.sendDirectly}</Text>
                 </Pressable>
               </>
             ) : null}
@@ -497,10 +508,8 @@ export default function EmailDetail() {
               <View style={styles.modalCard}>
                 {sent ? (
                   <>
-                    <Text style={styles.modalTitle}>✓ Réponse envoyée</Text>
-                    <Text style={styles.modalSub}>
-                      Votre réponse a bien été envoyée dans le fil d&apos;origine.
-                    </Text>
+                    <Text style={styles.modalTitle}>{t.email.sentTitle}</Text>
+                    <Text style={styles.modalSub}>{t.email.sentSub}</Text>
                     <Pressable
                       style={styles.cta}
                       onPress={() => {
@@ -508,15 +517,13 @@ export default function EmailDetail() {
                         router.back();
                       }}
                     >
-                      <Text style={styles.ctaText}>Fermer</Text>
+                      <Text style={styles.ctaText}>{t.common.close}</Text>
                     </Pressable>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.modalTitle}>Envoyer cette réponse ?</Text>
-                    <Text style={styles.modalSub}>
-                      Elle partira directement depuis votre messagerie, dans le fil d&apos;origine.
-                    </Text>
+                    <Text style={styles.modalTitle}>{t.email.confirmTitle}</Text>
+                    <Text style={styles.modalSub}>{t.email.confirmSub}</Text>
                     <ScrollView style={styles.modalPreview}>
                       <Text style={styles.modalPreviewText}>{draft}</Text>
                     </ScrollView>
@@ -526,7 +533,7 @@ export default function EmailDetail() {
                         onPress={() => setShowConfirm(false)}
                         disabled={sending}
                       >
-                        <Text style={styles.secondaryBtnText}>Annuler</Text>
+                        <Text style={styles.secondaryBtnText}>{t.common.cancel}</Text>
                       </Pressable>
                       <Pressable
                         style={[styles.cta, styles.flex1]}
@@ -536,7 +543,7 @@ export default function EmailDetail() {
                         {sending ? (
                           <ActivityIndicator color={colors.onDark} />
                         ) : (
-                          <Text style={styles.ctaText}>Confirmer l&apos;envoi</Text>
+                          <Text style={styles.ctaText}>{t.email.confirmSend}</Text>
                         )}
                       </Pressable>
                     </View>

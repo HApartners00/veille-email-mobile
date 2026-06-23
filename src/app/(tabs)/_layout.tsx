@@ -2,6 +2,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 import { useAuth } from '@/context/auth';
+import { useI18n } from '@/context/i18n';
 import { colors } from '@/lib/theme';
 
 // L'app s'ouvre sur l'onglet Accueil (récap du jour).
@@ -15,6 +16,7 @@ function TabIcon({ glyph, color }: { glyph: string; color: string }) {
 
 export default function TabsLayout() {
   const { session, loading } = useAuth();
+  const { t } = useI18n();
 
   if (!loading && !session) {
     return <Redirect href="/login" />;
@@ -39,35 +41,35 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="accueil"
         options={{
-          title: 'Accueil',
+          title: t.tabs.accueil,
           tabBarIcon: ({ color }) => <TabIcon glyph="⌂" color={color} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Feed',
+          title: t.tabs.feed,
           tabBarIcon: ({ color }) => <TabIcon glyph="▦" color={color} />,
         }}
       />
       <Tabs.Screen
         name="sources"
         options={{
-          title: 'Sources',
+          title: t.tabs.sources,
           tabBarIcon: ({ color }) => <TabIcon glyph="✉" color={color} />,
         }}
       />
       <Tabs.Screen
         name="rules"
         options={{
-          title: 'Règles',
+          title: t.tabs.rules,
           tabBarIcon: ({ color }) => <TabIcon glyph="⚑" color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Réglages',
+          title: t.tabs.settings,
           tabBarIcon: ({ color }) => <TabIcon glyph="⚙" color={color} />,
         }}
       />

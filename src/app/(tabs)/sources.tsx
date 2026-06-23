@@ -11,6 +11,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
+import { useI18n } from '@/context/i18n';
 import { apiGet, apiPost } from '@/lib/api';
 import { colors, radius, spacing } from '@/lib/theme';
 import { GMAIL_ENABLED } from '@/lib/flags';
@@ -22,6 +23,9 @@ type Mailbox = {
 };
 
 export default function Sources() {
+  const { t, f } = useI18n();
+  const providers = GMAIL_ENABLED ? t.sources.provBoth : t.sources.provOutlook;
+  const authProviders = GMAIL_ENABLED ? t.sources.authBoth : t.sources.authOutlook;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
@@ -57,7 +61,7 @@ export default function Sources() {
       await WebBrowser.openBrowserAsync(url);
       // au retour, useFocusEffect rechargera la liste
     } catch (e: any) {
-      setError(e?.message || 'Connexion impossible.');
+      setError(e?.message || t.sources.connectErr);
     } finally {
       setBusy(null);
     }
@@ -65,12 +69,12 @@ export default function Sources() {
 
   function confirmDisconnect(mb: Mailbox) {
     Alert.alert(
-      'Déconnecter cette boîte ?',
-      `${mb.email} ne sera plus relevée. Vos emails déjà triés restent consultables. Vous pourrez la reconnecter à tout moment.`,
+      t.sources.disconnectTitle,
+      f(t.sources.disconnectMsg, { email: mb.email }),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Déconnecter',
+          text: t.sources.disconnect,
           style: 'destructive',
           onPress: () => disconnect(mb),
         },
@@ -85,7 +89,7 @@ export default function Sources() {
       await apiPost('/api/connect/disconnect', { email: mb.email });
       setMailboxes((prev) => prev.filter((m) => m.email !== mb.email));
     } catch (e: any) {
-      setError(e?.message || 'Déconnexion impossible.');
+      setError(e?.message || t.sources.disconnectErr);
     } finally {
       setDisconnecting(null);
     }
@@ -95,7 +99,7 @@ export default function Sources() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {/* Boîtes connectées */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Boîtes connectées</Text>
+        <Text style={styles.cardTitle}>{t.sources.connectedTitle}</Text>
 
         {loadingList ? (
           <View style={styles.listLoading}>
@@ -103,7 +107,7 @@ export default function Sources() {
           </View>
         ) : mailboxes.length === 0 ? (
           <Text style={styles.cardText}>
-            Aucune boîte connectée pour l&apos;instant. Connectez {GMAIL_ENABLED ? 'Gmail ou Outlook' : 'Outlook'} ci-dessous.
+            {f(t.sources.noneConnected, { providers })}
           </Text>
         ) : (
           mailboxes.map((mb) => (
@@ -124,7 +128,7 @@ export default function Sources() {
                   disabled={!!disconnecting}
                   hitSlop={8}
                 >
-                  <Text style={styles.mbActionText}>Déconnecter</Text>
+                  <Text style={styles.mbActionText}>{t.sources.disconnect}</Text>
                 </Pressable>
               )}
             </View>
@@ -134,12 +138,8 @@ export default function Sources() {
 
       {/* Connexion d'une nouvelle boîte */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Connecter une boîte mail</Text>
-        <Text style={styles.cardText}>
-          Autorisez l&apos;accès à votre boîte via la connexion officielle{' '}
-          {GMAIL_ENABLED ? 'Google ou Microsoft' : 'Microsoft'}. Vous
-          choisirez l&apos;heure et les jours de votre rapport, puis vous reviendrez ici.
-        </Text>
+        <Text style={styles.cardTitle}>{t.sources.connectTitle}</Text>
+        <Text style={styles.cardText}>{f(t.sources.connectBody, { auth: authProviders })}</Text>
 
         {/* Bouton Gmail masqué au lancement (flag GMAIL_ENABLED). Réversible : voir src/lib/flags.ts. */}
         {GMAIL_ENABLED ? (
@@ -151,7 +151,7 @@ export default function Sources() {
             {busy === 'gmail' ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnText}>Connecter Gmail</Text>
+              <Text style={styles.btnText}>{t.sources.connectGmail}</Text>
             )}
           </Pressable>
         ) : null}
@@ -164,17 +164,14 @@ export default function Sources() {
           {busy === 'outlook' ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.btnText}>Connecter Outlook</Text>
+            <Text style={styles.btnText}>{t.sources.connectOutlook}</Text>
           )}
         </Pressable>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
 
-      <Text style={styles.note}>
-        Après avoir autorisé l&apos;accès dans le navigateur, revenez à l&apos;app. Vos prochains
-        emails seront triés au prochain rapport.
-      </Text>
+      <Text style={styles.note}>{t.sources.note}</Text>
     </ScrollView>
   );
 }

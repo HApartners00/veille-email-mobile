@@ -9,8 +9,10 @@ import {
   View,
 } from 'react-native';
 
+import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { PRIORITY_BY_KEY } from '@/lib/priority';
+import { prioLabel, type Dict } from '@/lib/i18n';
 import { colors, spacing } from '@/lib/theme';
 
 type RuleRow = {
@@ -20,11 +22,11 @@ type RuleRow = {
   category: string;
 };
 
-function typeLabel(t: string): string {
-  if (t === 'sender') return 'Expéditeur';
-  if (t === 'domain') return 'Domaine';
-  if (t === 'keyword') return 'Sujet contient';
-  return t;
+function typeLabel(type: string, t: Dict): string {
+  if (type === 'sender') return t.rules.typeSender;
+  if (type === 'domain') return t.rules.typeDomain;
+  if (type === 'keyword') return t.rules.typeKeyword;
+  return type;
 }
 
 function valueLabel(r: RuleRow): string {
@@ -34,6 +36,7 @@ function valueLabel(r: RuleRow): string {
 }
 
 export default function RulesScreen() {
+  const { t } = useI18n();
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,15 +84,15 @@ export default function RulesScreen() {
       <View style={styles.row}>
         <View style={styles.rowBody}>
           <Text style={styles.ruleText} numberOfLines={1}>
-            <Text style={styles.ruleType}>{typeLabel(item.match_type)} : </Text>
+            <Text style={styles.ruleType}>{typeLabel(item.match_type, t)} : </Text>
             {valueLabel(item)}
           </Text>
           <Text style={[styles.ruleCat, { color: cat?.color ?? colors.muted }]}>
-            → {cat?.label ?? item.category}
+            → {prioLabel(t, item.category)}
           </Text>
         </View>
         <Pressable hitSlop={8} onPress={() => remove(item.id)} disabled={busy}>
-          <Text style={styles.delete}>Supprimer</Text>
+          <Text style={styles.delete}>{t.rules.delete}</Text>
         </Pressable>
       </View>
     );
@@ -115,20 +118,13 @@ export default function RulesScreen() {
       }
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>Règles de classement</Text>
-          <Text style={styles.sub}>
-            Les emails correspondants sont automatiquement reclassés dans votre feed.
-          </Text>
+          <Text style={styles.title}>{t.rules.title}</Text>
+          <Text style={styles.sub}>{t.rules.sub}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
       ListEmptyComponent={
-        !error ? (
-          <Text style={styles.empty}>
-            Aucune règle. Depuis un email, choisissez une catégorie puis « Tous les emails de… », « Le
-            domaine… » ou un mot-clé pour en créer une.
-          </Text>
-        ) : null
+        !error ? <Text style={styles.empty}>{t.rules.empty}</Text> : null
       }
       ItemSeparatorComponent={() => <View style={styles.sep} />}
     />

@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
+import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
+import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Item = {
@@ -26,14 +28,14 @@ type Item = {
   received_at: string;
 };
 
-function senderName(author: string | null): string {
-  if (!author) return 'Expéditeur inconnu';
+function senderName(author: string | null, unknown: string): string {
+  if (!author) return unknown;
   if (author.includes('<')) return author.split('<')[0].trim().replace(/"/g, '') || author;
   return author.split('@')[0];
 }
 
-function todayLabel(): string {
-  const s = new Date().toLocaleDateString('fr-FR', {
+function todayLabel(intl: string): string {
+  const s = new Date().toLocaleDateString(intl, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -43,6 +45,7 @@ function todayLabel(): string {
 
 export default function Accueil() {
   const router = useRouter();
+  const { t, f, intl } = useI18n();
   const [items, setItems] = useState<Item[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,8 +145,8 @@ export default function Accueil() {
     >
       <View style={styles.headerTop}>
         <View style={styles.headerTexts}>
-          <Text style={styles.date}>{todayLabel()}</Text>
-          <Text style={styles.greeting}>Bonjour.</Text>
+          <Text style={styles.date}>{todayLabel(intl)}</Text>
+          <Text style={styles.greeting}>{t.common.hello}</Text>
         </View>
         <Pressable
           style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
@@ -151,16 +154,18 @@ export default function Accueil() {
           disabled={refreshingNow}
         >
           {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
-          <Text style={styles.refreshBtnText}>{refreshingNow ? 'Actualisation…' : '↻ Actualiser'}</Text>
+          <Text style={styles.refreshBtnText}>
+            {refreshingNow ? t.common.refreshing : t.common.refresh}
+          </Text>
         </Pressable>
       </View>
 
       <Text style={styles.sub}>
         {total === 0
-          ? 'Boîte à jour — rien à traiter pour le moment.'
+          ? t.home.boxUpToDate
           : base.isToday
-            ? `${total} email${total > 1 ? 's' : ''} aujourd'hui.`
-            : `Pas de nouveau aujourd'hui — voici vos ${total} plus récents.`}
+            ? f(total === 1 ? t.home.todayOne : t.home.todayMany, { n: total })
+            : f(t.home.recentFallback, { n: total })}
       </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -171,7 +176,7 @@ export default function Accueil() {
           {PRIORITIES.map((p) => (
             <View key={p.key} style={styles.statCard}>
               <Text style={[styles.statNum, { color: p.color }]}>{groups[p.key]?.length ?? 0}</Text>
-              <Text style={styles.statLabel}>{p.label}</Text>
+              <Text style={styles.statLabel}>{prioLabel(t, p.key)}</Text>
             </View>
           ))}
         </View>
@@ -186,7 +191,7 @@ export default function Accueil() {
             <View style={styles.sectionHead}>
               <View style={[styles.dot, { backgroundColor: p.color }]} />
               <Text style={[styles.sectionTitle, { color: p.color }]}>
-                {p.label} · {list.length}
+                {prioLabel(t, p.key)} · {list.length}
               </Text>
             </View>
             {list.map((it) => {
@@ -198,10 +203,10 @@ export default function Accueil() {
                   onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
                 >
                   <Text style={[styles.rowSubject, unread && styles.rowSubjectUnread]} numberOfLines={1}>
-                    {it.title || '(Sans objet)'}
+                    {it.title || t.common.noSubject}
                   </Text>
                   <Text style={styles.rowSender} numberOfLines={1}>
-                    {senderName(it.author)}
+                    {senderName(it.author, t.common.unknownSender)}
                   </Text>
                 </Pressable>
               );
@@ -212,10 +217,8 @@ export default function Accueil() {
 
       {total === 0 ? (
         <View style={styles.allClear}>
-          <Text style={styles.allClearTitle}>✓ Boîte à jour</Text>
-          <Text style={styles.allClearSub}>
-            Aucun email ne requiert votre attention. Tirez vers le bas ou « Actualiser » pour vérifier.
-          </Text>
+          <Text style={styles.allClearTitle}>{t.home.allClearTitle}</Text>
+          <Text style={styles.allClearSub}>{t.home.allClearSub}</Text>
         </View>
       ) : null}
     </ScrollView>

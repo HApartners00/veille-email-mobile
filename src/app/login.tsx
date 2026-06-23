@@ -13,11 +13,13 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 export default function Login() {
   const router = useRouter();
+  const { t, f } = useI18n();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -36,7 +38,7 @@ export default function Login() {
     setLoading(false);
     if (err) {
       console.error('signInWithOtp error:', err);
-      setError(err.message || JSON.stringify(err) || "Erreur d'envoi");
+      setError(err.message || JSON.stringify(err) || t.login.errSend);
       return;
     }
     setStep('code');
@@ -87,17 +89,17 @@ export default function Login() {
                 <Text style={styles.brandVeille}>Veille</Text>
                 <Text style={styles.brandEmail}> Email</Text>
               </Text>
-              <Text style={styles.tagline}>Votre boîte mail, un jeu d&apos;enfant.</Text>
+              <Text style={styles.tagline}>{t.login.tagline}</Text>
             </View>
 
             {step === 'email' ? (
               <View style={styles.card}>
-                <Text style={styles.label}>Adresse email</Text>
+                <Text style={styles.label}>{t.login.emailLabel}</Text>
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="vous@exemple.com"
+                  placeholder={t.login.emailPlaceholder}
                   placeholderTextColor={colors.hint}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -115,16 +117,14 @@ export default function Login() {
                   {loading ? (
                     <ActivityIndicator color={colors.onDark} />
                   ) : (
-                    <Text style={styles.btnText}>Recevoir mon code</Text>
+                    <Text style={styles.btnText}>{t.login.getCode}</Text>
                   )}
                 </Pressable>
-                <Text style={styles.hint}>
-                  On vous envoie un code par email — pas de mot de passe à retenir.
-                </Text>
+                <Text style={styles.hint}>{t.login.emailHint}</Text>
               </View>
             ) : (
               <View style={styles.card}>
-                <Text style={styles.label}>Code reçu par email</Text>
+                <Text style={styles.label}>{t.login.codeLabel}</Text>
                 <TextInput
                   style={[styles.input, styles.codeInput]}
                   value={code}
@@ -145,7 +145,7 @@ export default function Login() {
                   {loading ? (
                     <ActivityIndicator color={colors.onDark} />
                   ) : (
-                    <Text style={styles.btnText}>Se connecter</Text>
+                    <Text style={styles.btnText}>{t.login.signIn}</Text>
                   )}
                 </Pressable>
                 <Pressable
@@ -155,9 +155,11 @@ export default function Login() {
                     setError(null);
                   }}
                 >
-                  <Text style={styles.linkText}>Changer d&apos;email</Text>
+                  <Text style={styles.linkText}>{t.login.changeEmail}</Text>
                 </Pressable>
-                <Text style={styles.hint}>Code envoyé à {email.trim().toLowerCase()}.</Text>
+                <Text style={styles.hint}>
+                  {f(t.login.codeSentTo, { email: email.trim().toLowerCase() })}
+                </Text>
               </View>
             )}
 

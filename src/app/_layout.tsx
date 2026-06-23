@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/context/auth';
+import { I18nProvider } from '@/context/i18n';
 import { colors } from '@/lib/theme';
 
 export default function RootLayout() {
@@ -23,7 +24,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
           <StatusBar style="light" />
           {fontsLoaded ? (
             <Stack
@@ -44,7 +46,8 @@ export default function RootLayout() {
               <ActivityIndicator color={colors.terracottaVivid} />
             </View>
           )}
-        </AuthProvider>
+          </AuthProvider>
+        </I18nProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

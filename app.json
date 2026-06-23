@@ -28,6 +28,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-localization",
+        {
+          "supportsRTL": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#211e19",

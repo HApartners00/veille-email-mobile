@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiGet, apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
+import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type Item = {
@@ -46,15 +48,15 @@ function cleanText(input: string | null): string {
   return decode(t).replace(/\s{2,}/g, ' ').trim();
 }
 
-function senderName(author: string | null): string {
-  if (!author) return 'Expéditeur inconnu';
+function senderName(author: string | null, unknown: string): string {
+  if (!author) return unknown;
   if (author.includes('<')) return author.split('<')[0].trim().replace(/"/g, '') || author;
   return author.split('@')[0];
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, intl: string): string {
   try {
-    return new Date(value).toLocaleString('fr-FR', {
+    return new Date(value).toLocaleString(intl, {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
@@ -68,14 +70,15 @@ function formatDate(value: string): string {
 const SELECT = 'id, title, author, preview, url, status, tags, received_at';
 const LIMIT = 100;
 
-// Onglets de filtre : Tous + une entrée par catégorie de priorité.
-const FILTERS: { key: string; label: string }[] = [
-  { key: 'all', label: 'Tous' },
-  ...PRIORITIES.map((p) => ({ key: p.key, label: p.label })),
-];
-
 export default function Feed() {
   const router = useRouter();
+  const { t, intl } = useI18n();
+
+  // Onglets de filtre : Tous + une entrée par catégorie de priorité.
+  const FILTERS: { key: string; label: string }[] = [
+    { key: 'all', label: t.feed.filterAll },
+    ...PRIORITIES.map((p) => ({ key: p.key, label: prioLabel(t, p.key) })),
+  ];
   const [items, setItems] = useState<Item[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,14 +222,16 @@ export default function Feed() {
         <View style={[styles.accent, { backgroundColor: p.color, opacity: unread ? 1 : 0.4 }]} />
         <View style={styles.rowBody}>
           <View style={styles.rowTop}>
-            <Text style={[styles.prioLabel, { color: p.color }]}>{p.label.toUpperCase()}</Text>
-            <Text style={styles.date}>{formatDate(item.received_at)}</Text>
+            <Text style={[styles.prioLabel, { color: p.color }]}>
+              {prioLabel(t, p.key).toUpperCase()}
+            </Text>
+            <Text style={styles.date}>{formatDate(item.received_at, intl)}</Text>
           </View>
           <Text style={[styles.subject, unread && styles.subjectUnread]} numberOfLines={1}>
-            {item.title || '(Sans objet)'}
+            {item.title || t.common.noSubject}
           </Text>
           <Text style={styles.sender} numberOfLines={1}>
-            {senderName(item.author)}
+            {senderName(item.author, t.common.unknownSender)}
           </Text>
           {item.preview ? (
             <Text style={styles.preview} numberOfLines={1}>
@@ -262,9 +267,9 @@ export default function Feed() {
           <View style={styles.header}>
             <View style={styles.headerTop}>
               <View style={styles.headerTexts}>
-                <Text style={styles.greeting}>Bonjour.</Text>
+                <Text style={styles.greeting}>{t.common.hello}</Text>
                 <Text style={styles.sub}>
-                  {items.length > 0 ? 'Vos emails récents, triés.' : 'Rien à afficher pour le moment.'}
+                  {items.length > 0 ? t.feed.subSorted : t.feed.subEmpty}
                 </Text>
               </View>
               <Pressable
@@ -274,7 +279,7 @@ export default function Feed() {
               >
                 {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
                 <Text style={styles.refreshBtnText}>
-                  {refreshingNow ? 'Actualisation…' : '↻ Actualiser'}
+                  {refreshingNow ? t.common.refreshing : t.common.refresh}
                 </Text>
               </Pressable>
             </View>
@@ -284,7 +289,7 @@ export default function Feed() {
               style={styles.search}
               value={query}
               onChangeText={setQuery}
-              placeholder="Rechercher (titre ou expéditeur)…"
+              placeholder={t.feed.searchPlaceholder}
               placeholderTextColor={colors.hint}
               autoCapitalize="none"
               autoCorrect={false}
@@ -309,7 +314,7 @@ export default function Feed() {
                 <Text
                   style={[styles.boxChipText, selectedBoxes.length === 0 && styles.boxChipTextActive]}
                 >
-                  ✉ Toutes les boîtes
+                  {t.feed.allBoxes}
                 </Text>
               </Pressable>
               {mailboxes.map((m) => {
@@ -357,7 +362,7 @@ export default function Feed() {
               onPress={() => setUnreadOnly((v) => !v)}
             >
               <Text style={[styles.chipText, unreadOnly && styles.chipTextActive]}>
-                Non lus {unreadCount}
+                {t.feed.unread} {unreadCount}
               </Text>
             </Pressable>
           </ScrollView>
@@ -369,10 +374,10 @@ export default function Feed() {
         !error ? (
           <Text style={styles.empty}>
             {debouncedQuery
-              ? 'Aucun email ne correspond à cette recherche.'
+              ? t.feed.emptySearch
               : filter !== 'all' || unreadOnly
-                ? 'Aucun email dans ce filtre.'
-                : 'Les emails apparaîtront ici dès le prochain rapport matinal.'}
+                ? t.feed.emptyFilter
+                : t.feed.emptyDefault}
           </Text>
         ) : null
       }
