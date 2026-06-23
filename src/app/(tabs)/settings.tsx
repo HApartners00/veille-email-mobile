@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPost } from '@/lib/api';
 import { isRtl, locales, localeNames, type Locale } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -32,6 +41,126 @@ function formatDate(value: string | null, intl: string): string {
   }
 }
 
+// Libellés de la carte « Personnalisation » (autonomes, repli anglais).
+type PersoStrings = {
+  title: string;
+  master: string;
+  masterHint: string;
+  learn: string;
+  learnHint: string;
+  reset: string;
+  resetConfirm: string;
+  resetCancel: string;
+  resetOk: string;
+  done: string;
+  err: string;
+};
+const PERSO: Record<string, PersoStrings> = {
+  fr: {
+    title: 'Personnalisation',
+    master: 'Adapter l’écriture à mon style',
+    masterHint:
+      'L’outil apprend votre ton et votre façon d’écrire à chaque destinataire, à partir de vos réponses.',
+    learn: 'Apprendre de mes réponses',
+    learnHint:
+      'Conserve quelques réponses réelles pour mieux imiter votre style. Sinon, seul un portrait abstrait est gardé.',
+    reset: 'Réinitialiser ma personnalisation',
+    resetConfirm: 'Effacer tout le style appris ? Action irréversible.',
+    resetCancel: 'Annuler',
+    resetOk: 'Réinitialiser',
+    done: 'Personnalisation réinitialisée.',
+    err: 'Action impossible.',
+  },
+  en: {
+    title: 'Personalization',
+    master: 'Adapt writing to my style',
+    masterHint:
+      'The tool learns your tone and writing style for each recipient, from your replies.',
+    learn: 'Learn from my replies',
+    learnHint:
+      'Keeps a few real replies to better imitate your style. Otherwise only an abstract profile is kept.',
+    reset: 'Reset my personalization',
+    resetConfirm: 'Erase all learned style? This cannot be undone.',
+    resetCancel: 'Cancel',
+    resetOk: 'Reset',
+    done: 'Personalization reset.',
+    err: 'Action failed.',
+  },
+  es: {
+    title: 'Personalización',
+    master: 'Adaptar la redacción a mi estilo',
+    masterHint:
+      'La herramienta aprende tu tono y tu forma de escribir con cada destinatario, a partir de tus respuestas.',
+    learn: 'Aprender de mis respuestas',
+    learnHint:
+      'Guarda algunas respuestas reales para imitar mejor tu estilo. Si no, solo se guarda un perfil abstracto.',
+    reset: 'Restablecer mi personalización',
+    resetConfirm: '¿Borrar todo el estilo aprendido? Acción irreversible.',
+    resetCancel: 'Cancelar',
+    resetOk: 'Restablecer',
+    done: 'Personalización restablecida.',
+    err: 'Acción imposible.',
+  },
+  de: {
+    title: 'Personalisierung',
+    master: 'Schreibstil an mich anpassen',
+    masterHint:
+      'Das Tool lernt deinen Ton und Schreibstil pro Empfänger aus deinen Antworten.',
+    learn: 'Aus meinen Antworten lernen',
+    learnHint:
+      'Speichert einige echte Antworten, um deinen Stil besser nachzuahmen. Sonst nur ein abstraktes Profil.',
+    reset: 'Personalisierung zurücksetzen',
+    resetConfirm: 'Allen gelernten Stil löschen? Nicht umkehrbar.',
+    resetCancel: 'Abbrechen',
+    resetOk: 'Zurücksetzen',
+    done: 'Personalisierung zurückgesetzt.',
+    err: 'Aktion fehlgeschlagen.',
+  },
+  pt: {
+    title: 'Personalização',
+    master: 'Adaptar a escrita ao meu estilo',
+    masterHint:
+      'A ferramenta aprende o seu tom e a sua forma de escrever para cada destinatário, a partir das suas respostas.',
+    learn: 'Aprender com as minhas respostas',
+    learnHint:
+      'Guarda algumas respostas reais para imitar melhor o seu estilo. Caso contrário, apenas um perfil abstrato.',
+    reset: 'Repor a minha personalização',
+    resetConfirm: 'Apagar todo o estilo aprendido? Ação irreversível.',
+    resetCancel: 'Cancelar',
+    resetOk: 'Repor',
+    done: 'Personalização reposta.',
+    err: 'Ação impossível.',
+  },
+  it: {
+    title: 'Personalizzazione',
+    master: 'Adatta la scrittura al mio stile',
+    masterHint:
+      'Lo strumento impara il tuo tono e il tuo modo di scrivere per ciascun destinatario, dalle tue risposte.',
+    learn: 'Impara dalle mie risposte',
+    learnHint:
+      'Conserva alcune risposte reali per imitare meglio il tuo stile. Altrimenti solo un profilo astratto.',
+    reset: 'Reimposta la mia personalizzazione',
+    resetConfirm: 'Cancellare tutto lo stile appreso? Azione irreversibile.',
+    resetCancel: 'Annulla',
+    resetOk: 'Reimposta',
+    done: 'Personalizzazione reimpostata.',
+    err: 'Azione impossibile.',
+  },
+  ar: {
+    title: 'التخصيص',
+    master: 'تكييف الكتابة مع أسلوبي',
+    masterHint: 'تتعلّم الأداة نبرتك وأسلوبك في الكتابة لكل مُراسَل، انطلاقًا من ردودك.',
+    learn: 'التعلّم من ردودي',
+    learnHint: 'تحتفظ ببعض الردود الفعلية لتقليد أسلوبك بشكل أفضل. وإلا، يُحفظ ملف مجرّد فقط.',
+    reset: 'إعادة ضبط التخصيص',
+    resetConfirm: 'مسح كل الأسلوب المُتعلَّم؟ إجراء لا رجعة فيه.',
+    resetCancel: 'إلغاء',
+    resetOk: 'إعادة ضبط',
+    done: 'تمت إعادة ضبط التخصيص.',
+    err: 'تعذّر تنفيذ الإجراء.',
+  },
+};
+
 export default function Settings() {
   const { session, signOut } = useAuth();
   const { t, f, intl, locale, setLocale } = useI18n();
@@ -48,6 +177,70 @@ export default function Settings() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [billingUi, setBillingUi] = useState<'loading' | 'ready' | 'redirecting' | 'error'>('loading');
   const [billingMsg, setBillingMsg] = useState<string | null>(null);
+
+  // Personnalisation
+  const ps = PERSO[locale] ?? PERSO.en;
+  const [persoLoaded, setPersoLoaded] = useState(false);
+  const [persoEnabled, setPersoEnabled] = useState(true);
+  const [persoLearn, setPersoLearn] = useState(false);
+  const [persoBusy, setPersoBusy] = useState(false);
+  const [persoMsg, setPersoMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiGet<{ personalization_enabled: boolean; learn_from_replies: boolean }>(
+          '/api/personalization',
+        );
+        setPersoEnabled(r.personalization_enabled !== false);
+        setPersoLearn(r.learn_from_replies === true);
+      } catch {
+        // garde les valeurs par défaut
+      } finally {
+        setPersoLoaded(true);
+      }
+    })();
+  }, []);
+
+  async function savePerso(patch: {
+    personalization_enabled?: boolean;
+    learn_from_replies?: boolean;
+  }) {
+    const prevEnabled = persoEnabled;
+    const prevLearn = persoLearn;
+    if (typeof patch.personalization_enabled === 'boolean') setPersoEnabled(patch.personalization_enabled);
+    if (typeof patch.learn_from_replies === 'boolean') setPersoLearn(patch.learn_from_replies);
+    setPersoMsg(null);
+    try {
+      await apiPost('/api/personalization', patch);
+    } catch {
+      setPersoEnabled(prevEnabled);
+      setPersoLearn(prevLearn);
+      setPersoMsg({ type: 'err', text: ps.err });
+    }
+  }
+
+  function resetPerso() {
+    Alert.alert(ps.title, ps.resetConfirm, [
+      { text: ps.resetCancel, style: 'cancel' },
+      {
+        text: ps.resetOk,
+        style: 'destructive',
+        onPress: async () => {
+          setPersoBusy(true);
+          setPersoMsg(null);
+          try {
+            await apiDelete('/api/personalization');
+            setPersoMsg({ type: 'ok', text: ps.done });
+          } catch {
+            setPersoMsg({ type: 'err', text: ps.err });
+          } finally {
+            setPersoBusy(false);
+          }
+        },
+      },
+    ]);
+  }
 
   useEffect(() => {
     (async () => {
@@ -284,6 +477,56 @@ export default function Settings() {
         )}
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{ps.title}</Text>
+
+        <View style={styles.persoRow}>
+          <View style={styles.persoTexts}>
+            <Text style={styles.persoLabel}>{ps.master}</Text>
+            <Text style={styles.hint}>{ps.masterHint}</Text>
+          </View>
+          <Switch
+            value={persoEnabled}
+            disabled={!persoLoaded}
+            onValueChange={(v) => savePerso({ personalization_enabled: v })}
+            trackColor={{ true: colors.terracotta, false: colors.cardline }}
+            thumbColor={colors.surface}
+          />
+        </View>
+
+        <View style={[styles.persoRow, styles.persoRowBordered, !persoEnabled && styles.persoDimmed]}>
+          <View style={styles.persoTexts}>
+            <Text style={styles.persoLabel}>{ps.learn}</Text>
+            <Text style={styles.hint}>{ps.learnHint}</Text>
+          </View>
+          <Switch
+            value={persoLearn}
+            disabled={!persoLoaded || !persoEnabled}
+            onValueChange={(v) => savePerso({ learn_from_replies: v })}
+            trackColor={{ true: colors.terracotta, false: colors.cardline }}
+            thumbColor={colors.surface}
+          />
+        </View>
+
+        <Pressable
+          style={[styles.persoReset, persoBusy && styles.btnDisabled]}
+          onPress={resetPerso}
+          disabled={persoBusy}
+        >
+          {persoBusy ? (
+            <ActivityIndicator color={colors.ink} />
+          ) : (
+            <Text style={styles.persoResetText}>{ps.reset}</Text>
+          )}
+        </Pressable>
+
+        {persoMsg ? (
+          <Text style={[styles.msg, persoMsg.type === 'ok' ? styles.msgOk : styles.msgErr]}>
+            {persoMsg.text}
+          </Text>
+        ) : null}
+      </View>
+
       <Pressable style={styles.signout} onPress={signOut}>
         <Text style={styles.signoutText}>{t.settings.signOut}</Text>
       </Pressable>
@@ -375,6 +618,30 @@ const styles = StyleSheet.create({
   msg: { fontSize: 13, marginTop: spacing.sm },
   msgOk: { color: colors.sage },
   msgErr: { color: colors.danger },
+  persoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  persoRowBordered: {
+    borderTopWidth: 1,
+    borderTopColor: colors.cardline,
+    paddingTop: spacing.md,
+  },
+  persoDimmed: { opacity: 0.5 },
+  persoTexts: { flex: 1, gap: 2 },
+  persoLabel: { fontSize: 15, color: colors.ink, fontWeight: '500' },
+  persoReset: {
+    marginTop: spacing.md,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  persoResetText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
   signout: {
     marginTop: spacing.md,
     borderColor: colors.danger,

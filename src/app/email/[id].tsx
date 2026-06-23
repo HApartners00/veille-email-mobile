@@ -66,6 +66,38 @@ function htmlToText(input: string): string {
   return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// Libellés de personnalisation (autonomes, repli anglais) — évite de modifier le gros dictionnaire.
+const PERSO_STR: Record<string, { adapted: string; notice: string }> = {
+  fr: {
+    adapted: 'Adapté à votre style',
+    notice: 'L’outil s’adapte à votre façon d’écrire — réglable dans Réglages.',
+  },
+  en: {
+    adapted: 'Tailored to your style',
+    notice: 'The tool adapts to how you write — adjustable in Settings.',
+  },
+  es: {
+    adapted: 'Adaptado a tu estilo',
+    notice: 'La herramienta se adapta a tu forma de escribir — ajustable en Ajustes.',
+  },
+  de: {
+    adapted: 'An deinen Stil angepasst',
+    notice: 'Das Tool passt sich deinem Schreibstil an — in den Einstellungen anpassbar.',
+  },
+  pt: {
+    adapted: 'Adaptado ao seu estilo',
+    notice: 'A ferramenta adapta-se à sua forma de escrever — ajustável nas Definições.',
+  },
+  it: {
+    adapted: 'Adattato al tuo stile',
+    notice: 'Lo strumento si adatta al tuo modo di scrivere — regolabile nelle Impostazioni.',
+  },
+  ar: {
+    adapted: 'مُكيَّف حسب أسلوبك',
+    notice: 'تتكيّف الأداة مع طريقتك في الكتابة — يمكن ضبطها في الإعدادات.',
+  },
+};
+
 export default function EmailDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -89,10 +121,16 @@ export default function EmailDetail() {
 
   // Brouillon
   const [draft, setDraft] = useState('');
+  const [generatedDraft, setGeneratedDraft] = useState(''); // texte brut généré (pour le signal d'édition)
   const [instructions, setInstructions] = useState('');
   const [genLoading, setGenLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Personnalisation
+  const [personalized, setPersonalized] = useState(false);
+  const [notice, setNotice] = useState(false);
+  const persoStr = PERSO_STR[locale] ?? PERSO_STR.en;
 
   // Envoi direct (avec confirmation)
   const [showConfirm, setShowConfirm] = useState(false);
@@ -143,13 +181,19 @@ export default function EmailDetail() {
     setGenLoading(true);
     setMsg(null);
     try {
-      const res = await apiPost<{ draft: string }>('/api/draft', {
-        id,
-        locale,
-        instructions: adjust ? instr : undefined,
-        previousDraft: adjust ? draft : undefined,
-      });
+      const res = await apiPost<{ draft: string; personalized?: boolean; showNotice?: boolean }>(
+        '/api/draft',
+        {
+          id,
+          locale,
+          instructions: adjust ? instr : undefined,
+          previousDraft: adjust ? draft : undefined,
+        },
+      );
       setDraft(res.draft);
+      setGeneratedDraft(res.draft);
+      setPersonalized(!!res.personalized);
+      if (res.showNotice) setNotice(true);
       setInstructions('');
     } catch (e: any) {
       setMsg({ type: 'err', text: e?.message || t.email.genFail });
@@ -163,7 +207,7 @@ export default function EmailDetail() {
     setPushing(true);
     setMsg(null);
     try {
-      await apiPost('/api/push-to-mailbox', { id, draft });
+      await apiPost('/api/push-to-mailbox', { id, draft, generatedDraft, locale });
       setMsg({ type: 'ok', text: t.email.draftCreated });
     } catch (e: any) {
       setMsg({ type: 'err', text: e?.message || t.email.pushFail });
@@ -177,7 +221,7 @@ export default function EmailDetail() {
     setSending(true);
     setMsg(null);
     try {
-      await apiPost('/api/send-reply', { id, draft });
+      await apiPost('/api/send-reply', { id, draft, generatedDraft, locale });
       setSent(true);
     } catch (e: any) {
       setShowConfirm(false);
@@ -441,6 +485,19 @@ export default function EmailDetail() {
                   textAlignVertical="top"
                 />
 
+                {/* Ligne discrète : adaptation au style */}
+                {personalized ? <Text style={styles.adapted}>✶ {persoStr.adapted}</Text> : null}
+
+                {/* Avis unique (opt-out) */}
+                {notice ? (
+                  <View style={styles.noticeBox}>
+                    <Text style={styles.noticeText}>{persoStr.notice}</Text>
+                    <Pressable onPress={() => setNotice(false)} hitSlop={8}>
+                      <Text style={styles.noticeClose}>✕</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
                 {/* Reformulations rapides */}
                 <Text style={styles.refineLabel}>{t.email.adjust}</Text>
                 <View style={styles.chipsWrap}>
@@ -662,6 +719,21 @@ const styles = StyleSheet.create({
     color: colors.ink2,
     lineHeight: 22,
   },
+  adapted: { fontSize: 11, color: colors.hint, fontStyle: 'italic' },
+  noticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  noticeText: { flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
+  noticeClose: { fontSize: 13, color: colors.hint },
   refineLabel: { fontSize: 12, color: colors.muted },
   refineChip: {
     paddingHorizontal: 12,
