@@ -69,7 +69,7 @@ function htmlToText(input: string): string {
 export default function EmailDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t, f, intl } = useI18n();
+  const { t, f, intl, locale } = useI18n();
 
   // Reformulations rapides du brouillon (identiques au web).
   const QUICK_REFINEMENTS: { label: string; instruction: string }[] = [
@@ -145,6 +145,7 @@ export default function EmailDetail() {
     try {
       const res = await apiPost<{ draft: string }>('/api/draft', {
         id,
+        locale,
         instructions: adjust ? instr : undefined,
         previousDraft: adjust ? draft : undefined,
       });
