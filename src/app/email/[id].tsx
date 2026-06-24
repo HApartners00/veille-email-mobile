@@ -246,6 +246,28 @@ export default function EmailDetail() {
       setReError(e.message);
       return;
     }
+    // Signal de tri personnalisé (best-effort) : le cron promeut les reclassements
+    // répétés du même expéditeur en règle de classement.
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('style_signals').insert({
+          user_id: user.id,
+          item_id: id,
+          kind: 'reclass',
+          payload: {
+            target: 'this',
+            sender: extractEmail(item.author),
+            domain: domainOf(item.author),
+            to: cat,
+          },
+        });
+      }
+    } catch {
+      // best-effort
+    }
     setItem({ ...item, tags: nextTags });
     setPendingCat(null);
     setKeyword('');

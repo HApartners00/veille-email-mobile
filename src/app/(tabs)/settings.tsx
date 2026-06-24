@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
@@ -54,6 +55,7 @@ type PersoStrings = {
   resetOk: string;
   done: string;
   err: string;
+  viewStyle: string;
 };
 const PERSO: Record<string, PersoStrings> = {
   fr: {
@@ -70,6 +72,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Réinitialiser',
     done: 'Personnalisation réinitialisée.',
     err: 'Action impossible.',
+    viewStyle: 'Voir votre style',
   },
   en: {
     title: 'Personalization',
@@ -85,6 +88,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Reset',
     done: 'Personalization reset.',
     err: 'Action failed.',
+    viewStyle: 'View your style',
   },
   es: {
     title: 'Personalización',
@@ -100,6 +104,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Restablecer',
     done: 'Personalización restablecida.',
     err: 'Acción imposible.',
+    viewStyle: 'Ver tu estilo',
   },
   de: {
     title: 'Personalisierung',
@@ -115,6 +120,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Zurücksetzen',
     done: 'Personalisierung zurückgesetzt.',
     err: 'Aktion fehlgeschlagen.',
+    viewStyle: 'Deinen Stil ansehen',
   },
   pt: {
     title: 'Personalização',
@@ -130,6 +136,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Repor',
     done: 'Personalização reposta.',
     err: 'Ação impossível.',
+    viewStyle: 'Ver o seu estilo',
   },
   it: {
     title: 'Personalizzazione',
@@ -145,6 +152,7 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'Reimposta',
     done: 'Personalizzazione reimpostata.',
     err: 'Azione impossibile.',
+    viewStyle: 'Vedi il tuo stile',
   },
   ar: {
     title: 'التخصيص',
@@ -158,12 +166,14 @@ const PERSO: Record<string, PersoStrings> = {
     resetOk: 'إعادة ضبط',
     done: 'تمت إعادة ضبط التخصيص.',
     err: 'تعذّر تنفيذ الإجراء.',
+    viewStyle: 'عرض أسلوبك',
   },
 };
 
 export default function Settings() {
   const { session, signOut } = useAuth();
   const { t, f, intl, locale, setLocale } = useI18n();
+  const router = useRouter();
   const email = session?.user?.email ?? '—';
 
   const [loading, setLoading] = useState(true);
@@ -508,6 +518,10 @@ export default function Settings() {
           />
         </View>
 
+        <Pressable style={styles.persoLink} onPress={() => router.push('/style')}>
+          <Text style={styles.persoLinkText}>{ps.viewStyle} ›</Text>
+        </Pressable>
+
         <Pressable
           style={[styles.persoReset, persoBusy && styles.btnDisabled]}
           onPress={resetPerso}
@@ -642,6 +656,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   persoResetText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  persoLink: { marginTop: spacing.md },
+  persoLinkText: { color: colors.terracotta, fontWeight: '600', fontSize: 14 },
   signout: {
     marginTop: spacing.md,
     borderColor: colors.danger,
