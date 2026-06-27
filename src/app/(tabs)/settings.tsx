@@ -17,6 +17,8 @@ import { useI18n } from '@/context/i18n';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
 import { isRtl, locales, localeNames, type Locale } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
+import { IconMinus, IconPlus } from '@/components/icons';
+import { SignatureSection } from '@/components/signature-section';
 
 // Jours dans l'ordre Lun→Dim ; le libellé vient du dictionnaire (daysShort, indexé 0=Dim).
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
@@ -395,11 +397,11 @@ export default function Settings() {
             <Text style={styles.subLabel}>{t.settings.hourLabel}</Text>
             <View style={styles.hourRow}>
               <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.max(0, h - 1))}>
-                <Text style={styles.hourBtnText}>−</Text>
+                <IconMinus size={20} color={colors.ink} />
               </Pressable>
               <Text style={styles.hourValue}>{String(hour).padStart(2, '0')}h00</Text>
               <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.min(23, h + 1))}>
-                <Text style={styles.hourBtnText}>+</Text>
+                <IconPlus size={20} color={colors.ink} />
               </Pressable>
             </View>
 
@@ -540,6 +542,8 @@ export default function Settings() {
           </Text>
         ) : null}
       </View>
+
+      <SignatureSection />
 
       <Pressable style={styles.signout} onPress={signOut}>
         <Text style={styles.signoutText}>{t.settings.signOut}</Text>

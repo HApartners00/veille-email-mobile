@@ -26,6 +26,7 @@ import {
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
+import { IconClose, IconSparkle } from '@/components/icons';
 
 type Item = {
   id: string;
@@ -118,6 +119,10 @@ export default function EmailDetail() {
   // Résumé IA (généré à la demande, comme le digest)
   const [summary, setSummary] = useState('');
   const [summaryLoading, setSummaryLoading] = useState(true);
+
+  // Résumé de la conversation (fil) — à la demande.
+  const [threadSummary, setThreadSummary] = useState('');
+  const [tsLoading, setTsLoading] = useState(false);
 
   // Brouillon
   const [draft, setDraft] = useState('');
@@ -474,6 +479,34 @@ export default function EmailDetail() {
             <Text style={styles.content}>{summary || body || t.email.noPreview}</Text>
           )}
 
+          <Pressable
+            style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
+            disabled={tsLoading}
+            onPress={async () => {
+              if (tsLoading) return;
+              setTsLoading(true);
+              try {
+                const r = await apiPost<{ summary: string }>('/api/thread-summary', { id, locale });
+                setThreadSummary(r.summary || '');
+              } catch (e: any) {
+                setMsg({ type: 'err', text: e?.message || t.email.genFail });
+              }
+              setTsLoading(false);
+            }}
+          >
+            {tsLoading ? (
+              <ActivityIndicator size="small" color={colors.terracotta} />
+            ) : (
+              <Text style={styles.linkBtnText}>{t.email.summarizeThread}</Text>
+            )}
+          </Pressable>
+          {threadSummary ? (
+            <View style={styles.tsBox}>
+              <Text style={styles.sectionLabel}>{t.email.threadSummaryTitle}</Text>
+              <Text style={styles.content}>{threadSummary}</Text>
+            </View>
+          ) : null}
+
           {item.url ? (
             <Pressable style={styles.linkBtn} onPress={() => Linking.openURL(item.url as string)}>
               <Text style={styles.linkBtnText}>{t.email.openInMail}</Text>
@@ -508,14 +541,19 @@ export default function EmailDetail() {
                 />
 
                 {/* Ligne discrète : adaptation au style */}
-                {personalized ? <Text style={styles.adapted}>✶ {persoStr.adapted}</Text> : null}
+                {personalized ? (
+                  <View style={styles.adaptedRow}>
+                    <IconSparkle size={12} color={colors.hint} />
+                    <Text style={styles.adapted}>{persoStr.adapted}</Text>
+                  </View>
+                ) : null}
 
                 {/* Avis unique (opt-out) */}
                 {notice ? (
                   <View style={styles.noticeBox}>
                     <Text style={styles.noticeText}>{persoStr.notice}</Text>
                     <Pressable onPress={() => setNotice(false)} hitSlop={8}>
-                      <Text style={styles.noticeClose}>✕</Text>
+                      <IconClose size={15} color={colors.hint} />
                     </Pressable>
                   </View>
                 ) : null}
@@ -741,6 +779,8 @@ const styles = StyleSheet.create({
     color: colors.ink2,
     lineHeight: 22,
   },
+  tsBox: { marginTop: spacing.md },
+  adaptedRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   adapted: { fontSize: 11, color: colors.hint, fontStyle: 'italic' },
   noticeBox: {
     flexDirection: 'row',

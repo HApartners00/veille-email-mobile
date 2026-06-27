@@ -16,6 +16,10 @@ import { apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
+import { IconRefresh } from '@/components/icons';
+import { LogoV } from '@/components/logo-v';
+import { EmailRow } from '@/components/email-row';
+import { setPendingFeedFilter } from '@/lib/feed-filter';
 
 type Item = {
   id: string;
@@ -144,16 +148,23 @@ export default function Accueil() {
       }
     >
       <View style={styles.headerTop}>
-        <View style={styles.headerTexts}>
-          <Text style={styles.date}>{todayLabel(intl)}</Text>
-          <Text style={styles.greeting}>{t.common.hello}</Text>
+        <View style={styles.headerLeft}>
+          <LogoV size={42} />
+          <View style={styles.headerTexts}>
+            <Text style={styles.date}>{todayLabel(intl)}</Text>
+            <Text style={styles.greeting}>{t.common.hello}</Text>
+          </View>
         </View>
         <Pressable
           style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
           onPress={refreshNow}
           disabled={refreshingNow}
         >
-          {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
+          {refreshingNow ? (
+            <ActivityIndicator size="small" color={colors.terracotta} />
+          ) : (
+            <IconRefresh size={13} color={colors.terracotta} />
+          )}
           <Text style={styles.refreshBtnText}>
             {refreshingNow ? t.common.refreshing : t.common.refresh}
           </Text>
@@ -174,10 +185,18 @@ export default function Accueil() {
       {total > 0 ? (
         <View style={styles.stats}>
           {PRIORITIES.map((p) => (
-            <View key={p.key} style={styles.statCard}>
+            <Pressable
+              key={p.key}
+              style={styles.statCard}
+              onPress={() => {
+                setPendingFeedFilter(p.key);
+                router.navigate('/(tabs)');
+              }}
+            >
+              <View style={[styles.statTop, { backgroundColor: p.color }]} />
               <Text style={[styles.statNum, { color: p.color }]}>{groups[p.key]?.length ?? 0}</Text>
               <Text style={styles.statLabel}>{prioLabel(t, p.key)}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       ) : null}
@@ -194,23 +213,16 @@ export default function Accueil() {
                 {prioLabel(t, p.key)} · {list.length}
               </Text>
             </View>
-            {list.map((it) => {
-              const unread = it.status === 'unread';
-              return (
-                <Pressable
-                  key={it.id}
-                  style={styles.row}
-                  onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
-                >
-                  <Text style={[styles.rowSubject, unread && styles.rowSubjectUnread]} numberOfLines={1}>
-                    {it.title || t.common.noSubject}
-                  </Text>
-                  <Text style={styles.rowSender} numberOfLines={1}>
-                    {senderName(it.author, t.common.unknownSender)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {list.map((it) => (
+              <EmailRow
+                key={it.id}
+                subject={it.title || t.common.noSubject}
+                sender={senderName(it.author, t.common.unknownSender)}
+                prioColor={p.color}
+                unread={it.status === 'unread'}
+                onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
+              />
+            ))}
           </View>
         );
       })}
@@ -230,7 +242,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTexts: { flex: 1, paddingRight: spacing.md },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, paddingRight: spacing.md },
+  headerTexts: { flex: 1 },
   date: { fontSize: 12, color: colors.muted, textTransform: 'capitalize' },
   greeting: { fontSize: 30, fontWeight: '700', color: colors.ink, marginTop: 2 },
   refreshBtn: {
@@ -255,10 +268,12 @@ const styles = StyleSheet.create({
     borderColor: colors.cardline,
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.md,
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  statNum: { fontSize: 22, fontWeight: '700' },
+  statTop: { alignSelf: 'stretch', height: 3 },
+  statNum: { fontSize: 22, fontWeight: '700', marginTop: spacing.md },
   statLabel: { fontSize: 10, color: colors.muted, marginTop: 2, textAlign: 'center' },
   section: { marginTop: spacing.xl },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },

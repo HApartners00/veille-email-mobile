@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { PRIORITY_BY_KEY } from '@/lib/priority';
 import { prioLabel, type Dict } from '@/lib/i18n';
 import { colors, spacing } from '@/lib/theme';
+import { IconChevronRight } from '@/components/icons';
 
 type RuleRow = {
   id: string;
@@ -87,9 +88,12 @@ export default function RulesScreen() {
             <Text style={styles.ruleType}>{typeLabel(item.match_type, t)} : </Text>
             {valueLabel(item)}
           </Text>
-          <Text style={[styles.ruleCat, { color: cat?.color ?? colors.muted }]}>
-            → {prioLabel(t, item.category)}
-          </Text>
+          <View style={styles.ruleCatRow}>
+            <IconChevronRight size={12} color={cat?.color ?? colors.muted} />
+            <Text style={[styles.ruleCat, { color: cat?.color ?? colors.muted }]}>
+              {prioLabel(t, item.category)}
+            </Text>
+          </View>
         </View>
         <Pressable hitSlop={8} onPress={() => remove(item.id)} disabled={busy}>
           <Text style={styles.delete}>{t.rules.delete}</Text>
@@ -158,7 +162,8 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, minWidth: 0 },
   ruleText: { fontSize: 14, color: colors.ink },
   ruleType: { color: colors.muted },
-  ruleCat: { fontSize: 12, marginTop: 2, fontWeight: '600' },
+  ruleCatRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  ruleCat: { fontSize: 12, fontWeight: '600' },
   delete: { color: colors.danger, fontSize: 13, fontWeight: '600' },
   sep: { height: 1, backgroundColor: colors.cardline, marginLeft: spacing.xl },
 });

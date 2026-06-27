@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,7 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
 
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +20,9 @@ import { apiGet, apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
+import { IconCheck, IconRefresh } from '@/components/icons';
+import { EmailRow } from '@/components/email-row';
+import { consumePendingFeedFilter } from '@/lib/feed-filter';
 
 type Item = {
   id: string;
@@ -41,7 +46,6 @@ function cleanText(input: string | null): string {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(parseInt(n, 10)));
-  // décoder d'abord (cas HTML échappé), retirer commentaires/style, puis balises
   let t = decode(String(input));
   t = t.replace(/<!--[\s\S]*?-->/g, '').replace(/<style[\s\S]*?<\/style>/gi, '');
   t = t.replace(/<[^>]+>/g, ' ');
@@ -67,6 +71,72 @@ function formatDate(value: string, intl: string): string {
   }
 }
 
+/** Chevron bas vectoriel (pas de glyphe). */
+function Caret({ color = colors.muted, size = 14 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Coche vectorielle pour les options selectionnees. */
+function CheckMark({ color = colors.terracotta, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 12l5 5L20 7" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+type SheetOption = { key: string; label: string; count?: number; selected: boolean };
+
+/** Menu deroulant en feuille basse (bottom sheet). */
+function FilterSheet({
+  visible,
+  title,
+  options,
+  doneLabel,
+  onPick,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  options: SheetOption[];
+  doneLabel: string;
+  onPick: (key: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
+            {options.map((o) => (
+              <Pressable key={o.key} style={styles.sheetRow} onPress={() => onPick(o.key)}>
+                <Text
+                  style={[styles.sheetRowText, o.selected && styles.sheetRowTextSel]}
+                  numberOfLines={1}
+                >
+                  {o.label}
+                </Text>
+                <View style={styles.sheetRight}>
+                  {o.count != null ? <Text style={styles.sheetCount}>{o.count}</Text> : null}
+                  {o.selected ? <CheckMark /> : null}
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable style={styles.sheetDone} onPress={onClose}>
+            <Text style={styles.sheetDoneText}>{doneLabel}</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 const SELECT = 'id, title, author, preview, url, status, tags, received_at';
 const LIMIT = 100;
 
@@ -74,7 +144,6 @@ export default function Feed() {
   const router = useRouter();
   const { t, intl } = useI18n();
 
-  // Onglets de filtre : Tous + une entrée par catégorie de priorité.
   const FILTERS: { key: string; label: string }[] = [
     { key: 'all', label: t.feed.filterAll },
     ...PRIORITIES.map((p) => ({ key: p.key, label: prioLabel(t, p.key) })),
@@ -86,13 +155,13 @@ export default function Feed() {
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Recherche + filtres
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [mailboxes, setMailboxes] = useState<{ email: string; provider: string }[]>([]);
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
+  const [sheet, setSheet] = useState<null | 'box' | 'type'>(null);
 
   function toggleBox(email: string) {
     const e = email.toLowerCase();
@@ -127,7 +196,17 @@ export default function Feed() {
     load('');
   }, [load]);
 
-  // Boîtes connectées (pour le tri par adresse).
+  // Recharge le feed a chaque retour sur l'onglet (statut lu/non lu a jour
+  // apres l'ouverture d'un email).
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumePendingFeedFilter();
+      if (pending) setFilter(pending);
+      load(debouncedQuery);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedQuery]),
+  );
+
   useEffect(() => {
     (async () => {
       try {
@@ -141,10 +220,9 @@ export default function Feed() {
     })();
   }, []);
 
-  // Debounce de la recherche → requête Supabase (titre + expéditeur/adresse).
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(tm);
   }, [query]);
 
   useEffect(() => {
@@ -158,16 +236,14 @@ export default function Feed() {
     setRefreshing(false);
   }, [load, debouncedQuery]);
 
-  // Relève immédiate (ingestion seule) côté serveur, puis rechargement du feed.
   const refreshNow = useCallback(async () => {
     if (refreshingNow) return;
     setRefreshingNow(true);
     try {
       await apiPost('/api/refresh', {});
     } catch {
-      // On rechargera quand même : l'ingestion a pu démarrer côté serveur.
+      // On rechargera quand meme.
     }
-    // Laisser le temps à l'ingestion (idempotente), puis recharger le feed.
     setTimeout(async () => {
       await load(debouncedQuery);
       setRefreshingNow(false);
@@ -176,18 +252,15 @@ export default function Feed() {
 
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
 
-  // Compteurs par catégorie (sur les items chargés).
-  // Items restreints aux boîtes sélectionnées (base des compteurs ET du feed).
   const boxFiltered = useMemo(() => {
     if (selectedBoxes.length === 0) return items;
     const wanted = selectedBoxes.map((b) => `box:${b.toLowerCase()}`);
     return items.filter((it) => {
-      const tags = (it.tags || []).map((t) => (t || '').toLowerCase());
+      const tags = (it.tags || []).map((tg) => (tg || '').toLowerCase());
       return wanted.some((bt) => tags.includes(bt));
     });
   }, [items, selectedBoxes]);
 
-  // Compteurs calculés sur le périmètre des boîtes sélectionnées (et non le total).
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: boxFiltered.length };
     PRIORITIES.forEach((p) => (c[p.key] = 0));
@@ -211,35 +284,42 @@ export default function Feed() {
     });
   }, [boxFiltered, filter, unreadOnly, prio]);
 
+  const boxLabel =
+    selectedBoxes.length === 0
+      ? t.feed.allBoxes
+      : selectedBoxes.length === 1
+        ? selectedBoxes[0]
+        : `${selectedBoxes.length} ${t.feed.byBox.toLowerCase()}`;
+  const typeLabel = FILTERS.find((f) => f.key === filter)?.label ?? t.feed.filterAll;
+
+  const boxOptions: SheetOption[] = [
+    { key: '__all__', label: t.feed.allBoxes, selected: selectedBoxes.length === 0 },
+    ...mailboxes.map((m) => ({
+      key: m.email.toLowerCase(),
+      label: m.email,
+      selected: selectedBoxes.includes(m.email.toLowerCase()),
+    })),
+  ];
+  const typeOptions: SheetOption[] = FILTERS.map((f) => ({
+    key: f.key,
+    label: f.label,
+    count: counts[f.key] ?? 0,
+    selected: filter === f.key,
+  }));
+
   function renderItem({ item }: { item: Item }) {
     const p = prio(item);
-    const unread = item.status === 'unread';
     return (
-      <Pressable
-        style={styles.row}
+      <EmailRow
+        subject={item.title || t.common.noSubject}
+        sender={senderName(item.author, t.common.unknownSender)}
+        prioColor={p.color}
+        prioLabel={prioLabel(t, p.key).toUpperCase()}
+        date={formatDate(item.received_at, intl)}
+        preview={item.preview ? cleanText(item.preview) : null}
+        unread={item.status === 'unread'}
         onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
-      >
-        <View style={[styles.accent, { backgroundColor: p.color, opacity: unread ? 1 : 0.4 }]} />
-        <View style={styles.rowBody}>
-          <View style={styles.rowTop}>
-            <Text style={[styles.prioLabel, { color: p.color }]}>
-              {prioLabel(t, p.key).toUpperCase()}
-            </Text>
-            <Text style={styles.date}>{formatDate(item.received_at, intl)}</Text>
-          </View>
-          <Text style={[styles.subject, unread && styles.subjectUnread]} numberOfLines={1}>
-            {item.title || t.common.noSubject}
-          </Text>
-          <Text style={styles.sender} numberOfLines={1}>
-            {senderName(item.author, t.common.unknownSender)}
-          </Text>
-          {item.preview ? (
-            <Text style={styles.preview} numberOfLines={1}>
-              {cleanText(item.preview)}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
+      />
     );
   }
 
@@ -252,137 +332,123 @@ export default function Feed() {
   }
 
   return (
-    <FlatList
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      data={visible}
-      keyExtractor={(it) => it.id}
-      renderItem={renderItem}
-      keyboardShouldPersistTaps="handled"
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
-      }
-      ListHeaderComponent={
-        <View>
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <View style={styles.headerTexts}>
-                <Text style={styles.greeting}>{t.common.hello}</Text>
-                <Text style={styles.sub}>
-                  {items.length > 0 ? t.feed.subSorted : t.feed.subEmpty}
-                </Text>
-              </View>
-              <Pressable
-                style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
-                onPress={refreshNow}
-                disabled={refreshingNow}
-              >
-                {refreshingNow ? <ActivityIndicator size="small" color={colors.terracotta} /> : null}
-                <Text style={styles.refreshBtnText}>
-                  {refreshingNow ? t.common.refreshing : t.common.refresh}
-                </Text>
-              </Pressable>
-            </View>
+    <>
+      <FilterSheet
+        visible={sheet === 'box'}
+        title={t.feed.byBox}
+        options={boxOptions}
+        doneLabel="OK"
+        onPick={(key) => (key === '__all__' ? setSelectedBoxes([]) : toggleBox(key))}
+        onClose={() => setSheet(null)}
+      />
+      <FilterSheet
+        visible={sheet === 'type'}
+        title={t.feed.byType}
+        options={typeOptions}
+        doneLabel="OK"
+        onPick={(key) => {
+          setFilter(key);
+          setSheet(null);
+        }}
+        onClose={() => setSheet(null)}
+      />
 
-            {/* Recherche */}
-            <TextInput
-              style={styles.search}
-              value={query}
-              onChangeText={setQuery}
-              placeholder={t.feed.searchPlaceholder}
-              placeholderTextColor={colors.hint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              clearButtonMode="while-editing"
-            />
-          </View>
-
-          {/* Sélecteur de boîte connectée */}
-          {mailboxes.length > 1 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chipsList}
-              contentContainerStyle={styles.chipsContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Pressable
-                style={[styles.boxChip, selectedBoxes.length === 0 && styles.boxChipActive]}
-                onPress={() => setSelectedBoxes([])}
-              >
-                <Text
-                  style={[styles.boxChipText, selectedBoxes.length === 0 && styles.boxChipTextActive]}
-                >
-                  {t.feed.allBoxes}
-                </Text>
-              </Pressable>
-              {mailboxes.map((m) => {
-                const active = selectedBoxes.includes(m.email.toLowerCase());
-                return (
-                  <Pressable
-                    key={m.email}
-                    style={[styles.boxChip, active && styles.boxChipActive]}
-                    onPress={() => toggleBox(m.email)}
-                  >
-                    <Text style={[styles.boxChipText, active && styles.boxChipTextActive]}>
-                      {active ? '✓ ' : ''}
-                      {m.email}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : null}
-
-          {/* Filtres par catégorie + non lus */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.chipsList}
-            contentContainerStyle={styles.chipsContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            {FILTERS.map((f) => {
-              const active = filter === f.key;
-              return (
+      <FlatList
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        data={visible}
+        keyExtractor={(it) => it.id}
+        renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
+        }
+        ListHeaderComponent={
+          <View>
+            <View style={styles.header}>
+              <View style={styles.headerTop}>
+                <View style={styles.headerTexts}>
+                  <Text style={styles.greeting}>{t.common.hello}</Text>
+                  <Text style={styles.sub}>
+                    {items.length > 0 ? t.feed.subSorted : t.feed.subEmpty}
+                  </Text>
+                </View>
                 <Pressable
-                  key={f.key}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => setFilter(f.key)}
+                  style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
+                  onPress={refreshNow}
+                  disabled={refreshingNow}
                 >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {f.label} {counts[f.key] ?? 0}
+                  {refreshingNow ? (
+                    <ActivityIndicator size="small" color={colors.terracotta} />
+                  ) : (
+                    <IconRefresh size={13} color={colors.terracotta} />
+                  )}
+                  <Text style={styles.refreshBtnText}>
+                    {refreshingNow ? t.common.refreshing : t.common.refresh}
                   </Text>
                 </Pressable>
-              );
-            })}
-            <Pressable
-              style={[styles.chip, unreadOnly && styles.chipActive]}
-              onPress={() => setUnreadOnly((v) => !v)}
-            >
-              <Text style={[styles.chipText, unreadOnly && styles.chipTextActive]}>
-                {t.feed.unread} {unreadCount}
-              </Text>
-            </Pressable>
-          </ScrollView>
+              </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </View>
-      }
-      ListEmptyComponent={
-        !error ? (
-          <Text style={styles.empty}>
-            {debouncedQuery
-              ? t.feed.emptySearch
-              : filter !== 'all' || unreadOnly
-                ? t.feed.emptyFilter
-                : t.feed.emptyDefault}
-          </Text>
-        ) : null
-      }
-      ItemSeparatorComponent={() => <View style={styles.sep} />}
-    />
+              <TextInput
+                style={styles.search}
+                value={query}
+                onChangeText={setQuery}
+                placeholder={t.feed.searchPlaceholder}
+                placeholderTextColor={colors.hint}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+              />
+
+              {/* Barre de filtres : boites (deroulant) - type (deroulant) - non lus */}
+              <View style={styles.filterBar}>
+                {mailboxes.length > 1 ? (
+                  <Pressable style={styles.fbtn} onPress={() => setSheet('box')}>
+                    <Text style={styles.fbtnText} numberOfLines={1}>
+                      {boxLabel}
+                    </Text>
+                    <Caret />
+                  </Pressable>
+                ) : null}
+
+                <Pressable style={styles.fbtn} onPress={() => setSheet('type')}>
+                  <Text style={styles.fbtnText} numberOfLines={1}>
+                    {typeLabel}
+                  </Text>
+                  <Caret />
+                </Pressable>
+
+                <Pressable
+                  style={[styles.fbtn, styles.fbtnToggle, unreadOnly && styles.fbtnActive]}
+                  onPress={() => setUnreadOnly((v) => !v)}
+                >
+                  <Text style={[styles.fbtnText, unreadOnly && styles.fbtnTextActive]} numberOfLines={1}>
+                    {t.feed.unread} {unreadCount}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+          </View>
+        }
+        ListEmptyComponent={
+          !error ? (
+            <View style={styles.emptyWrap}>
+              <IconCheck size={28} color={colors.sage} />
+              <Text style={styles.empty}>
+                {debouncedQuery
+                  ? t.feed.emptySearch
+                  : filter !== 'all' || unreadOnly
+                    ? t.feed.emptyFilter
+                    : t.feed.emptyDefault}
+              </Text>
+            </View>
+          ) : null
+        }
+      />
+    </>
   );
 }
 
@@ -413,49 +479,87 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.cardline,
     borderWidth: 1,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: 14,
     color: colors.ink,
   },
-  chipsList: { flexGrow: 0 },
-  chipsContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md, gap: spacing.xs },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
+
+  filterBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  fbtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+    maxWidth: '100%',
     borderWidth: 1,
     borderColor: colors.cardline,
     backgroundColor: colors.surface,
-    marginRight: spacing.xs,
-  },
-  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  chipText: { fontSize: 12, fontWeight: '600', color: colors.muted },
-  chipTextActive: { color: colors.cream },
-  boxChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.terracotta,
-    backgroundColor: colors.surface,
-    marginRight: spacing.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  boxChipActive: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
-  boxChipText: { fontSize: 12, fontWeight: '600', color: colors.terracotta },
-  boxChipTextActive: { color: colors.surface },
+  fbtnText: { fontSize: 13, fontWeight: '600', color: colors.ink, flexShrink: 1 },
+  fbtnToggle: { borderColor: colors.cardline },
+  fbtnActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  fbtnTextActive: { color: colors.cream },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(33,30,25,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
+    borderTopWidth: 3,
+    borderTopColor: colors.terracotta,
+  },
+  sheetTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardline,
+    gap: spacing.md,
+  },
+  sheetRowText: { fontSize: 15, color: colors.ink2, flexShrink: 1 },
+  sheetRowTextSel: { color: colors.terracotta, fontWeight: '700' },
+  sheetRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sheetCount: { fontSize: 13, color: colors.hint },
+  sheetDone: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.ink,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  sheetDoneText: { color: colors.cream, fontSize: 14, fontWeight: '700' },
+
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
+  emptyWrap: { alignItems: 'center', marginTop: spacing.xxl, gap: spacing.sm },
   empty: {
     textAlign: 'center',
     color: colors.hint,
     fontSize: 14,
     paddingHorizontal: spacing.xl,
-    marginTop: spacing.xl,
     lineHeight: 20,
   },
   row: { flexDirection: 'row', backgroundColor: colors.surface, paddingRight: spacing.lg, paddingVertical: spacing.md },
-  accent: { width: 3, borderRadius: 2, marginRight: spacing.md },
+  accent: { width: 3, marginRight: spacing.md },
   rowBody: { flex: 1 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   prioLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },

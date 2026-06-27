@@ -9,7 +9,7 @@
 
 const fr = {
   common: {
-    refresh: '↻ Actualiser',
+    refresh: 'Actualiser',
     refreshing: 'Actualisation…',
     hello: 'Bonjour.',
     noSubject: '(Sans objet)',
@@ -55,8 +55,10 @@ const fr = {
     subSorted: 'Vos emails récents, triés.',
     subEmpty: 'Rien à afficher pour le moment.',
     searchPlaceholder: 'Rechercher (titre ou expéditeur)…',
-    allBoxes: '✉ Toutes les boîtes',
+    allBoxes: 'Toutes les boîtes',
     filterAll: 'Tous',
+    byBox: 'Boîtes',
+    byType: 'Type',
     unread: 'Non lus',
     emptySearch: 'Aucun email ne correspond à cette recherche.',
     emptyFilter: 'Aucun email dans ce filtre.',
@@ -144,6 +146,8 @@ const fr = {
     reclassified: 'Cet email a été reclassé.',
     notAuth: 'Non authentifié.',
     summary: 'Résumé',
+    summarizeThread: 'Résumer la conversation',
+    threadSummaryTitle: 'Résumé de la conversation',
     aiSummarizing: 'L’IA résume…',
     noPreview: 'Pas d’aperçu disponible.',
     openInMail: 'Ouvrir dans la messagerie →',
@@ -179,7 +183,7 @@ export type Dict = typeof fr;
 
 const en: Dict = {
   common: {
-    refresh: '↻ Refresh',
+    refresh: 'Refresh',
     refreshing: 'Refreshing…',
     hello: 'Hello.',
     noSubject: '(No subject)',
@@ -225,8 +229,10 @@ const en: Dict = {
     subSorted: 'Your recent emails, sorted.',
     subEmpty: 'Nothing to show right now.',
     searchPlaceholder: 'Search (subject or sender)…',
-    allBoxes: '✉ All mailboxes',
+    allBoxes: 'All mailboxes',
     filterAll: 'All',
+    byBox: 'Mailboxes',
+    byType: 'Type',
     unread: 'Unread',
     emptySearch: 'No email matches this search.',
     emptyFilter: 'No email in this filter.',
@@ -314,6 +320,8 @@ const en: Dict = {
     reclassified: 'This email has been reclassified.',
     notAuth: 'Not authenticated.',
     summary: 'Summary',
+    summarizeThread: 'Summarize the conversation',
+    threadSummaryTitle: 'Conversation summary',
     aiSummarizing: 'AI is summarizing…',
     noPreview: 'No preview available.',
     openInMail: 'Open in mailbox →',
@@ -347,7 +355,7 @@ const en: Dict = {
 
 const es: Dict = {
   common: {
-    refresh: '↻ Actualizar',
+    refresh: 'Actualizar',
     refreshing: 'Actualizando…',
     hello: 'Hola.',
     noSubject: '(Sin asunto)',
@@ -393,8 +401,10 @@ const es: Dict = {
     subSorted: 'Tus correos recientes, ordenados.',
     subEmpty: 'Nada que mostrar por ahora.',
     searchPlaceholder: 'Buscar (asunto o remitente)…',
-    allBoxes: '✉ Todos los buzones',
+    allBoxes: 'Todos los buzones',
     filterAll: 'Todos',
+    byBox: 'Buzones',
+    byType: 'Tipo',
     unread: 'No leídos',
     emptySearch: 'Ningún correo coincide con esta búsqueda.',
     emptyFilter: 'Ningún correo en este filtro.',
@@ -482,6 +492,8 @@ const es: Dict = {
     reclassified: 'Este correo ha sido reclasificado.',
     notAuth: 'No autenticado.',
     summary: 'Resumen',
+    summarizeThread: 'Resumir la conversación',
+    threadSummaryTitle: 'Resumen de la conversación',
     aiSummarizing: 'La IA resume…',
     noPreview: 'No hay vista previa disponible.',
     openInMail: 'Abrir en el correo →',
@@ -515,7 +527,7 @@ const es: Dict = {
 
 const de: Dict = {
   common: {
-    refresh: '↻ Aktualisieren',
+    refresh: 'Aktualisieren',
     refreshing: 'Aktualisieren…',
     hello: 'Hallo.',
     noSubject: '(Kein Betreff)',
@@ -561,8 +573,10 @@ const de: Dict = {
     subSorted: 'Deine neuesten E-Mails, sortiert.',
     subEmpty: 'Gerade nichts anzuzeigen.',
     searchPlaceholder: 'Suchen (Betreff oder Absender)…',
-    allBoxes: '✉ Alle Postfächer',
+    allBoxes: 'Alle Postfächer',
     filterAll: 'Alle',
+    byBox: 'Postfächer',
+    byType: 'Typ',
     unread: 'Ungelesen',
     emptySearch: 'Keine E-Mail passt zu dieser Suche.',
     emptyFilter: 'Keine E-Mail in diesem Filter.',
@@ -650,6 +664,8 @@ const de: Dict = {
     reclassified: 'Diese E-Mail wurde neu eingeordnet.',
     notAuth: 'Nicht authentifiziert.',
     summary: 'Zusammenfassung',
+    summarizeThread: 'Unterhaltung zusammenfassen',
+    threadSummaryTitle: 'Zusammenfassung der Unterhaltung',
     aiSummarizing: 'Die KI fasst zusammen…',
     noPreview: 'Keine Vorschau verfügbar.',
     openInMail: 'Im Postfach öffnen →',
@@ -683,7 +699,7 @@ const de: Dict = {
 
 const pt: Dict = {
   common: {
-    refresh: '↻ Atualizar',
+    refresh: 'Atualizar',
     refreshing: 'A atualizar…',
     hello: 'Olá.',
     noSubject: '(Sem assunto)',
@@ -729,8 +745,10 @@ const pt: Dict = {
     subSorted: 'Os seus emails recentes, organizados.',
     subEmpty: 'Nada a mostrar de momento.',
     searchPlaceholder: 'Pesquisar (assunto ou remetente)…',
-    allBoxes: '✉ Todas as caixas',
+    allBoxes: 'Todas as caixas',
     filterAll: 'Todos',
+    byBox: 'Caixas',
+    byType: 'Tipo',
     unread: 'Não lidos',
     emptySearch: 'Nenhum email corresponde a esta pesquisa.',
     emptyFilter: 'Nenhum email neste filtro.',
@@ -818,6 +836,8 @@ const pt: Dict = {
     reclassified: 'Este email foi reclassificado.',
     notAuth: 'Não autenticado.',
     summary: 'Resumo',
+    summarizeThread: 'Resumir a conversa',
+    threadSummaryTitle: 'Resumo da conversa',
     aiSummarizing: 'A IA está a resumir…',
     noPreview: 'Sem pré-visualização disponível.',
     openInMail: 'Abrir no email →',
@@ -851,7 +871,7 @@ const pt: Dict = {
 
 const it: Dict = {
   common: {
-    refresh: '↻ Aggiorna',
+    refresh: 'Aggiorna',
     refreshing: 'Aggiornamento…',
     hello: 'Ciao.',
     noSubject: '(Senza oggetto)',
@@ -897,8 +917,10 @@ const it: Dict = {
     subSorted: 'Le tue email recenti, ordinate.',
     subEmpty: 'Niente da mostrare al momento.',
     searchPlaceholder: 'Cerca (oggetto o mittente)…',
-    allBoxes: '✉ Tutte le caselle',
+    allBoxes: 'Tutte le caselle',
     filterAll: 'Tutte',
+    byBox: 'Caselle',
+    byType: 'Tipo',
     unread: 'Non lette',
     emptySearch: 'Nessuna email corrisponde a questa ricerca.',
     emptyFilter: 'Nessuna email in questo filtro.',
@@ -986,6 +1008,8 @@ const it: Dict = {
     reclassified: 'Questa email è stata riclassificata.',
     notAuth: 'Non autenticato.',
     summary: 'Riepilogo',
+    summarizeThread: 'Riassumi la conversazione',
+    threadSummaryTitle: 'Riepilogo della conversazione',
     aiSummarizing: 'L’IA riassume…',
     noPreview: 'Nessuna anteprima disponibile.',
     openInMail: 'Apri nella posta →',
@@ -1019,7 +1043,7 @@ const it: Dict = {
 
 const ar: Dict = {
   common: {
-    refresh: '↻ تحديث',
+    refresh: 'تحديث',
     refreshing: 'جارٍ التحديث…',
     hello: 'مرحبًا.',
     noSubject: '(بدون موضوع)',
@@ -1065,8 +1089,10 @@ const ar: Dict = {
     subSorted: 'رسائلك الأخيرة، مُرتَّبة.',
     subEmpty: 'لا شيء لعرضه الآن.',
     searchPlaceholder: 'بحث (الموضوع أو المُرسِل)…',
-    allBoxes: '✉ كل الصناديق',
+    allBoxes: 'كل الصناديق',
     filterAll: 'الكل',
+    byBox: 'الصناديق',
+    byType: 'النوع',
     unread: 'غير المقروءة',
     emptySearch: 'لا توجد رسالة تطابق هذا البحث.',
     emptyFilter: 'لا توجد رسالة في هذا الفلتر.',
@@ -1154,6 +1180,8 @@ const ar: Dict = {
     reclassified: 'تمت إعادة تصنيف هذه الرسالة.',
     notAuth: 'غير مُصادَق عليه.',
     summary: 'ملخص',
+    summarizeThread: 'تلخيص المحادثة',
+    threadSummaryTitle: 'ملخص المحادثة',
     aiSummarizing: 'الذكاء الاصطناعي يلخّص…',
     noPreview: 'لا تتوفر معاينة.',
     openInMail: '← فتح في البريد',
