@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "veille-email-mobile",
+    "name": "Vmail",
     "slug": "veille-email-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,11 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "fr.veilleemail.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Autorisez l'accès à vos photos pour les joindre à vos réponses.",
+        "NSCameraUsageDescription": "Autorisez l'accès à l'appareil photo pour joindre une photo à vos réponses."
+      }
     },
     "android": {
       "package": "fr.veilleemail.app",
@@ -27,6 +31,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autorisez l'accès à vos photos pour les joindre à vos réponses.",
+          "cameraPermission": "Autorisez l'accès à l'appareil photo pour joindre une photo à vos réponses."
+        }
+      ],
       [
         "expo-localization",
         {

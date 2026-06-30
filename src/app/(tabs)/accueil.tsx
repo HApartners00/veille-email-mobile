@@ -16,7 +16,7 @@ import { apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
-import { IconRefresh } from '@/components/icons';
+import { IconPaperclip, IconRefresh } from '@/components/icons';
 import { LogoV } from '@/components/logo-v';
 import { EmailRow } from '@/components/email-row';
 import { setPendingFeedFilter } from '@/lib/feed-filter';
@@ -155,20 +155,29 @@ export default function Accueil() {
             <Text style={styles.greeting}>{t.common.hello}</Text>
           </View>
         </View>
-        <Pressable
-          style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
-          onPress={refreshNow}
-          disabled={refreshingNow}
-        >
-          {refreshingNow ? (
-            <ActivityIndicator size="small" color={colors.terracotta} />
-          ) : (
-            <IconRefresh size={13} color={colors.terracotta} />
-          )}
-          <Text style={styles.refreshBtnText}>
-            {refreshingNow ? t.common.refreshing : t.common.refresh}
-          </Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.iconBtn}
+            onPress={() => router.push('/attachments')}
+            accessibilityLabel="Pièces jointes"
+          >
+            <IconPaperclip size={16} color={colors.terracotta} />
+          </Pressable>
+          <Pressable
+            style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
+            onPress={refreshNow}
+            disabled={refreshingNow}
+          >
+            {refreshingNow ? (
+              <ActivityIndicator size="small" color={colors.terracotta} />
+            ) : (
+              <IconRefresh size={13} color={colors.terracotta} />
+            )}
+            <Text style={styles.refreshBtnText}>
+              {refreshingNow ? t.common.refreshing : t.common.refresh}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <Text style={styles.sub}>
@@ -246,6 +255,16 @@ const styles = StyleSheet.create({
   headerTexts: { flex: 1 },
   date: { fontSize: 12, color: colors.muted, textTransform: 'capitalize' },
   greeting: { fontSize: 30, fontWeight: '700', color: colors.ink, marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -255,7 +274,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    marginTop: spacing.xs,
   },
   refreshBtnBusy: { opacity: 0.6 },
   refreshBtnText: { color: colors.terracotta, fontSize: 12, fontWeight: '600' },

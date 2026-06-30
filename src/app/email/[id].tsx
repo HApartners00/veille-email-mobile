@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -12,10 +14,14 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sharing from 'expo-sharing';
 
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
-import { apiPost } from '@/lib/api';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+
+import { apiDelete, apiDownloadToFile, apiGet, apiPost, apiUpload } from '@/lib/api';
 import {
   effectivePriority,
   PRIORITIES,
@@ -26,7 +32,7 @@ import {
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, radius, spacing } from '@/lib/theme';
-import { IconClose, IconSparkle } from '@/components/icons';
+import { IconClose, IconPlus, IconSparkle } from '@/components/icons';
 
 type Item = {
   id: string;
@@ -99,6 +105,103 @@ const PERSO_STR: Record<string, { adapted: string; notice: string }> = {
   },
 };
 
+// i18n locale pour les pièces jointes (clés non ajoutées au dictionnaire global).
+const ATT_STR: Record<
+  string,
+  {
+    label: string;
+    add: string;
+    sending: string;
+    choose: string;
+    files: string;
+    photos: string;
+    camera: string;
+    cancel: string;
+  }
+> = {
+  fr: {
+    label: 'Pièces jointes',
+    add: 'Joindre un fichier',
+    sending: 'Envoi…',
+    choose: 'Ajouter une pièce jointe',
+    files: 'Fichiers',
+    photos: 'Photothèque',
+    camera: 'Appareil photo',
+    cancel: 'Annuler',
+  },
+  en: {
+    label: 'Attachments',
+    add: 'Attach a file',
+    sending: 'Uploading…',
+    choose: 'Add an attachment',
+    files: 'Files',
+    photos: 'Photo library',
+    camera: 'Camera',
+    cancel: 'Cancel',
+  },
+  es: {
+    label: 'Archivos adjuntos',
+    add: 'Adjuntar un archivo',
+    sending: 'Subiendo…',
+    choose: 'Añadir un adjunto',
+    files: 'Archivos',
+    photos: 'Fototeca',
+    camera: 'Cámara',
+    cancel: 'Cancelar',
+  },
+  de: {
+    label: 'Anhänge',
+    add: 'Datei anhängen',
+    sending: 'Wird geladen…',
+    choose: 'Anhang hinzufügen',
+    files: 'Dateien',
+    photos: 'Fotomediathek',
+    camera: 'Kamera',
+    cancel: 'Abbrechen',
+  },
+  pt: {
+    label: 'Anexos',
+    add: 'Anexar um ficheiro',
+    sending: 'A enviar…',
+    choose: 'Adicionar um anexo',
+    files: 'Ficheiros',
+    photos: 'Fototeca',
+    camera: 'Câmara',
+    cancel: 'Cancelar',
+  },
+  it: {
+    label: 'Allegati',
+    add: 'Allega un file',
+    sending: 'Caricamento…',
+    choose: 'Aggiungi un allegato',
+    files: 'File',
+    photos: 'Libreria foto',
+    camera: 'Fotocamera',
+    cancel: 'Annulla',
+  },
+  ar: {
+    label: 'المرفقات',
+    add: 'إرفاق ملف',
+    sending: '…جارٍ الرفع',
+    choose: 'إضافة مرفق',
+    files: 'الملفات',
+    photos: 'مكتبة الصور',
+    camera: 'الكاميرا',
+    cancel: 'إلغاء',
+  },
+};
+
+// PJ reçues (téléchargement / partage).
+const RECV_STR: Record<string, { download: string; share: string; failed: string }> = {
+  fr: { download: 'Télécharger', share: 'Partager / Enregistrer', failed: 'Téléchargement impossible.' },
+  en: { download: 'Download', share: 'Share / Save', failed: 'Download failed.' },
+  es: { download: 'Descargar', share: 'Compartir / Guardar', failed: 'Descarga fallida.' },
+  de: { download: 'Herunterladen', share: 'Teilen / Speichern', failed: 'Download fehlgeschlagen.' },
+  pt: { download: 'Baixar', share: 'Partilhar / Guardar', failed: 'Falha no download.' },
+  it: { download: 'Scarica', share: 'Condividi / Salva', failed: 'Download non riuscito.' },
+  ar: { download: 'تنزيل', share: 'مشاركة / حفظ', failed: 'فشل التنزيل.' },
+};
+
 export default function EmailDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -136,6 +239,20 @@ export default function EmailDetail() {
   const [personalized, setPersonalized] = useState(false);
   const [notice, setNotice] = useState(false);
   const persoStr = PERSO_STR[locale] ?? PERSO_STR.en;
+  const attStr = ATT_STR[locale] ?? ATT_STR.en;
+
+  // Pièces jointes du brouillon de réponse
+  const [atts, setAtts] = useState<{ id: string; filename: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [attMenu, setAttMenu] = useState(false);
+
+  // Pièces jointes REÇUES de l'email (téléchargeables)
+  const recvStr = RECV_STR[locale] ?? RECV_STR.en;
+  type RecvAtt = { id: string; filename: string; mime_type: string | null; size_bytes: number | null; attachment_id: string | null };
+  const [recvAtts, setRecvAtts] = useState<RecvAtt[]>([]);
+  const [dlRecvId, setDlRecvId] = useState<string | null>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewMime, setPreviewMime] = useState<string | null>(null);
 
   // Envoi direct (avec confirmation)
   const [showConfirm, setShowConfirm] = useState(false);
@@ -204,6 +321,157 @@ export default function EmailDetail() {
       setMsg({ type: 'err', text: e?.message || t.email.genFail });
     } finally {
       setGenLoading(false);
+    }
+  }
+
+  // Charge les PJ déjà attachées à ce brouillon.
+  useEffect(() => {
+    apiGet<{ attachments: { id: string; filename: string }[] }>(
+      `/api/reply-attachments?item_id=${encodeURIComponent(String(id))}`,
+    )
+      .then((j) =>
+        setAtts((j.attachments || []).map((a) => ({ id: a.id, filename: a.filename }))),
+      )
+      .catch(() => {});
+  }, [id]);
+
+  // Charge les PJ REÇUES de l'email.
+  useEffect(() => {
+    apiGet<{ attachments: RecvAtt[] }>(`/api/email-attachments?id=${encodeURIComponent(String(id))}`)
+      .then((j) => setRecvAtts((j.attachments || []).filter((a) => a.attachment_id)))
+      .catch(() => {});
+  }, [id]);
+
+  function isImageAtt(a: RecvAtt): boolean {
+    const m = (a.mime_type || '').toLowerCase();
+    return m.startsWith('image/') || /\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(a.filename || '');
+  }
+
+  async function fetchRecv(a: RecvAtt): Promise<string | null> {
+    try {
+      return await apiDownloadToFile(
+        `/api/attachments/download?id=${encodeURIComponent(a.id)}`,
+        a.filename,
+      );
+    } catch {
+      Alert.alert(recvStr.failed);
+      return null;
+    }
+  }
+
+  // Tap sur le nom : aperçu (image dans l'app) sinon feuille de partage.
+  async function openRecv(a: RecvAtt) {
+    if (dlRecvId) return;
+    setDlRecvId(a.id);
+    const uri = await fetchRecv(a);
+    if (uri) {
+      if (isImageAtt(a)) {
+        setPreviewMime(a.mime_type);
+        setPreviewUri(uri);
+      } else if (await Sharing.isAvailableAsync())
+        await Sharing.shareAsync(uri, { mimeType: a.mime_type || undefined });
+    }
+    setDlRecvId(null);
+  }
+
+  async function sharePreview() {
+    if (!previewUri) return;
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(previewUri, { mimeType: previewMime || undefined });
+    }
+  }
+
+  // Bouton Télécharger : feuille de partage (enregistrer / ouvrir ailleurs).
+  async function shareRecv(a: RecvAtt) {
+    if (dlRecvId) return;
+    setDlRecvId(a.id);
+    const uri = await fetchRecv(a);
+    if (uri && (await Sharing.isAvailableAsync())) {
+      await Sharing.shareAsync(uri, { mimeType: a.mime_type || undefined });
+    }
+    setDlRecvId(null);
+  }
+
+  // Upload d'un fichier (objet RN FormData { uri, name, type }).
+  async function uploadAsset(uri: string, name: string, type: string) {
+    const form = new FormData();
+    form.append('item_id', String(id));
+    form.append('file', { uri, name, type } as unknown as Blob);
+    try {
+      const j = await apiUpload<{ attachment: { id: string; filename: string } }>(
+        '/api/reply-attachments',
+        form,
+      );
+      if (j?.attachment) {
+        setAtts((p) => [...p, { id: j.attachment.id, filename: j.attachment.filename }]);
+      }
+    } catch {
+      // ignore ce fichier
+    }
+  }
+
+  // Source 1 — Fichiers (iCloud Drive, Téléchargements, etc.).
+  async function pickFromFiles() {
+    setAttMenu(false);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+      if (res.canceled || !res.assets?.length) return;
+      setUploading(true);
+      for (const a of res.assets) {
+        await uploadAsset(a.uri, a.name || 'fichier', a.mimeType || 'application/octet-stream');
+      }
+      setUploading(false);
+    } catch {
+      setUploading(false);
+    }
+  }
+
+  // Source 2 — Photothèque (photos/vidéos de l'appareil).
+  async function pickFromPhotos() {
+    setAttMenu(false);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) return;
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.9,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      setUploading(true);
+      for (const a of res.assets) {
+        const name = a.fileName || a.uri.split('/').pop() || 'image.jpg';
+        await uploadAsset(a.uri, name, a.mimeType || 'image/jpeg');
+      }
+      setUploading(false);
+    } catch {
+      setUploading(false);
+    }
+  }
+
+  // Source 3 — Appareil photo.
+  async function pickFromCamera() {
+    setAttMenu(false);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return;
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.9 });
+      if (res.canceled || !res.assets?.length) return;
+      setUploading(true);
+      const a = res.assets[0];
+      await uploadAsset(a.uri, a.fileName || 'photo.jpg', a.mimeType || 'image/jpeg');
+      setUploading(false);
+    } catch {
+      setUploading(false);
+    }
+  }
+
+  async function removeAtt(attId: string) {
+    setAtts((p) => p.filter((a) => a.id !== attId));
+    try {
+      await apiDelete(`/api/reply-attachments?id=${encodeURIComponent(attId)}`);
+    } catch {
+      // ignore
     }
   }
 
@@ -513,6 +781,35 @@ export default function EmailDetail() {
             </Pressable>
           ) : null}
 
+          {/* Pièces jointes reçues */}
+          {recvAtts.length > 0 ? (
+            <View style={styles.recvBox}>
+              <Text style={styles.recvTitle}>
+                {attStr.label} ({recvAtts.length})
+              </Text>
+              {recvAtts.map((a) => (
+                <View key={a.id} style={styles.recvRow}>
+                  <Pressable
+                    style={styles.recvNameWrap}
+                    onPress={() => openRecv(a)}
+                    disabled={dlRecvId === a.id}
+                  >
+                    <Text style={styles.recvName} numberOfLines={1}>
+                      {a.filename}
+                    </Text>
+                  </Pressable>
+                  {dlRecvId === a.id ? (
+                    <ActivityIndicator size="small" color={colors.terracotta} />
+                  ) : (
+                    <Pressable onPress={() => shareRecv(a)} hitSlop={8}>
+                      <Text style={styles.recvDl}>{recvStr.download}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           {/* Brouillon IA */}
           <View style={styles.draftSection}>
             <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
@@ -557,6 +854,31 @@ export default function EmailDetail() {
                     </Pressable>
                   </View>
                 ) : null}
+
+                {/* Pièces jointes */}
+                <Text style={styles.refineLabel}>{attStr.label}</Text>
+                {atts.map((a) => (
+                  <View key={a.id} style={styles.attRow}>
+                    <Text style={styles.attName} numberOfLines={1}>
+                      {a.filename}
+                    </Text>
+                    <Pressable onPress={() => removeAtt(a.id)} hitSlop={8}>
+                      <IconClose size={15} color={colors.hint} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={[styles.attAddBtn, uploading && styles.btnDisabled]}
+                  onPress={() => setAttMenu(true)}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color={colors.muted} />
+                  ) : (
+                    <IconPlus size={14} color={colors.ink} />
+                  )}
+                  <Text style={styles.attAddText}>{uploading ? attStr.sending : attStr.add}</Text>
+                </Pressable>
 
                 {/* Reformulations rapides */}
                 <Text style={styles.refineLabel}>{t.email.adjust}</Text>
@@ -614,6 +936,54 @@ export default function EmailDetail() {
               <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
             ) : null}
           </View>
+
+          {/* Aperçu plein écran d'une PJ image */}
+          <Modal
+            visible={!!previewUri}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPreviewUri(null)}
+          >
+            <View style={styles.previewOverlay}>
+              <Pressable style={styles.previewClose} onPress={() => setPreviewUri(null)} hitSlop={12}>
+                <IconClose size={26} color={colors.onDark} />
+              </Pressable>
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.previewImg} resizeMode="contain" />
+              ) : null}
+              <View style={styles.previewBar}>
+                <Pressable style={styles.previewAction} onPress={sharePreview}>
+                  <Text style={styles.previewActionText}>{recvStr.share}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Menu : source de la pièce jointe */}
+          <Modal
+            visible={attMenu}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setAttMenu(false)}
+          >
+            <Pressable style={styles.sheetOverlay} onPress={() => setAttMenu(false)}>
+              <View style={styles.sheet}>
+                <Text style={styles.sheetTitle}>{attStr.choose}</Text>
+                <Pressable style={styles.sheetItem} onPress={pickFromPhotos}>
+                  <Text style={styles.sheetItemText}>{attStr.photos}</Text>
+                </Pressable>
+                <Pressable style={styles.sheetItem} onPress={pickFromCamera}>
+                  <Text style={styles.sheetItemText}>{attStr.camera}</Text>
+                </Pressable>
+                <Pressable style={styles.sheetItem} onPress={pickFromFiles}>
+                  <Text style={styles.sheetItemText}>{attStr.files}</Text>
+                </Pressable>
+                <Pressable style={styles.sheetCancel} onPress={() => setAttMenu(false)}>
+                  <Text style={styles.sheetCancelText}>{attStr.cancel}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Modal>
 
           {/* Écran de confirmation d'envoi */}
           <Modal
@@ -797,6 +1167,100 @@ const styles = StyleSheet.create({
   noticeText: { flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
   noticeClose: { fontSize: 13, color: colors.hint },
   refineLabel: { fontSize: 12, color: colors.muted },
+  attRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  attName: { flex: 1, fontSize: 13, color: colors.ink2 },
+  attAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  attAddText: { fontSize: 13, color: colors.ink, fontWeight: '600' },
+  recvBox: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.surface,
+    borderColor: colors.cardline,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  recvTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  recvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardline,
+  },
+  recvNameWrap: { flex: 1, paddingRight: spacing.sm },
+  recvName: { fontSize: 14, color: colors.ink },
+  recvDl: { fontSize: 13, color: colors.terracotta, fontWeight: '600' },
+  previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
+  previewClose: { position: 'absolute', top: 52, right: 20, zIndex: 2, padding: 8 },
+  previewImg: { width: '100%', height: '100%' },
+  previewBar: { position: 'absolute', bottom: 44, left: 0, right: 0, alignItems: 'center' },
+  previewAction: {
+    backgroundColor: colors.terracotta,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 12,
+  },
+  previewActionText: { color: colors.onDark, fontWeight: '700', fontSize: 15 },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20,18,15,0.45)',
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+  },
+  sheet: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    gap: 2,
+  },
+  sheetTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.muted,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
+  sheetItem: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.cardline,
+  },
+  sheetItemText: { fontSize: 16, color: colors.terracotta, fontWeight: '600' },
+  sheetCancel: { paddingVertical: 14, alignItems: 'center', marginTop: spacing.xs },
+  sheetCancelText: { fontSize: 16, color: colors.ink2, fontWeight: '700' },
   refineChip: {
     paddingHorizontal: 12,
     paddingVertical: 7,

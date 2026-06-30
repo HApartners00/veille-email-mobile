@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import { colors, fonts } from '@/lib/theme';
 
-/** Marque : tuile charbon carree + "V" serif orange (identite Veille Email). */
+/** Marque : tuile charbon carree + "V" serif orange (identite Vmail). */
 export function LogoV({ size = 32 }: { size?: number }) {
   return (
     <View

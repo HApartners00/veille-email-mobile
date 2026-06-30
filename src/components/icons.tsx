@@ -205,3 +205,18 @@ export function IconRefresh({ size = 16, color = DEF, strokeWidth = 2 }: IconPro
     </Svg>
   );
 }
+
+/** Trombone - pieces jointes. */
+export function IconPaperclip({ size = 18, color = DEF, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1L13.9 4.4a3.3 3.3 0 0 1 4.7 4.7L9.9 17.8a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

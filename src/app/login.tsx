@@ -86,8 +86,8 @@ export default function Login() {
           <View style={styles.container}>
             <View style={styles.brandWrap}>
               <Text style={styles.brand}>
-                <Text style={styles.brandVeille}>Veille</Text>
-                <Text style={styles.brandEmail}> Email</Text>
+                <Text style={styles.brandVeille}>V</Text>
+                <Text style={styles.brandEmail}>mail</Text>
               </Text>
               <Text style={styles.tagline}>{t.login.tagline}</Text>
             </View>
