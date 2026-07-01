@@ -11,7 +11,7 @@ import { messages, type Dict } from './messages';
 export { messages };
 export type { Dict };
 
-export const locales = ['fr', 'en', 'es', 'de', 'pt', 'it', 'ar'] as const;
+export const locales = ['fr', 'en', 'es', 'de', 'pt', 'it', 'ar', 'ru'] as const;
 export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = 'en';
@@ -25,6 +25,7 @@ export const localeNames: Record<Locale, string> = {
   pt: 'Português',
   it: 'Italiano',
   ar: 'العربية',
+  ru: 'Русский',
 };
 
 /** Codes BCP-47 pour Intl/toLocaleDateString. */
@@ -36,6 +37,7 @@ export const bcp47: Record<Locale, string> = {
   pt: 'pt-PT',
   it: 'it-IT',
   ar: 'ar',
+  ru: 'ru-RU',
 };
 
 export function isLocale(value: unknown): value is Locale {
