@@ -58,8 +58,14 @@ export default function Sources() {
     setError(null);
     try {
       const { url } = await apiPost<{ url: string }>('/api/connect/start', { provider });
-      await WebBrowser.openBrowserAsync(url);
-      // au retour, useFocusEffect rechargera la liste
+      // Session d'auth (et non simple navigateur) : la feuille se ferme toute
+      // seule si la page de succès redirige vers veilleemailmobile://connected,
+      // et l'utilisateur revient DANS l'app au lieu d'être abandonné dans le
+      // navigateur. À défaut de redirection, il ferme la feuille → retour app.
+      await WebBrowser.openAuthSessionAsync(url, 'veilleemailmobile://connected');
+      // Au retour, recharge immédiate (le useFocusEffect couvre les autres cas).
+      setLoadingList(true);
+      loadMailboxes();
     } catch (e: any) {
       setError(e?.message || t.sources.connectErr);
     } finally {

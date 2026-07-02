@@ -67,11 +67,58 @@ function htmlToText(input: string): string {
   t = t.replace(/<!--[\s\S]*?-->/g, ''); // commentaires (MSO, etc.)
   t = t.replace(/<head[\s\S]*?<\/head>/gi, '');
   t = t.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '');
+  // Conserver les liens : <a href="URL">texte</a> → « texte (URL) » (avant de
+  // supprimer les balises, sinon les URLs sont perdues et rien n'est cliquable).
+  t = t.replace(
+    /<a\b[^>]*href=(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, h1: string, h2: string, inner: string) => {
+      const href = (h1 || h2 || '').trim();
+      const label = inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!href || href.startsWith('mailto:') || !/^https?:\/\//i.test(href)) return label;
+      if (!label || label === href) return href;
+      return `${label} (${href})`;
+    },
+  );
   t = t.replace(/<\/(p|div|tr|h[1-6]|li|ul|ol|table)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
   t = t.replace(/<[^>]+>/g, ' ');
   t = decodeEntities(t); // 2e passe (double encodage éventuel)
   return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
+
+// Texte avec URLs cliquables (le corps de l'email peut contenir des liens).
+const URL_RE = /(https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;
+function LinkifiedText({ text, style }: { text: string; style?: any }) {
+  const parts = String(text).split(URL_RE);
+  return (
+    <Text style={style}>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <Text
+            key={i}
+            style={{ color: colors.terracotta, textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL(part).catch(() => {})}
+          >
+            {part}
+          </Text>
+        ) : (
+          <Text key={i}>{part}</Text>
+        ),
+      )}
+    </Text>
+  );
+}
+
+// Libellé de la section « Message » (corps de l'email) — dict local 8 langues.
+const BODY_STR: Record<string, string> = {
+  fr: 'Message',
+  en: 'Message',
+  es: 'Mensaje',
+  de: 'Nachricht',
+  pt: 'Mensagem',
+  it: 'Messaggio',
+  ar: 'الرسالة',
+  ru: 'Сообщение',
+};
 
 // Libellés de personnalisation (autonomes, repli anglais) — évite de modifier le gros dictionnaire.
 const PERSO_STR: Record<string, { adapted: string; notice: string }> = {
@@ -800,16 +847,30 @@ export default function EmailDetail() {
             {reError ? <Text style={styles.reErr}>{reError}</Text> : null}
           </View>
 
-          <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>{t.email.summary}</Text>
-          {summaryLoading ? (
-            <View style={styles.genLoading}>
-              <ActivityIndicator color={colors.terracotta} />
-              <Text style={styles.genLoadingText}>{t.email.aiSummarizing}</Text>
-            </View>
-          ) : (
-            <Text style={styles.content}>{summary || body || t.email.noPreview}</Text>
-          )}
+          {summaryLoading || summary || !body ? (
+            <>
+              <View style={styles.divider} />
+              <Text style={styles.sectionLabel}>{t.email.summary}</Text>
+              {summaryLoading ? (
+                <View style={styles.genLoading}>
+                  <ActivityIndicator color={colors.terracotta} />
+                  <Text style={styles.genLoadingText}>{t.email.aiSummarizing}</Text>
+                </View>
+              ) : (
+                <Text style={styles.content}>{summary || (!body ? t.email.noPreview : '')}</Text>
+              )}
+            </>
+          ) : null}
+
+          {/* Corps de l'email — affiché EN PLUS du résumé (avant, le message
+              lui-même n'était jamais visible dès qu'un résumé existait). */}
+          {body ? (
+            <>
+              <View style={styles.divider} />
+              <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
+              <LinkifiedText text={body} style={styles.content} />
+            </>
+          ) : null}
 
           <Pressable
             style={[styles.linkBtn, tsLoading && styles.btnDisabled]}

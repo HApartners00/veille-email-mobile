@@ -1,8 +1,10 @@
 import { Redirect, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 
 import { IconFeed, IconFlag, IconHome, IconMail, IconSliders } from '@/components/icons';
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
+import { attachNotificationHandlers, registerForPushNotifications } from '@/lib/push';
 import { colors } from '@/lib/theme';
 
 // L'app s'ouvre sur l'onglet Accueil (recap du jour).
@@ -13,6 +15,13 @@ export const unstable_settings = {
 export default function TabsLayout() {
   const { session, loading } = useAuth();
   const { t } = useI18n();
+
+  // Push : enregistre le jeton une fois connecté + gère le tap (→ détail email).
+  useEffect(() => {
+    if (!session) return;
+    void registerForPushNotifications();
+    return attachNotificationHandlers();
+  }, [session]);
 
   if (!loading && !session) {
     return <Redirect href="/login" />;

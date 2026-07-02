@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+
+import { secureSessionStorage } from './secure-session-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
@@ -14,12 +15,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * Client Supabase pour React Native.
- * - Session persistée via AsyncStorage (reste connecté entre les ouvertures).
+ * - Session persistée dans le trousseau natif (expo-secure-store, chiffré) —
+ *   plus jamais de jetons en clair dans AsyncStorage. Migration douce incluse.
  * - detectSessionInUrl désactivé (pas de navigateur sur mobile).
  */
 export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
   auth: {
-    storage: AsyncStorage,
+    storage: secureSessionStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

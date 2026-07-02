@@ -551,7 +551,7 @@ export default function Feed() {
               {loadingMore ? (
                 <ActivityIndicator size="small" color={colors.terracotta} />
               ) : (
-                <Text style={styles.loadMoreText}>{t.common.loadMore}</Text>
+                <Text style={styles.loadMoreText}>{loadMoreLabel(locale)}</Text>
               )}
             </Pressable>
           ) : null
