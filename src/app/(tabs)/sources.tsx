@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.line,
   },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: spacing.md },
+  dot: { width: 10, height: 10, borderRadius: 5, marginEnd: spacing.md },
   dotGmail: { backgroundColor: '#ea4335' },
   dotOutlook: { backgroundColor: '#0f6cbd' },
   mbInfo: { flex: 1 },

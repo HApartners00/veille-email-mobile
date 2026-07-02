@@ -44,6 +44,7 @@ const fr = {
   },
   home: {
     boxUpToDate: 'Boîte à jour — rien à traiter pour le moment.',
+    attachmentsLabel: 'Pièces jointes',
     todayOne: '{n} email aujourd’hui.',
     todayMany: '{n} emails aujourd’hui.',
     recentFallback: 'Pas de nouveau aujourd’hui — voici vos {n} plus récents.',
@@ -218,6 +219,7 @@ const en: Dict = {
   },
   home: {
     boxUpToDate: 'Inbox clear — nothing to handle right now.',
+    attachmentsLabel: 'Attachments',
     todayOne: '{n} email today.',
     todayMany: '{n} emails today.',
     recentFallback: 'Nothing new today — here are your {n} most recent.',
@@ -390,6 +392,7 @@ const es: Dict = {
   },
   home: {
     boxUpToDate: 'Bandeja al día — nada que gestionar por ahora.',
+    attachmentsLabel: 'Adjuntos',
     todayOne: '{n} correo hoy.',
     todayMany: '{n} correos hoy.',
     recentFallback: 'Nada nuevo hoy — estos son tus {n} más recientes.',
@@ -562,6 +565,7 @@ const de: Dict = {
   },
   home: {
     boxUpToDate: 'Postfach aktuell — gerade nichts zu erledigen.',
+    attachmentsLabel: 'Anhänge',
     todayOne: '{n} E-Mail heute.',
     todayMany: '{n} E-Mails heute.',
     recentFallback: 'Heute nichts Neues — hier deine {n} neuesten.',
@@ -734,6 +738,7 @@ const pt: Dict = {
   },
   home: {
     boxUpToDate: 'Caixa em dia — nada a tratar de momento.',
+    attachmentsLabel: 'Anexos',
     todayOne: '{n} email hoje.',
     todayMany: '{n} emails hoje.',
     recentFallback: 'Nada de novo hoje — aqui estão os seus {n} mais recentes.',
@@ -906,6 +911,7 @@ const it: Dict = {
   },
   home: {
     boxUpToDate: 'Casella in ordine — niente da gestire al momento.',
+    attachmentsLabel: 'Allegati',
     todayOne: '{n} email oggi.',
     todayMany: '{n} email oggi.',
     recentFallback: 'Niente di nuovo oggi — ecco le tue {n} più recenti.',
@@ -1078,6 +1084,7 @@ const ar: Dict = {
   },
   home: {
     boxUpToDate: 'البريد محدَّث — لا شيء للمعالجة الآن.',
+    attachmentsLabel: 'المرفقات',
     todayOne: '{n} رسالة اليوم.',
     todayMany: '{n} رسالة اليوم.',
     recentFallback: 'لا جديد اليوم — إليك أحدث {n} رسائل.',
@@ -1250,6 +1257,7 @@ const ru: Dict = {
   },
   home: {
     boxUpToDate: 'Почта в порядке — сейчас обрабатывать нечего.',
+    attachmentsLabel: 'Вложения',
     todayOne: '{n} письмо сегодня.',
     todayMany: '{n} писем сегодня.',
     recentFallback: 'Сегодня ничего нового — вот ваши {n} последних.',

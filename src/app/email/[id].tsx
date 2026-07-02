@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -103,6 +103,10 @@ const PERSO_STR: Record<string, { adapted: string; notice: string }> = {
     adapted: 'مُكيَّف حسب أسلوبك',
     notice: 'تتكيّف الأداة مع طريقتك في الكتابة — يمكن ضبطها في الإعدادات.',
   },
+  ru: {
+    adapted: 'Адаптировано под ваш стиль',
+    notice: 'Инструмент подстраивается под вашу манеру письма — настраивается в Настройках.',
+  },
 };
 
 // i18n locale pour les pièces jointes (clés non ajoutées au dictionnaire global).
@@ -117,6 +121,7 @@ const ATT_STR: Record<
     photos: string;
     camera: string;
     cancel: string;
+    permDenied: string;
   }
 > = {
   fr: {
@@ -128,6 +133,7 @@ const ATT_STR: Record<
     photos: 'Photothèque',
     camera: 'Appareil photo',
     cancel: 'Annuler',
+    permDenied: 'Accès refusé. Autorisez l’accès dans les réglages de votre appareil.',
   },
   en: {
     label: 'Attachments',
@@ -138,6 +144,7 @@ const ATT_STR: Record<
     photos: 'Photo library',
     camera: 'Camera',
     cancel: 'Cancel',
+    permDenied: 'Access denied. Enable access in your device settings.',
   },
   es: {
     label: 'Archivos adjuntos',
@@ -148,6 +155,7 @@ const ATT_STR: Record<
     photos: 'Fototeca',
     camera: 'Cámara',
     cancel: 'Cancelar',
+    permDenied: 'Acceso denegado. Activa el acceso en los ajustes de tu dispositivo.',
   },
   de: {
     label: 'Anhänge',
@@ -158,6 +166,7 @@ const ATT_STR: Record<
     photos: 'Fotomediathek',
     camera: 'Kamera',
     cancel: 'Abbrechen',
+    permDenied: 'Zugriff verweigert. Erlaube den Zugriff in den Geräteeinstellungen.',
   },
   pt: {
     label: 'Anexos',
@@ -168,6 +177,7 @@ const ATT_STR: Record<
     photos: 'Fototeca',
     camera: 'Câmara',
     cancel: 'Cancelar',
+    permDenied: 'Acesso negado. Ative o acesso nas definições do seu dispositivo.',
   },
   it: {
     label: 'Allegati',
@@ -178,6 +188,7 @@ const ATT_STR: Record<
     photos: 'Libreria foto',
     camera: 'Fotocamera',
     cancel: 'Annulla',
+    permDenied: 'Accesso negato. Abilita l’accesso nelle impostazioni del dispositivo.',
   },
   ar: {
     label: 'المرفقات',
@@ -188,6 +199,18 @@ const ATT_STR: Record<
     photos: 'مكتبة الصور',
     camera: 'الكاميرا',
     cancel: 'إلغاء',
+    permDenied: 'تم رفض الوصول. فعّل الإذن من إعدادات جهازك.',
+  },
+  ru: {
+    label: 'Вложения',
+    add: 'Прикрепить файл',
+    sending: 'Загрузка…',
+    choose: 'Добавить вложение',
+    files: 'Файлы',
+    photos: 'Фотопленка',
+    camera: 'Камера',
+    cancel: 'Отмена',
+    permDenied: 'Доступ запрещён. Разрешите доступ в настройках устройства.',
   },
 };
 
@@ -200,6 +223,7 @@ const RECV_STR: Record<string, { download: string; share: string; failed: string
   pt: { download: 'Baixar', share: 'Partilhar / Guardar', failed: 'Falha no download.' },
   it: { download: 'Scarica', share: 'Condividi / Salva', failed: 'Download non riuscito.' },
   ar: { download: 'تنزيل', share: 'مشاركة / حفظ', failed: 'فشل التنزيل.' },
+  ru: { download: 'Скачать', share: 'Поделиться / Сохранить', failed: 'Не удалось скачать.' },
 };
 
 export default function EmailDetail() {
@@ -214,6 +238,14 @@ export default function EmailDetail() {
     { label: t.email.refWarmer, instruction: t.email.instrWarmer },
     { label: t.email.refMoreDirect, instruction: t.email.instrMoreDirect },
   ];
+
+  // Clé d'idempotence stable pour cet écran : générée une fois par ouverture du
+  // brouillon (par email), réutilisée sur les retries d'envoi / mise en boîte pour
+  // éviter les doublons côté serveur.
+  const idempotencyKey = useMemo(
+    () => `${Date.now()}-${Math.random().toString(36).slice(2)}-${String(id)}`,
+    [id],
+  );
 
   const [item, setItem] = useState<Item | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);
@@ -268,18 +300,23 @@ export default function EmailDetail() {
 
   useEffect(() => {
     (async () => {
-      const [itemRes, rulesRes] = await Promise.all([
-        supabase.from('items').select('*').eq('id', id).single(),
-        supabase.from('classification_rules').select('match_type, match_value, category'),
-      ]);
-      if (itemRes.data) setItem(itemRes.data as Item);
-      setRules((rulesRes.data ?? []) as Rule[]);
-      setLoading(false);
-      if (itemRes.data && (itemRes.data as Item).status === 'unread') {
-        await supabase
-          .from('items')
-          .update({ status: 'read', read_at: new Date().toISOString() })
-          .eq('id', id);
+      try {
+        const [itemRes, rulesRes] = await Promise.all([
+          supabase.from('items').select('*').eq('id', id).single(),
+          supabase.from('classification_rules').select('match_type, match_value, category'),
+        ]);
+        if (itemRes.data) setItem(itemRes.data as Item);
+        setRules((rulesRes.data ?? []) as Rule[]);
+        if (itemRes.data && (itemRes.data as Item).status === 'unread') {
+          await supabase
+            .from('items')
+            .update({ status: 'read', read_at: new Date().toISOString() })
+            .eq('id', id);
+        }
+      } catch {
+        // Ex. hors-ligne : on évite de bloquer l'écran sur le spinner.
+      } finally {
+        setLoading(false);
       }
     })();
   }, [id]);
@@ -431,7 +468,10 @@ export default function EmailDetail() {
     setAttMenu(false);
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) return;
+      if (!perm.granted) {
+        Alert.alert(attStr.photos, attStr.permDenied);
+        return;
+      }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
@@ -454,7 +494,10 @@ export default function EmailDetail() {
     setAttMenu(false);
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) return;
+      if (!perm.granted) {
+        Alert.alert(attStr.camera, attStr.permDenied);
+        return;
+      }
       const res = await ImagePicker.launchCameraAsync({ quality: 0.9 });
       if (res.canceled || !res.assets?.length) return;
       setUploading(true);
@@ -476,11 +519,17 @@ export default function EmailDetail() {
   }
 
   async function pushToMailbox() {
-    if (!draft.trim()) return;
+    if (pushing || !draft.trim()) return;
     setPushing(true);
     setMsg(null);
     try {
-      await apiPost('/api/push-to-mailbox', { id, draft, generatedDraft, locale });
+      await apiPost('/api/push-to-mailbox', {
+        id,
+        draft,
+        generatedDraft,
+        locale,
+        idempotencyKey,
+      });
       setMsg({ type: 'ok', text: t.email.draftCreated });
     } catch (e: any) {
       setMsg({ type: 'err', text: e?.message || t.email.pushFail });
@@ -494,7 +543,7 @@ export default function EmailDetail() {
     setSending(true);
     setMsg(null);
     try {
-      await apiPost('/api/send-reply', { id, draft, generatedDraft, locale });
+      await apiPost('/api/send-reply', { id, draft, generatedDraft, locale, idempotencyKey });
       setSent(true);
     } catch (e: any) {
       setShowConfirm(false);
@@ -511,7 +560,22 @@ export default function EmailDetail() {
     if (reBusy || !item) return;
     setReBusy(true);
     setReError(null);
-    const base = (item.tags || []).filter((t) => !PRIORITY_KEYS.includes((t || '').toLowerCase()));
+    // Relit la valeur serveur des tags avant de réécrire, pour ne pas écraser des
+    // tags ajoutés par le pipeline entre-temps (évite le last-write-wins). En cas
+    // d'échec de relecture, on retombe sur la valeur locale (item.tags).
+    let currentTags = item.tags || [];
+    try {
+      const { data: fresh } = await supabase.from('items').select('tags').eq('id', id).single();
+      if (fresh && Array.isArray((fresh as { tags?: string[] }).tags)) {
+        currentTags = (fresh as { tags: string[] }).tags;
+      }
+    } catch {
+      // relecture impossible -> on garde la valeur locale (comportement actuel).
+    }
+    // Retire les clés de priorité, ajoute la catégorie, PRÉSERVE box:* et le reste.
+    const base = (currentTags || []).filter(
+      (t) => !PRIORITY_KEYS.includes((t || '').toLowerCase()),
+    );
     const nextTags = [...base, cat];
     const { error: e } = await supabase.from('items').update({ tags: nextTags }).eq('id', id);
     setReBusy(false);
@@ -1219,11 +1283,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.cardline,
   },
-  recvNameWrap: { flex: 1, paddingRight: spacing.sm },
+  recvNameWrap: { flex: 1, paddingEnd: spacing.sm },
   recvName: { fontSize: 14, color: colors.ink },
   recvDl: { fontSize: 13, color: colors.terracotta, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
-  previewClose: { position: 'absolute', top: 52, right: 20, zIndex: 2, padding: 8 },
+  previewClose: { position: 'absolute', top: 52, end: 20, zIndex: 2, padding: 8 },
   previewImg: { width: '100%', height: '100%' },
   previewBar: { position: 'absolute', bottom: 44, left: 0, right: 0, alignItems: 'center' },
   previewAction: {

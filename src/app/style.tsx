@@ -30,7 +30,7 @@ type Profile = {
   routing_rules_count: number;
 };
 
-// fr complet ; repli anglais pour les autres locales (écran informatif).
+// 8 langues (repli anglais si locale inconnue).
 const STR: Record<string, Record<string, string>> = {
   fr: {
     title: 'Votre style',
@@ -72,33 +72,167 @@ const STR: Record<string, Record<string, string>> = {
     yes: 'Yes',
     no: 'No',
   },
+  es: {
+    title: 'Tu estilo',
+    subtitle: 'Lo que la herramienta aprendió sobre tu forma de escribir.',
+    off: 'La personalización está desactivada. Vuelve a activarla en Ajustes.',
+    portrait: 'Retrato general',
+    none: 'Nada aprendido todavía — envía algunas respuestas.',
+    formality: 'Tono',
+    greeting: 'Saludo',
+    length: 'Longitud',
+    emoji: 'Emojis',
+    traits: 'En resumen',
+    languages: 'Idiomas',
+    contacts: 'Memoria por destinatario',
+    samples: 'muest.',
+    routing: 'Clasificación aprendida',
+    routingBody: 'Reglas de clasificación activas:',
+    back: 'Volver',
+    yes: 'Sí',
+    no: 'No',
+  },
+  de: {
+    title: 'Ihr Stil',
+    subtitle: 'Was das Tool über Ihren Schreibstil gelernt hat.',
+    off: 'Die Personalisierung ist deaktiviert. Aktivieren Sie sie in den Einstellungen.',
+    portrait: 'Gesamtbild',
+    none: 'Noch nichts gelernt — senden Sie ein paar Antworten.',
+    formality: 'Ton',
+    greeting: 'Anrede',
+    length: 'Länge',
+    emoji: 'Emojis',
+    traits: 'Kurz gesagt',
+    languages: 'Sprachen',
+    contacts: 'Gedächtnis pro Empfänger',
+    samples: 'Bsp.',
+    routing: 'Gelernte Sortierung',
+    routingBody: 'Aktive Klassifizierungsregeln:',
+    back: 'Zurück',
+    yes: 'Ja',
+    no: 'Nein',
+  },
+  pt: {
+    title: 'O seu estilo',
+    subtitle: 'O que a ferramenta aprendeu sobre a sua forma de escrever.',
+    off: 'A personalização está desativada. Reative-a nas Definições.',
+    portrait: 'Retrato geral',
+    none: 'Nada aprendido ainda — envie algumas respostas.',
+    formality: 'Tom',
+    greeting: 'Saudação',
+    length: 'Comprimento',
+    emoji: 'Emojis',
+    traits: 'Em resumo',
+    languages: 'Idiomas',
+    contacts: 'Memória por destinatário',
+    samples: 'amost.',
+    routing: 'Triagem aprendida',
+    routingBody: 'Regras de classificação ativas:',
+    back: 'Voltar',
+    yes: 'Sim',
+    no: 'Não',
+  },
+  it: {
+    title: 'Il tuo stile',
+    subtitle: 'Ciò che lo strumento ha imparato sul tuo modo di scrivere.',
+    off: 'La personalizzazione è disattivata. Riattivala nelle Impostazioni.',
+    portrait: 'Ritratto generale',
+    none: 'Ancora nulla appreso — invia qualche risposta.',
+    formality: 'Tono',
+    greeting: 'Saluto',
+    length: 'Lunghezza',
+    emoji: 'Emoji',
+    traits: 'In breve',
+    languages: 'Lingue',
+    contacts: 'Memoria per destinatario',
+    samples: 'camp.',
+    routing: 'Ordinamento appreso',
+    routingBody: 'Regole di classificazione attive:',
+    back: 'Indietro',
+    yes: 'Sì',
+    no: 'No',
+  },
+  ar: {
+    title: 'أسلوبك',
+    subtitle: 'ما تعلّمته الأداة عن طريقتك في الكتابة.',
+    off: 'التخصيص مُعطَّل. أعِد تفعيله من الإعدادات.',
+    portrait: 'صورة عامة',
+    none: 'لم يُتعلَّم شيء بعد — أرسِل بعض الردود.',
+    formality: 'النبرة',
+    greeting: 'التحية',
+    length: 'الطول',
+    emoji: 'الرموز التعبيرية',
+    traits: 'باختصار',
+    languages: 'اللغات',
+    contacts: 'الذاكرة حسب المُراسَل',
+    samples: 'عيّنة',
+    routing: 'التصنيف المُتعلَّم',
+    routingBody: 'قواعد التصنيف النشطة:',
+    back: 'رجوع',
+    yes: 'نعم',
+    no: 'لا',
+  },
+  ru: {
+    title: 'Ваш стиль',
+    subtitle: 'Что инструмент узнал о вашей манере письма.',
+    off: 'Персонализация отключена. Включите её снова в Настройках.',
+    portrait: 'Общий портрет',
+    none: 'Пока ничего не изучено — отправьте несколько ответов.',
+    formality: 'Тон',
+    greeting: 'Приветствие',
+    length: 'Длина',
+    emoji: 'Эмодзи',
+    traits: 'Вкратце',
+    languages: 'Языки',
+    contacts: 'Память по получателю',
+    samples: 'обр.',
+    routing: 'Изученная сортировка',
+    routingBody: 'Активные правила классификации:',
+    back: 'Назад',
+    yes: 'Да',
+    no: 'Нет',
+  },
 };
 
-function fmtFormality(v: string | null | undefined, fr: boolean): string | null {
-  if (!v) return null;
-  if (v === 'formal') return fr ? 'soutenu' : 'formal';
-  if (v === 'casual') return fr ? 'familier' : 'casual';
-  if (v === 'neutral') return fr ? 'neutre' : 'neutral';
-  return v;
+// Libellés localisés des traits (8 langues, repli anglais).
+const FORMALITY_LABELS: Record<string, Record<string, string>> = {
+  formal: { fr: 'soutenu', en: 'formal', es: 'formal', de: 'förmlich', pt: 'formal', it: 'formale', ar: 'رسمي', ru: 'официальный' },
+  casual: { fr: 'familier', en: 'casual', es: 'informal', de: 'locker', pt: 'informal', it: 'informale', ar: 'عفوي', ru: 'неформальный' },
+  neutral: { fr: 'neutre', en: 'neutral', es: 'neutral', de: 'neutral', pt: 'neutro', it: 'neutro', ar: 'محايد', ru: 'нейтральный' },
+};
+const LENGTH_LABELS: Record<string, Record<string, string>> = {
+  short: { fr: 'bref', en: 'short', es: 'breve', de: 'kurz', pt: 'breve', it: 'breve', ar: 'قصير', ru: 'короткий' },
+  medium: { fr: 'concis', en: 'medium', es: 'medio', de: 'mittel', pt: 'médio', it: 'medio', ar: 'متوسط', ru: 'средний' },
+  long: { fr: 'développé', en: 'long', es: 'largo', de: 'lang', pt: 'longo', it: 'lungo', ar: 'طويل', ru: 'подробный' },
+};
+// tu = tutoiement/informel ; vous = vouvoiement/formel. ru : всегда «на вы» (vouvoiement).
+const ADDRESS_LABELS: Record<string, Record<string, string>> = {
+  tu: { fr: 'tutoiement', en: 'informal', es: 'tuteo', de: 'Duzen', pt: 'informal (tu)', it: 'informale (tu)', ar: 'مخاطبة غير رسمية', ru: 'на «ты»' },
+  vous: { fr: 'vouvoiement', en: 'formal', es: 'trato formal', de: 'Siezen', pt: 'formal (você)', it: 'formale (lei)', ar: 'مخاطبة رسمية', ru: 'на «вы»' },
+};
+
+function pick(table: Record<string, Record<string, string>>, key: string, locale: string): string | null {
+  const row = table[key];
+  if (!row) return null;
+  return row[locale] ?? row.en ?? null;
 }
-function fmtLength(v: string | null | undefined, fr: boolean): string | null {
+function fmtFormality(v: string | null | undefined, locale: string): string | null {
   if (!v) return null;
-  if (v === 'short') return fr ? 'bref' : 'short';
-  if (v === 'medium') return fr ? 'concis' : 'medium';
-  if (v === 'long') return fr ? 'développé' : 'long';
-  return v;
+  return pick(FORMALITY_LABELS, v, locale) ?? v;
 }
-function fmtAddress(v: string | null | undefined, fr: boolean): string | null {
-  if (v === 'tu') return fr ? 'tutoiement' : 'informal';
-  if (v === 'vous') return fr ? 'vouvoiement' : 'formal';
-  return null;
+function fmtLength(v: string | null | undefined, locale: string): string | null {
+  if (!v) return null;
+  return pick(LENGTH_LABELS, v, locale) ?? v;
+}
+function fmtAddress(v: string | null | undefined, locale: string): string | null {
+  if (v !== 'tu' && v !== 'vous') return null;
+  return pick(ADDRESS_LABELS, v, locale);
 }
 
 export default function StyleScreen() {
   const router = useRouter();
   const { locale } = useI18n();
   const t = STR[locale] ?? STR.en;
-  const fr = locale === 'fr';
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Profile | null>(null);
@@ -152,9 +286,9 @@ export default function StyleScreen() {
                   <Text style={styles.hint}>{t.none}</Text>
                 ) : (
                   <>
-                    <Row label={t.formality} value={fmtFormality(sp?.formality, fr)} />
+                    <Row label={t.formality} value={fmtFormality(sp?.formality, locale)} />
                     <Row label={t.greeting} value={sp?.greeting || null} />
-                    <Row label={t.length} value={fmtLength(sp?.length, fr)} />
+                    <Row label={t.length} value={fmtLength(sp?.length, locale)} />
                     <Row label={t.emoji} value={sp?.emoji ? t.yes : t.no} />
                     <Row
                       label={t.languages}
@@ -178,9 +312,9 @@ export default function StyleScreen() {
                   <Text style={styles.cardTitle}>{t.contacts}</Text>
                   {data.contacts.map((c) => {
                     const parts = [
-                      fmtAddress(c.traits?.address, fr),
-                      fmtFormality(c.traits?.formality, fr),
-                      fmtLength(c.traits?.length, fr),
+                      fmtAddress(c.traits?.address, locale),
+                      fmtFormality(c.traits?.formality, locale),
+                      fmtLength(c.traits?.length, locale),
                       c.traits?.greeting ? `« ${c.traits.greeting} »` : null,
                     ].filter(Boolean);
                     return (

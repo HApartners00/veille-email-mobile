@@ -89,7 +89,7 @@ function CheckMark({ color = colors.terracotta, size = 18 }: { color?: string; s
   );
 }
 
-type SheetOption = { key: string; label: string; count?: number; selected: boolean };
+type SheetOption = { key: string; label: string; count?: number; partial?: boolean; selected: boolean };
 
 /** Menu deroulant en feuille basse (bottom sheet). */
 function FilterSheet({
@@ -122,7 +122,12 @@ function FilterSheet({
                   {o.label}
                 </Text>
                 <View style={styles.sheetRight}>
-                  {o.count != null ? <Text style={styles.sheetCount}>{o.count}</Text> : null}
+                  {o.count != null ? (
+                    <Text style={styles.sheetCount}>
+                      {o.count}
+                      {o.partial ? '+' : ''}
+                    </Text>
+                  ) : null}
                   {o.selected ? <CheckMark /> : null}
                 </View>
               </Pressable>
@@ -138,11 +143,35 @@ function FilterSheet({
 }
 
 const SELECT = 'id, title, author, preview, url, status, tags, received_at';
-const LIMIT = 100;
+const PAGE = 100;
+
+// Libellé « Charger plus » local (le dictionnaire i18n partagé n'expose pas
+// encore cette clé ; on reste sur le même patron que app/attachments.tsx).
+const LOAD_MORE_LABEL: Record<string, string> = {
+  fr: 'Charger plus',
+  en: 'Load more',
+  es: 'Cargar más',
+  de: 'Mehr laden',
+  pt: 'Carregar mais',
+  it: 'Carica altro',
+  ar: 'تحميل المزيد',
+  ru: 'Загрузить ещё',
+};
+function loadMoreLabel(locale: string): string {
+  return LOAD_MORE_LABEL[locale] ?? LOAD_MORE_LABEL.en;
+}
+
+/** Assainit le terme de recherche pour l'injecter sans risque dans un `.or()` PostgREST. */
+function sanitizeTerm(q: string): string {
+  return (q || '')
+    .replace(/[^\p{L}\p{N} _@.\-]/gu, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 export default function Feed() {
   const router = useRouter();
-  const { t, intl } = useI18n();
+  const { t, intl, locale } = useI18n();
 
   const FILTERS: { key: string; label: string }[] = [
     { key: 'all', label: t.feed.filterAll },
@@ -151,6 +180,8 @@ export default function Feed() {
   const [items, setItems] = useState<Item[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,27 +201,70 @@ export default function Feed() {
 
   const load = useCallback(async (q: string) => {
     setError(null);
-    let qb = supabase
-      .from('items')
-      .select(SELECT)
-      .order('received_at', { ascending: false })
-      .limit(LIMIT);
-    const term = (q || '').trim().replace(/[,%]/g, ' ').trim();
-    if (term) {
-      qb = qb.or(`title.ilike.%${term}%,author.ilike.%${term}%`);
+    try {
+      let qb = supabase
+        .from('items')
+        .select(SELECT)
+        .order('received_at', { ascending: false })
+        .range(0, PAGE - 1);
+      const term = sanitizeTerm(q);
+      if (term) {
+        qb = qb.or(`title.ilike.%${term}%,author.ilike.%${term}%`);
+      }
+      const [itemsRes, rulesRes] = await Promise.all([
+        qb,
+        supabase.from('classification_rules').select('match_type, match_value, category'),
+      ]);
+      if (itemsRes.error) {
+        setError(itemsRes.error.message);
+      } else {
+        const rows = (itemsRes.data ?? []) as Item[];
+        setItems(rows);
+        setHasMore(rows.length === PAGE);
+        setRules((rulesRes.data ?? []) as Rule[]);
+      }
+    } catch (e) {
+      // Ex. hors-ligne : la requête réseau lève -> on évite le spinner infini.
+      setError((e as Error)?.message || 'Chargement impossible.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    const [itemsRes, rulesRes] = await Promise.all([
-      qb,
-      supabase.from('classification_rules').select('match_type, match_value, category'),
-    ]);
-    if (itemsRes.error) {
-      setError(itemsRes.error.message);
-    } else {
-      setItems((itemsRes.data ?? []) as Item[]);
-      setRules((rulesRes.data ?? []) as Rule[]);
-    }
-    setLoading(false);
   }, []);
+
+  // Pagination : charge la page suivante et l'ajoute à la liste courante.
+  // Le filtrage boîte/type est client -> on ré-applique après ajout.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      let qb = supabase
+        .from('items')
+        .select(SELECT)
+        .order('received_at', { ascending: false })
+        .range(items.length, items.length + PAGE - 1);
+      const term = sanitizeTerm(debouncedQuery);
+      if (term) {
+        qb = qb.or(`title.ilike.%${term}%,author.ilike.%${term}%`);
+      }
+      const { data, error: qErr } = await qb;
+      if (qErr) {
+        setError(qErr.message);
+      } else {
+        const rows = (data ?? []) as Item[];
+        setItems((prev) => {
+          const seen = new Set(prev.map((it) => it.id));
+          return [...prev, ...rows.filter((it) => !seen.has(it.id))];
+        });
+        setHasMore(rows.length === PAGE);
+      }
+    } catch (e) {
+      setError((e as Error)?.message || 'Chargement impossible.');
+    } finally {
+      setLoadingMore(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingMore, loading, hasMore, items.length, debouncedQuery]);
 
   useEffect(() => {
     load('');
@@ -304,6 +378,8 @@ export default function Feed() {
     key: f.key,
     label: f.label,
     count: counts[f.key] ?? 0,
+    // Compteurs calculés sur les items chargés : indique s'il reste des pages.
+    partial: hasMore,
     selected: filter === f.key,
   }));
 
@@ -425,6 +501,7 @@ export default function Feed() {
                 >
                   <Text style={[styles.fbtnText, unreadOnly && styles.fbtnTextActive]} numberOfLines={1}>
                     {t.feed.unread} {unreadCount}
+                    {hasMore ? '+' : ''}
                   </Text>
                 </Pressable>
               </View>
@@ -433,6 +510,10 @@ export default function Feed() {
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         }
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (hasMore && !loadingMore && !loading) void loadMore();
+        }}
         ListEmptyComponent={
           !error ? (
             <View style={styles.emptyWrap}>
@@ -444,7 +525,35 @@ export default function Feed() {
                     ? t.feed.emptyFilter
                     : t.feed.emptyDefault}
               </Text>
+              {hasMore ? (
+                <Pressable
+                  style={styles.loadMoreBtn}
+                  onPress={() => void loadMore()}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color={colors.terracotta} />
+                  ) : (
+                    <Text style={styles.loadMoreText}>{loadMoreLabel(locale)}</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
+          ) : null
+        }
+        ListFooterComponent={
+          hasMore && visible.length > 0 ? (
+            <Pressable
+              style={styles.loadMoreBtn}
+              onPress={() => void loadMore()}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={colors.terracotta} />
+              ) : (
+                <Text style={styles.loadMoreText}>{t.common.loadMore}</Text>
+              )}
+            </Pressable>
           ) : null
         }
       />
@@ -458,7 +567,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTexts: { flex: 1, paddingRight: spacing.md },
+  headerTexts: { flex: 1, paddingEnd: spacing.md },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -550,6 +659,20 @@ const styles = StyleSheet.create({
   sheetDoneText: { color: colors.cream, fontSize: 14, fontWeight: '700' },
 
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
+  loadMoreBtn: {
+    alignSelf: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  loadMoreText: { fontSize: 13, fontWeight: '600', color: colors.terracotta },
   emptyWrap: { alignItems: 'center', marginTop: spacing.xxl, gap: spacing.sm },
   empty: {
     textAlign: 'center',
@@ -558,8 +681,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     lineHeight: 20,
   },
-  row: { flexDirection: 'row', backgroundColor: colors.surface, paddingRight: spacing.lg, paddingVertical: spacing.md },
-  accent: { width: 3, marginRight: spacing.md },
+  row: { flexDirection: 'row', backgroundColor: colors.surface, paddingEnd: spacing.lg, paddingVertical: spacing.md },
+  accent: { width: 3, marginEnd: spacing.md },
   rowBody: { flex: 1 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   prioLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
@@ -568,5 +691,5 @@ const styles = StyleSheet.create({
   subjectUnread: { color: colors.ink, fontWeight: '700' },
   sender: { fontSize: 12, color: colors.muted, marginTop: 1 },
   preview: { fontSize: 12, color: colors.hint, marginTop: 2 },
-  sep: { height: 1, backgroundColor: colors.cardline, marginLeft: spacing.lg },
+  sep: { height: 1, backgroundColor: colors.cardline, marginStart: spacing.lg },
 });

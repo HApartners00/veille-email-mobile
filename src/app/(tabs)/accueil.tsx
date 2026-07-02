@@ -32,6 +32,10 @@ type Item = {
   received_at: string;
 };
 
+// Plafond du récap « du jour ». Suffisant pour couvrir une journée normale ;
+// au-delà, les compteurs seraient tronqués (cas extrême documenté).
+const RECAP_CAP = 300;
+
 function senderName(author: string | null, unknown: string): string {
   if (!author) return unknown;
   if (author.includes('<')) return author.split('<')[0].trim().replace(/"/g, '') || author;
@@ -59,20 +63,44 @@ export default function Accueil() {
 
   const load = useCallback(async () => {
     setError(null);
-    const [itemsRes, rulesRes] = await Promise.all([
-      supabase
-        .from('items')
-        .select('id, title, author, preview, url, status, tags, received_at')
-        .order('received_at', { ascending: false })
-        .limit(80),
-      supabase.from('classification_rules').select('match_type, match_value, category'),
-    ]);
-    if (itemsRes.error) setError(itemsRes.error.message);
-    else {
-      setItems((itemsRes.data ?? []) as Item[]);
-      setRules((rulesRes.data ?? []) as Rule[]);
+    try {
+      // Récap « du jour » : on borne la requête à partir de minuit avec une marge
+      // généreuse (RECAP_CAP) pour que les compteurs par catégorie reflètent le
+      // vrai total de la journée. On charge aussi les 80 plus récents en repli
+      // pour les jours sans email reçu aujourd'hui.
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const [todayRes, recentRes, rulesRes] = await Promise.all([
+        supabase
+          .from('items')
+          .select('id, title, author, preview, url, status, tags, received_at')
+          .gte('received_at', start.toISOString())
+          .order('received_at', { ascending: false })
+          .limit(RECAP_CAP),
+        supabase
+          .from('items')
+          .select('id, title, author, preview, url, status, tags, received_at')
+          .order('received_at', { ascending: false })
+          .limit(80),
+        supabase.from('classification_rules').select('match_type, match_value, category'),
+      ]);
+      const err = todayRes.error || recentRes.error;
+      if (err) setError(err.message);
+      else {
+        const today = (todayRes.data ?? []) as Item[];
+        const recent = (recentRes.data ?? []) as Item[];
+        // S'il y a des emails aujourd'hui on affiche la journée complète,
+        // sinon on retombe sur les plus récents.
+        setItems(today.length ? today : recent);
+        setRules((rulesRes.data ?? []) as Rule[]);
+      }
+    } catch (e) {
+      // Ex. hors-ligne : la requête réseau lève -> on évite le spinner infini.
+      setError((e as Error)?.message || 'Chargement impossible.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -159,7 +187,7 @@ export default function Accueil() {
           <Pressable
             style={styles.iconBtn}
             onPress={() => router.push('/attachments')}
-            accessibilityLabel="Pièces jointes"
+            accessibilityLabel={t.home.attachmentsLabel}
           >
             <IconPaperclip size={16} color={colors.terracotta} />
           </Pressable>
@@ -251,7 +279,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, paddingRight: spacing.md },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, paddingEnd: spacing.md },
   headerTexts: { flex: 1 },
   date: { fontSize: 12, color: colors.muted, textTransform: 'capitalize' },
   greeting: { fontSize: 30, fontWeight: '700', color: colors.ink, marginTop: 2 },

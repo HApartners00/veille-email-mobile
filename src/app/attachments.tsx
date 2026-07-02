@@ -74,6 +74,7 @@ const CAT_LABELS: Record<string, Record<string, string>> = {
   pt: { all: 'Todos', pdf: 'PDF', image: 'Imagens', doc: 'Documentos', sheet: 'Folhas', slides: 'Slides', archive: 'Arquivos', other: 'Outros' },
   it: { all: 'Tutti', pdf: 'PDF', image: 'Immagini', doc: 'Documenti', sheet: 'Fogli', slides: 'Slide', archive: 'Archivi', other: 'Altri' },
   ar: { all: 'الكل', pdf: 'PDF', image: 'صور', doc: 'مستندات', sheet: 'جداول', slides: 'شرائح', archive: 'أرشيف', other: 'أخرى' },
+  ru: { all: 'Все', pdf: 'PDF', image: 'Изображения', doc: 'Документы', sheet: 'Таблицы', slides: 'Слайды', archive: 'Архивы', other: 'Другое' },
 };
 
 const DL_LABELS: Record<string, { download: string; share: string; failed: string }> = {
@@ -84,6 +85,7 @@ const DL_LABELS: Record<string, { download: string; share: string; failed: strin
   pt: { download: 'Baixar', share: 'Partilhar / Guardar', failed: 'Falha no download.' },
   it: { download: 'Scarica', share: 'Condividi / Salva', failed: 'Download non riuscito.' },
   ar: { download: 'تنزيل', share: 'مشاركة / حفظ', failed: 'فشل التنزيل.' },
+  ru: { download: 'Скачать', share: 'Поделиться / Сохранить', failed: 'Не удалось скачать.' },
 };
 
 function isImageAtt(mime: string | null, filename: string): boolean {
@@ -99,6 +101,7 @@ const MORE_LABELS: Record<string, { more: string; loading: string }> = {
   pt: { more: 'Carregar mais', loading: 'A carregar…' },
   it: { more: 'Carica altro', loading: 'Caricamento…' },
   ar: { more: 'تحميل المزيد', loading: '…جارٍ التحميل' },
+  ru: { more: 'Загрузить ещё', loading: 'Загрузка…' },
 };
 
 const STR: Record<
@@ -200,13 +203,26 @@ const STR: Record<
     open: 'فتح البريد',
     err: 'حدث خطأ. حاول مرة أخرى.',
   },
+  ru: {
+    title: 'Вложения',
+    subtitle: 'Опишите полученный файл — я найду его в вашей почте.',
+    placeholder: 'напр. PDF договора от Марии',
+    send: 'Искать',
+    searching: 'Поиск…',
+    intro: 'Опишите полученное вложение обычными словами.',
+    examples: ['PDF-счёт за январь', 'фото от Павла', 'таблица бюджета'],
+    from: 'От',
+    open: 'Открыть письмо',
+    err: 'Произошла ошибка. Попробуйте снова.',
+  },
 };
 
+// Unités internationales neutres (B/KB/MB) — évite le français codé en dur.
 function fmtSize(n: number | null): string {
   if (!n || n <= 0) return '';
-  if (n < 1024) return `${n} o`;
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} Ko`;
-  return `${(n / (1024 * 1024)).toFixed(1)} Mo`;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function AttachmentsScreen() {
@@ -512,7 +528,7 @@ const styles = StyleSheet.create({
   back: { color: colors.onDark, fontSize: 16, fontWeight: '700' },
   kav: { flex: 1 },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
-  previewClose: { position: 'absolute', top: 52, right: 20, zIndex: 2, padding: 8 },
+  previewClose: { position: 'absolute', top: 52, end: 20, zIndex: 2, padding: 8 },
   previewImg: { width: '100%', height: '100%' },
   previewBar: { position: 'absolute', bottom: 44, left: 0, right: 0, alignItems: 'center' },
   previewAction: {
@@ -541,7 +557,7 @@ const styles = StyleSheet.create({
   userBubble: {
     backgroundColor: colors.terracotta,
     borderRadius: radius.lg,
-    borderBottomRightRadius: radius.sm,
+    borderBottomEndRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
     maxWidth: '85%',

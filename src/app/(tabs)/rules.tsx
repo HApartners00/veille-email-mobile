@@ -165,5 +165,5 @@ const styles = StyleSheet.create({
   ruleCatRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   ruleCat: { fontSize: 12, fontWeight: '600' },
   delete: { color: colors.danger, fontSize: 13, fontWeight: '600' },
-  sep: { height: 1, backgroundColor: colors.cardline, marginLeft: spacing.xl },
+  sep: { height: 1, backgroundColor: colors.cardline, marginStart: spacing.xl },
 });
