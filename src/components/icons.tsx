@@ -257,6 +257,27 @@ export function IconSend({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProp
   );
 }
 
+/** Crayon - brouillon. Meme trait que IconSend, pour la barre d'onglets. */
+export function IconDraft({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 20h4.5L20 8.5a2.1 2.1 0 0 0-3-3L5.5 17V20z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M14.5 5.5l4 4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 /** Recherche - loupe au trait. */
 export function IconSearch({ size = 18, color = DEF, strokeWidth = 1.9 }: IconProps) {
   return (

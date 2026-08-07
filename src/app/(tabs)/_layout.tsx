@@ -1,7 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 
-import { IconHome, IconMail, IconSliders } from '@/components/icons';
+import { IconDraft, IconHome, IconMail, IconSend, IconSliders } from '@/components/icons';
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
 import { attachNotificationHandlers, registerForPushNotifications } from '@/lib/push';
@@ -37,10 +37,14 @@ export default function TabsLayout() {
           backgroundColor: colors.charcoal,
           borderTopColor: colors.charline,
         },
-        tabBarLabelStyle: { fontFamily: fonts.sansSemibold, fontSize: 11 },
+        // 5 onglets depuis le 07/08/2026 : à 11 pt, « Отправленные » (ru) et
+        // « Gesendet » (de) débordaient. La taille est réduite et le libellé
+        // autorisé à se resserrer plutôt qu'à être coupé net.
+        tabBarLabelStyle: { fontFamily: fonts.sansSemibold, fontSize: 9.5 },
+        tabBarItemStyle: { paddingHorizontal: 2 },
       }}
     >
-      {/* 3 onglets visibles : Accueil · Emails · Réglages */}
+      {/* 5 onglets visibles : Accueil · Emails · Envoyés · Brouillons · Réglages */}
       <Tabs.Screen
         name="accueil"
         options={{
@@ -53,6 +57,20 @@ export default function TabsLayout() {
         options={{
           title: t.tabs.feed,
           tabBarIcon: ({ color }) => <IconMail size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="sent"
+        options={{
+          title: t.tabs.sent,
+          tabBarIcon: ({ color }) => <IconSend size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="drafts"
+        options={{
+          title: t.tabs.drafts,
+          tabBarIcon: ({ color }) => <IconDraft size={22} color={color} />,
         }}
       />
       <Tabs.Screen

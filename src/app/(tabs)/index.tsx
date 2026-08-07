@@ -18,6 +18,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiGet, apiPost } from '@/lib/api';
+import { cleanText, formatDate, senderName } from '@/lib/mail-format';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
@@ -37,41 +38,8 @@ type Item = {
   received_at: string;
 };
 
-function cleanText(input: string | null): string {
-  if (!input) return '';
-  const decode = (t: string) =>
-    t
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(parseInt(n, 10)));
-  let t = decode(String(input));
-  t = t.replace(/<!--[\s\S]*?-->/g, '').replace(/<style[\s\S]*?<\/style>/gi, '');
-  t = t.replace(/<[^>]+>/g, ' ');
-  return decode(t).replace(/\s{2,}/g, ' ').trim();
-}
 
-function senderName(author: string | null, unknown: string): string {
-  if (!author) return unknown;
-  if (author.includes('<')) return author.split('<')[0].trim().replace(/"/g, '') || author;
-  return author.split('@')[0];
-}
 
-function formatDate(value: string, intl: string): string {
-  try {
-    return new Date(value).toLocaleString(intl, {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-}
 
 /** Chevron bas vectoriel (pas de glyphe). */
 function Caret({ color = colors.muted, size = 14 }: { color?: string; size?: number }) {
