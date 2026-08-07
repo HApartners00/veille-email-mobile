@@ -43,8 +43,25 @@ export const priorityColors: Record<string, string> = {
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
-/** Polices Playfair Display (chargées dans _layout via @expo-google-fonts). */
+/**
+ * Polices de marque (chargées dans src/app/_layout.tsx).
+ *
+ * Inter pour TOUT le texte, Playfair Display réservé au logo — c'est la règle du web
+ * (packages/config/tailwind-preset.cjs : « le serif éditorial est réservé au logo »).
+ *
+ * ⚠️ React Native n'hérite pas de fontFamily et ne synthétise pas les graisses d'une
+ * police nommée : chaque style de texte doit choisir sa graisse explicitement ici,
+ * et non via fontWeight.
+ */
 export const fonts = {
+  // Texte — Inter
+  sans: 'Inter_400Regular',
+  sansItalic: 'Inter_400Regular_Italic',
+  sansMedium: 'Inter_500Medium',
+  sansSemibold: 'Inter_600SemiBold',
+  sansBold: 'Inter_700Bold',
+  sansExtrabold: 'Inter_800ExtraBold',
+  // Marque — Playfair Display (logo uniquement)
   serif: 'PlayfairDisplay_700Bold',
   serifItalic: 'PlayfairDisplay_700Bold_Italic',
   serifSemibold: 'PlayfairDisplay_600SemiBold',

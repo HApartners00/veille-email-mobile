@@ -1,11 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 
-import { IconFeed, IconFlag, IconHome, IconMail, IconSliders } from '@/components/icons';
+import { IconHome, IconMail, IconSliders } from '@/components/icons';
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
 import { attachNotificationHandlers, registerForPushNotifications } from '@/lib/push';
-import { colors } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
 
 // L'app s'ouvre sur l'onglet Accueil (recap du jour).
 export const unstable_settings = {
@@ -30,18 +30,17 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: colors.terracottaLight,
         tabBarInactiveTintColor: colors.onDarkMuted,
         tabBarStyle: {
           backgroundColor: colors.charcoal,
           borderTopColor: colors.charline,
         },
-        tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
-        headerStyle: { backgroundColor: colors.charcoal },
-        headerTitleStyle: { color: colors.onDark, fontWeight: '700' },
-        headerShadowVisible: false,
+        tabBarLabelStyle: { fontFamily: fonts.sansSemibold, fontSize: 11 },
       }}
     >
+      {/* 3 onglets visibles : Accueil · Emails · Réglages */}
       <Tabs.Screen
         name="accueil"
         options={{
@@ -53,21 +52,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t.tabs.feed,
-          tabBarIcon: ({ color }) => <IconFeed size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="sources"
-        options={{
-          title: t.tabs.sources,
           tabBarIcon: ({ color }) => <IconMail size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="rules"
-        options={{
-          title: t.tabs.rules,
-          tabBarIcon: ({ color }) => <IconFlag size={22} color={color} />,
         }}
       />
       <Tabs.Screen

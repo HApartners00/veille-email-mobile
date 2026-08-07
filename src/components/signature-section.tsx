@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View
 
 import { useI18n } from '@/context/i18n';
 import { apiGet, apiPost } from '@/lib/api';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 type Mailbox = { email: string; provider: string };
 type Sig = { mailbox_email: string; signature_text: string | null; enabled: boolean };
@@ -282,9 +282,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  title: { fontSize: 16, fontWeight: '700', color: colors.ink, flexShrink: 1 },
-  subtitle: { fontSize: 13, color: colors.muted, marginTop: 4 },
-  hint: { fontSize: 13, color: colors.hint, marginTop: spacing.md },
+  title: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink, flexShrink: 1 },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 4 },
+  hint: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint, marginTop: spacing.md },
   importBtn: {
     borderWidth: 1,
     borderColor: colors.cardline,
@@ -292,13 +292,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
   },
-  importText: { fontSize: 12, fontWeight: '600', color: colors.ink },
+  importText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.ink },
   box: { marginTop: spacing.lg },
   boxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  email: { fontSize: 13, fontWeight: '600', color: colors.ink, flexShrink: 1 },
+  email: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink, flexShrink: 1 },
   enableRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  enableLabel: { fontSize: 12, color: colors.muted },
+  enableLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
   input: {
+    fontFamily: fonts.sans,
     marginTop: spacing.sm,
     minHeight: 88,
     textAlignVertical: 'top',
@@ -319,9 +320,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 9,
   },
-  saveText: { color: colors.cream, fontWeight: '700', fontSize: 13 },
+  saveText: { fontFamily: fonts.sansBold, color: colors.cream, fontSize: 13 },
   disabled: { opacity: 0.5 },
-  message: { fontSize: 13, color: colors.muted, marginTop: spacing.md },
+  message: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: spacing.md },
 });
 
 export default SignatureSection;
+
+/** Intitule localise de la section, pour la rangee d'index des Reglages. */
+export function signatureTitle(locale: string): string {
+  return (STR[locale] ?? STR.en).title;
+}

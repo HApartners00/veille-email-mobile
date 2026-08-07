@@ -8,12 +8,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
 import { useI18n } from '@/context/i18n';
 import { apiGet, apiPost } from '@/lib/api';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { GMAIL_ENABLED } from '@/lib/flags';
 
 type Mailbox = {
@@ -103,6 +103,16 @@ export default function Sources() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t.tabs.sources,
+          headerStyle: { backgroundColor: colors.charcoal },
+          headerTintColor: colors.onDark,
+          headerTitleStyle: { fontFamily: fonts.sansBold, color: colors.onDark },
+          headerShadowVisible: false,
+        }}
+      />
       {/* Boîtes connectées */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t.sources.connectedTitle}</Text>
@@ -193,8 +203,8 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
   },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  cardText: { color: colors.ink2, fontSize: 14, lineHeight: 22 },
+  cardTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.ink },
+  cardText: { fontFamily: fonts.sans, color: colors.ink2, fontSize: 14, lineHeight: 22 },
   listLoading: { paddingVertical: spacing.md, alignItems: 'flex-start' },
 
   // Lignes de boîtes connectées
@@ -209,16 +219,16 @@ const styles = StyleSheet.create({
   dotGmail: { backgroundColor: '#ea4335' },
   dotOutlook: { backgroundColor: '#0f6cbd' },
   mbInfo: { flex: 1 },
-  mbLabel: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  mbEmail: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  mbLabel: { fontFamily: fonts.sansSemibold, fontSize: 15, color: colors.ink },
+  mbEmail: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 1 },
   mbAction: { paddingVertical: 4, paddingHorizontal: 4 },
-  mbActionText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  mbActionText: { fontFamily: fonts.sansSemibold, color: colors.danger, fontSize: 14 },
 
   btn: { borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
   gmail: { backgroundColor: '#ea4335' },
   outlook: { backgroundColor: '#0f6cbd' },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  error: { color: colors.danger, fontSize: 13 },
-  note: { color: colors.hint, fontSize: 12, lineHeight: 18, paddingHorizontal: spacing.xs },
+  btnText: { fontFamily: fonts.sansBold, color: '#fff', fontSize: 15 },
+  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13 },
+  note: { fontFamily: fonts.sans, color: colors.hint, fontSize: 12, lineHeight: 18, paddingHorizontal: spacing.xs },
 });

@@ -12,6 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/context/auth';
 import { I18nProvider } from '@/context/i18n';
+import { interFonts } from '@/lib/fonts';
 import { colors } from '@/lib/theme';
 
 export default function RootLayout() {
@@ -19,6 +20,7 @@ export default function RootLayout() {
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
     PlayfairDisplay_700Bold_Italic,
+    ...interFonts,
   });
 
   return (

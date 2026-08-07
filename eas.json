@@ -9,13 +9,28 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://scvtlvdjsufgsboivype.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_XZ9TVaVeB5zppZ5hRlqPZQ_DsJ20PhR",
+        "EXPO_PUBLIC_API_BASE": "https://veille-email-app.vercel.app"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://scvtlvdjsufgsboivype.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_XZ9TVaVeB5zppZ5hRlqPZQ_DsJ20PhR",
+        "EXPO_PUBLIC_API_BASE": "https://veille-email-app.vercel.app"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://scvtlvdjsufgsboivype.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_XZ9TVaVeB5zppZ5hRlqPZQ_DsJ20PhR",
+        "EXPO_PUBLIC_API_BASE": "https://veille-email-app.vercel.app"
+      }
     }
   },
   "submit": {

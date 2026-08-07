@@ -9,11 +9,13 @@ import {
   View,
 } from 'react-native';
 
+import { Stack } from 'expo-router';
+
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { PRIORITY_BY_KEY } from '@/lib/priority';
 import { prioLabel, type Dict } from '@/lib/i18n';
-import { colors, spacing } from '@/lib/theme';
+import { colors, fonts, spacing } from '@/lib/theme';
 import { IconChevronRight } from '@/components/icons';
 
 type RuleRow = {
@@ -111,6 +113,17 @@ export default function RulesScreen() {
   }
 
   return (
+    <>
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        title: t.tabs.rules,
+        headerStyle: { backgroundColor: colors.charcoal },
+        headerTintColor: colors.onDark,
+        headerTitleStyle: { fontFamily: fonts.sansBold, color: colors.onDark },
+        headerShadowVisible: false,
+      }}
+    />
     <FlatList
       style={styles.screen}
       contentContainerStyle={styles.content}
@@ -122,7 +135,6 @@ export default function RulesScreen() {
       }
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>{t.rules.title}</Text>
           <Text style={styles.sub}>{t.rules.sub}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
@@ -132,6 +144,7 @@ export default function RulesScreen() {
       }
       ItemSeparatorComponent={() => <View style={styles.sep} />}
     />
+    </>
   );
 }
 
@@ -140,10 +153,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { paddingBottom: spacing.xxl },
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
-  title: { fontSize: 26, fontWeight: '700', color: colors.ink },
-  sub: { fontSize: 14, color: colors.muted, marginTop: spacing.xs, lineHeight: 20 },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
+  title: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.ink },
+  sub: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, marginTop: spacing.xs, lineHeight: 20 },
+  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginTop: spacing.sm },
   empty: {
+    fontFamily: fonts.sans,
     textAlign: 'center',
     color: colors.hint,
     fontSize: 14,
@@ -160,10 +174,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   rowBody: { flex: 1, minWidth: 0 },
-  ruleText: { fontSize: 14, color: colors.ink },
+  ruleText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink },
   ruleType: { color: colors.muted },
   ruleCatRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  ruleCat: { fontSize: 12, fontWeight: '600' },
-  delete: { color: colors.danger, fontSize: 13, fontWeight: '600' },
+  ruleCat: { fontFamily: fonts.sansSemibold, fontSize: 12 },
+  delete: { fontFamily: fonts.sansSemibold, color: colors.danger, fontSize: 13 },
   sep: { height: 1, backgroundColor: colors.cardline, marginStart: spacing.xl },
 });

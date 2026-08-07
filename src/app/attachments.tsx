@@ -20,7 +20,7 @@ import * as Sharing from 'expo-sharing';
 import { useI18n } from '@/context/i18n';
 import { apiDownloadToFile, apiPost } from '@/lib/api';
 import { IconClose } from '@/components/icons';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 type Att = {
   id: string;
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   safe: { backgroundColor: colors.charcoal },
   topbar: { backgroundColor: colors.charcoal, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  back: { color: colors.onDark, fontSize: 16, fontWeight: '700' },
+  back: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 16 },
   kav: { flex: 1 },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
   previewClose: { position: 'absolute', top: 52, end: 20, zIndex: 2, padding: 8 },
@@ -537,12 +537,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: 12,
   },
-  previewActionText: { color: colors.onDark, fontWeight: '700', fontSize: 15 },
+  previewActionText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   intro: { paddingHorizontal: spacing.xl, paddingTop: spacing.md },
-  subtitle: { fontSize: 13, color: colors.muted },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
   body: { flex: 1 },
   bodyContent: { padding: spacing.xl, paddingBottom: spacing.xl, gap: spacing.md },
-  introText: { fontSize: 14, color: colors.muted, marginBottom: spacing.md },
+  introText: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, marginBottom: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: 12,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardline,
     backgroundColor: colors.surface,
   },
-  chipText: { fontSize: 13, color: colors.ink2 },
+  chipText: { fontFamily: fonts.sans, fontSize: 13, color: colors.ink2 },
   userRow: { alignItems: 'flex-end' },
   userBubble: {
     backgroundColor: colors.terracotta,
@@ -562,9 +562,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     maxWidth: '85%',
   },
-  userText: { color: colors.onDark, fontSize: 14 },
+  userText: { fontFamily: fonts.sans, color: colors.onDark, fontSize: 14 },
   assistantBlock: { gap: spacing.sm },
-  assistantText: { fontSize: 14, color: colors.ink },
+  assistantText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   filterChip: {
     paddingHorizontal: 10,
@@ -575,8 +575,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   filterChipActive: { borderColor: colors.terracotta, backgroundColor: colors.cream },
-  filterChipText: { fontSize: 12, color: colors.muted },
-  filterChipTextActive: { color: colors.terracotta, fontWeight: '600' },
+  filterChipText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
+  filterChipTextActive: { fontFamily: fonts.sansSemibold, color: colors.terracotta },
   moreBtn: {
     alignSelf: 'flex-start',
     borderWidth: 1,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: spacing.xs,
   },
-  moreBtnText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  moreBtnText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink2 },
   card: {
     borderWidth: 1,
     borderColor: colors.cardline,
@@ -594,10 +594,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
-  cardName: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  cardMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  cardLink: { fontSize: 13, color: colors.terracotta, fontWeight: '600' },
-  cardLinkMuted: { fontSize: 13, color: colors.muted, fontWeight: '500' },
+  cardName: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.ink },
+  cardMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 2 },
+  cardLink: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracotta },
+  cardLinkMuted: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.muted },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: 8 },
   inputBar: {
     flexDirection: 'row',
@@ -610,6 +610,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   input: {
+    fontFamily: fonts.sans,
     flex: 1,
     backgroundColor: colors.surface,
     borderColor: colors.cardline,
@@ -626,6 +627,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     justifyContent: 'center',
   },
-  sendText: { color: colors.onDark, fontWeight: '700', fontSize: 13 },
+  sendText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 13 },
   disabled: { opacity: 0.5 },
 });

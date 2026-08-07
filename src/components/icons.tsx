@@ -206,6 +206,156 @@ export function IconRefresh({ size = 16, color = DEF, strokeWidth = 2 }: IconPro
   );
 }
 
+/** Chevron gauche (retour). */
+export function IconChevronLeft({ size = 20, color = DEF, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polyline
+        points="15 6 9 12 15 18"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+/** Reponse suggeree - stylo + etincelle (option B). */
+export function IconReplySuggested({ size = 18, color = DEF, strokeWidth = 1.5 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21l1-3.5L13.5 8l2.5 2.5L6.5 20 3 21z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18.4 3l.65 1.75L20.8 5.4l-1.75.65L18.4 7.8l-.65-1.75L16 5.4l1.75-.65z"
+        stroke={color}
+        strokeWidth={strokeWidth - 0.35}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Paper plane - envoyer. */
+export function IconSend({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4.5 12L20 5l-6.5 15-2.6-6z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/** Recherche - loupe au trait. */
+export function IconSearch({ size = 18, color = DEF, strokeWidth = 1.9 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={11} cy={11} r={7} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M20 20l-3.4-3.4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Boite de reception (filtre par boite). */
+export function IconInbox({ size = 18, color = DEF, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 13l3-7h12l3 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 13h5l1.4 2.2h5.2L20 13"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Cloche - notifications. */
+export function IconBell({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6.5 10a5.5 5.5 0 0 1 11 0c0 4 1.4 5 1.9 6H4.6c.5-1 1.9-2 1.9-6z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+      <Path d="M10 19.5a2 2 0 0 0 4 0" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Horloge - rapport quotidien. */
+export function IconClock({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={8.5} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M12 7.5V12l3 2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Globe - langue. */
+export function IconGlobe({ size = 18, color = DEF, strokeWidth = 1.6 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={8.5} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M3.5 12h17" stroke={color} strokeWidth={strokeWidth - 0.2} />
+      <Path
+        d="M12 3.5c2.4 2.5 2.4 14.5 0 17M12 3.5c-2.4 2.5-2.4 14.5 0 17"
+        stroke={color}
+        strokeWidth={strokeWidth - 0.2}
+      />
+    </Svg>
+  );
+}
+
+/** Etoile - abonnement. */
+export function IconStar({ size = 18, color = DEF, strokeWidth = 1.6 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3.6l2.5 5.1 5.6.8-4.05 3.95.96 5.55L12 16.4l-5.06 2.6.96-5.55L3.85 9.5l5.6-.8z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Entonnoir - regles de tri. */
+export function IconFunnel({ size = 18, color = DEF, strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 6h16l-6 7v5l-4 2v-7z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Trombone - pieces jointes. */
 export function IconPaperclip({ size = 18, color = DEF, strokeWidth = 2 }: IconProps) {
   return (

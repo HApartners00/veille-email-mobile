@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/context/i18n';
 import { apiGet } from '@/lib/api';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 type Traits = {
   address?: 'tu' | 'vous' | null;
@@ -361,12 +361,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   safe: { backgroundColor: colors.charcoal },
   topbar: { backgroundColor: colors.charcoal, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  back: { color: colors.onDark, fontSize: 16, fontWeight: '600' },
+  back: { fontFamily: fonts.sansSemibold, color: colors.onDark, fontSize: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
   bodyContent: { padding: spacing.xl, gap: spacing.md },
-  title: { fontSize: 24, fontWeight: '700', color: colors.ink },
-  subtitle: { fontSize: 13, color: colors.muted, marginTop: 2, marginBottom: spacing.sm },
+  title: { fontFamily: fonts.sansBold, fontSize: 24, color: colors.ink },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 2, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.cardline,
@@ -375,8 +375,8 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.xs,
   },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, marginBottom: spacing.xs },
-  hint: { color: colors.hint, fontSize: 13, lineHeight: 19 },
+  cardTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.ink, marginBottom: spacing.xs },
+  hint: { fontFamily: fonts.sans, color: colors.hint, fontSize: 13, lineHeight: 19 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -386,8 +386,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardline,
     borderBottomWidth: 1,
   },
-  rowLabel: { fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
-  rowValue: { fontSize: 14, color: colors.ink, flexShrink: 1, textAlign: 'right' },
+  rowLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  rowValue: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink, flexShrink: 1, textAlign: 'right' },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   chip: {
     paddingHorizontal: 12,
@@ -397,11 +397,11 @@ const styles = StyleSheet.create({
     borderColor: colors.cardline,
     backgroundColor: colors.cream,
   },
-  chipText: { fontSize: 12, color: colors.terracotta, fontWeight: '600' },
+  chipText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.terracotta },
   contactRow: { paddingVertical: 8, borderBottomColor: colors.cardline, borderBottomWidth: 1 },
   contactTop: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  contactKey: { fontSize: 14, color: colors.ink, flexShrink: 1 },
-  contactN: { fontSize: 11, color: colors.muted },
-  contactTraits: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  bigNum: { fontSize: 26, fontWeight: '700', color: colors.ink, marginTop: spacing.xs },
+  contactKey: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink, flexShrink: 1 },
+  contactN: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted },
+  contactTraits: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 2 },
+  bigNum: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.ink, marginTop: spacing.xs },
 });

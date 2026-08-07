@@ -9,17 +9,18 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
+import { setPendingFeedFilter } from '@/lib/feed-filter';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconPaperclip, IconRefresh } from '@/components/icons';
-import { LogoV } from '@/components/logo-v';
 import { EmailRow } from '@/components/email-row';
-import { setPendingFeedFilter } from '@/lib/feed-filter';
+import { LogoVmail } from '@/components/logo-v';
 
 type Item = {
   id: string;
@@ -32,9 +33,28 @@ type Item = {
   received_at: string;
 };
 
+// Teintes claires des catégories, lisibles sur le bandeau charbon (ligne recap).
+const RECAP_TINT: Record<string, string> = {
+  urgent: '#e08a5a',
+  important: '#d5b06a',
+  human: '#9aa6ac',
+  info: '#a7b199',
+};
+
 // Plafond du récap « du jour ». Suffisant pour couvrir une journée normale ;
 // au-delà, les compteurs seraient tronqués (cas extrême documenté).
 const RECAP_CAP = 300;
+
+/**
+ * Insere le prenom dans la salutation avant sa ponctuation finale :
+ * « Bonjour. » + « Hamza » -> « Bonjour Hamza. ». Aligne sur l'accueil web,
+ * qui greffe le prenom issu de profiles.full_name sur son propre libelle.
+ */
+function greetWithName(hello: string, first: string): string {
+  if (!first) return hello;
+  const m = hello.match(/^([\s\S]*?)([.!?！？。]*)$/);
+  return `${(m?.[1] ?? hello).trim()} ${first}${m?.[2] ?? ''}`;
+}
 
 function senderName(author: string | null, unknown: string): string {
   if (!author) return unknown;
@@ -53,13 +73,36 @@ function todayLabel(intl: string): string {
 
 export default function Accueil() {
   const router = useRouter();
-  const { t, f, intl } = useI18n();
+  const insets = useSafeAreaInsets();
+  const { t, intl } = useI18n();
   const [items, setItems] = useState<Item[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
+
+  // Prenom pour la salutation (comme l'accueil web).
+  useEffect(() => {
+    (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        const full = ((data as { full_name?: string | null } | null)?.full_name || '').trim();
+        if (full) setFirstName(full.split(' ')[0] ?? '');
+      } catch {
+        // pas bloquant : on garde la salutation generique
+      }
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -141,11 +184,17 @@ export default function Accueil() {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const startMs = start.getTime();
-    const today = items.filter((it) => {
+    // Exclure les emails de rapport Vmail eux-mêmes : ils arrivent dans la boîte,
+    // sont ré-ingérés, et comme leur sujet contient « urgent/important » ils
+    // polluaient les buckets. Ce ne sont pas des emails à trier.
+    const clean = items.filter(
+      (it) => !/^\s*vmail\s*[—–-]/i.test((it.title || '').toLowerCase()),
+    );
+    const today = clean.filter((it) => {
       const t = new Date(it.received_at).getTime();
       return !Number.isNaN(t) && t >= startMs;
     });
-    return { list: today.length ? today : items, isToday: today.length > 0 };
+    return { list: today.length ? today : clean, isToday: today.length > 0 };
   }, [items]);
 
   const groups = useMemo(() => {
@@ -175,101 +224,107 @@ export default function Accueil() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
       }
     >
-      <View style={styles.headerTop}>
-        <View style={styles.headerLeft}>
-          <LogoV size={42} />
-          <View style={styles.headerTexts}>
-            <Text style={styles.date}>{todayLabel(intl)}</Text>
-            <Text style={styles.greeting}>{t.common.hello}</Text>
+      {/* Bandeau charbon : wordmark + actions + salutation + récap */}
+      <View style={[styles.top, { paddingTop: insets.top + spacing.md }]}>
+        <View style={styles.topRow}>
+          <LogoVmail size={24} />
+          <View style={styles.actions}>
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => router.push('/attachments')}
+              accessibilityLabel={t.home.attachmentsLabel}
+            >
+              <IconPaperclip size={15} color={colors.terracottaLight} />
+            </Pressable>
+            <Pressable
+              style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
+              onPress={refreshNow}
+              disabled={refreshingNow}
+            >
+              {refreshingNow ? (
+                <ActivityIndicator size="small" color={colors.terracottaLight} />
+              ) : (
+                <IconRefresh size={13} color={colors.terracottaLight} />
+              )}
+              <Text style={styles.refreshBtnText}>
+                {refreshingNow ? t.common.refreshing : t.common.refresh}
+              </Text>
+            </Pressable>
           </View>
         </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => router.push('/attachments')}
-            accessibilityLabel={t.home.attachmentsLabel}
-          >
-            <IconPaperclip size={16} color={colors.terracotta} />
-          </Pressable>
-          <Pressable
-            style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
-            onPress={refreshNow}
-            disabled={refreshingNow}
-          >
-            {refreshingNow ? (
-              <ActivityIndicator size="small" color={colors.terracotta} />
-            ) : (
-              <IconRefresh size={13} color={colors.terracotta} />
-            )}
-            <Text style={styles.refreshBtnText}>
-              {refreshingNow ? t.common.refreshing : t.common.refresh}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
 
-      <Text style={styles.sub}>
-        {total === 0
-          ? t.home.boxUpToDate
-          : base.isToday
-            ? f(total === 1 ? t.home.todayOne : t.home.todayMany, { n: total })
-            : f(t.home.recentFallback, { n: total })}
-      </Text>
+        <Text style={styles.date}>{todayLabel(intl)}</Text>
+        <Text style={styles.greeting}>{greetWithName(t.common.hello, firstName)}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {/* Compteurs */}
-      {total > 0 ? (
-        <View style={styles.stats}>
-          {PRIORITIES.map((p) => (
-            <Pressable
-              key={p.key}
-              style={styles.statCard}
-              onPress={() => {
-                setPendingFeedFilter(p.key);
-                router.navigate('/(tabs)');
-              }}
-            >
-              <View style={[styles.statTop, { backgroundColor: p.color }]} />
-              <Text style={[styles.statNum, { color: p.color }]}>{groups[p.key]?.length ?? 0}</Text>
-              <Text style={styles.statLabel}>{prioLabel(t, p.key)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {/* Sections par priorité */}
-      {PRIORITIES.map((p) => {
-        const list = groups[p.key] ?? [];
-        if (list.length === 0) return null;
-        return (
-          <View key={p.key} style={styles.section}>
-            <View style={styles.sectionHead}>
-              <View style={[styles.dot, { backgroundColor: p.color }]} />
-              <Text style={[styles.sectionTitle, { color: p.color }]}>
-                {prioLabel(t, p.key)} · {list.length}
-              </Text>
-            </View>
-            {list.map((it) => (
-              <EmailRow
-                key={it.id}
-                subject={it.title || t.common.noSubject}
-                sender={senderName(it.author, t.common.unknownSender)}
-                prioColor={p.color}
-                unread={it.status === 'unread'}
-                onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
-              />
+        {total === 0 ? (
+          <Text style={styles.recapEmpty}>{t.home.boxUpToDate}</Text>
+        ) : (
+          // Chaque categorie du recap ouvre le feed deja filtre — la plomberie
+          // (setPendingFeedFilter) existait mais n'etait appelee nulle part, donc
+          // taper une categorie ne faisait rien. Le web le fait depuis toujours.
+          <View style={styles.recapRow}>
+            {PRIORITIES.map((p, i) => (
+              <Pressable
+                key={p.key}
+                onPress={() => {
+                  setPendingFeedFilter(p.key);
+                  router.push('/(tabs)');
+                }}
+                accessibilityRole="button"
+                hitSlop={6}
+              >
+                <Text style={styles.recap}>
+                  {i > 0 ? '   ·   ' : ''}
+                  <Text style={[styles.recapNum, { color: RECAP_TINT[p.key] }]}>
+                    {groups[p.key]?.length ?? 0}
+                  </Text>{' '}
+                  {prioLabel(t, p.key).toLowerCase()}
+                </Text>
+              </Pressable>
             ))}
           </View>
-        );
-      })}
+        )}
+      </View>
 
-      {total === 0 ? (
-        <View style={styles.allClear}>
-          <Text style={styles.allClearTitle}>{t.home.allClearTitle}</Text>
-          <Text style={styles.allClearSub}>{t.home.allClearSub}</Text>
-        </View>
-      ) : null}
+      <View style={styles.body}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Sections par catégorie */}
+        {PRIORITIES.map((p) => {
+          const list = groups[p.key] ?? [];
+          if (list.length === 0) return null;
+          return (
+            <View key={p.key} style={styles.section}>
+              <View style={styles.sectionHead}>
+                <View style={[styles.dot, { backgroundColor: p.color }]} />
+                <Text style={[styles.sectionTitle, { color: p.color }]}>
+                  {prioLabel(t, p.key)}
+                </Text>
+                <Text style={styles.sectionCount}>{list.length}</Text>
+                <View style={styles.sectionLine} />
+              </View>
+              {list.map((it) => (
+                <EmailRow
+                  key={it.id}
+                  subject={it.title || t.common.noSubject}
+                  sender={senderName(it.author, t.common.unknownSender)}
+                  prioColor={p.color}
+                  showDot
+                  unread={it.status === 'unread'}
+                  onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
+                />
+              ))}
+            </View>
+          );
+        })}
+
+        {total === 0 ? (
+          <View style={styles.allClear}>
+            <Text style={styles.allClearTitle}>{t.home.allClearTitle}</Text>
+            <Text style={styles.allClearSub}>{t.home.allClearSub}</Text>
+          </View>
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
@@ -277,19 +332,22 @@ export default function Accueil() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
-  content: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, paddingEnd: spacing.md },
-  headerTexts: { flex: 1 },
-  date: { fontSize: 12, color: colors.muted, textTransform: 'capitalize' },
-  greeting: { fontSize: 30, fontWeight: '700', color: colors.ink, marginTop: 2 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  content: { paddingBottom: spacing.xxl * 2 },
+
+  // Bandeau charbon
+  top: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl + 2,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconBtn: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.terracotta,
+    borderColor: 'rgba(240,151,90,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -298,48 +356,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: colors.terracotta,
+    borderColor: 'rgba(240,151,90,0.5)',
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md + 1,
+    paddingVertical: spacing.sm,
   },
   refreshBtnBusy: { opacity: 0.6 },
-  refreshBtnText: { color: colors.terracotta, fontSize: 12, fontWeight: '600' },
-  sub: { fontSize: 14, color: colors.muted, marginTop: spacing.sm },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
-  stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-    overflow: 'hidden',
+  refreshBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 12.5 },
+  date: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.onDarkMuted,
+    marginTop: spacing.lg,
   },
-  statTop: { alignSelf: 'stretch', height: 3 },
-  statNum: { fontSize: 22, fontWeight: '700', marginTop: spacing.md },
-  statLabel: { fontSize: 10, color: colors.muted, marginTop: 2, textAlign: 'center' },
-  section: { marginTop: spacing.xl },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  row: {
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.xs,
+  greeting: {
+    fontFamily: fonts.sansExtrabold,
+    fontSize: 36,
+    color: colors.onDark,
+    letterSpacing: -1,
+    marginTop: spacing.sm,
   },
-  rowSubject: { fontSize: 15, fontWeight: '500', color: colors.ink2 },
-  rowSubjectUnread: { color: colors.ink, fontWeight: '700' },
-  rowSender: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  recap: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.onDarkMuted, marginTop: spacing.sm, lineHeight: 20 },
+  recapRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  recapNum: { fontFamily: fonts.sansBold },
+  recapEmpty: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.onDarkMuted, marginTop: spacing.sm, lineHeight: 20 },
+
+  // Corps
+  body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginBottom: spacing.md },
+  section: { marginBottom: spacing.lg },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  sectionTitle: { fontFamily: fonts.sansBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: 'uppercase' },
+  sectionCount: { fontFamily: fonts.sansSemibold, fontSize: 11.5, color: colors.hint },
+  sectionLine: { flex: 1, height: 1, backgroundColor: colors.cardline },
+
   allClear: { marginTop: spacing.xxl, alignItems: 'center' },
-  allClearTitle: { fontSize: 18, fontWeight: '700', color: colors.sage },
+  allClearTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.sage },
   allClearSub: {
+    fontFamily: fonts.sans,
     fontSize: 14,
     color: colors.hint,
     textAlign: 'center',

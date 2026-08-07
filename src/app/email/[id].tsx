@@ -31,8 +31,14 @@ import {
   type Rule,
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
-import { colors, radius, spacing } from '@/lib/theme';
-import { IconClose, IconPlus, IconSparkle } from '@/components/icons';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
+import {
+  IconChevronLeft,
+  IconClose,
+  IconPlus,
+  IconReplySuggested,
+  IconSparkle,
+} from '@/components/icons';
 
 type Item = {
   id: string;
@@ -712,10 +718,40 @@ export default function EmailDetail() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.back}>{t.email.back}</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
+            <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
+          {p ? (
+            <View style={[styles.navCat, { borderColor: p.color }]}>
+              <View style={[styles.navCatDot, { backgroundColor: p.color }]} />
+              <Text style={[styles.navCatText, { color: p.color }]}>
+                {prioLabel(t, p.key).toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
         </View>
+        {/* Sujet + expediteur dans le bandeau : meme systeme que les listes (bandeau
+            charbon = identite de l'ecran, creme = contenu). Avant, le bandeau etait
+            vide et le sujet flottait sur le creme, sans ancrage. */}
+        {item ? (
+          <View style={styles.hero}>
+            <Text style={styles.subject}>{item.title || t.common.noSubject}</Text>
+            <View style={styles.heroMeta}>
+              <Text style={styles.sender} numberOfLines={1}>
+                {item.author ?? t.common.unknownSender}
+              </Text>
+              <Text style={styles.metaDate}>
+                {new Date(item.received_at).toLocaleString(intl, {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </SafeAreaView>
 
       {loading ? (
@@ -734,22 +770,39 @@ export default function EmailDetail() {
           automaticallyAdjustKeyboardInsets
           contentInsetAdjustmentBehavior="automatic"
         >
-          {p ? (
-            <Text style={[styles.prio, { color: p.color }]}>{prioLabel(t, p.key).toUpperCase()}</Text>
+          {summaryLoading || summary || !body ? (
+            <>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHead}>
+                  <IconSparkle size={13} color={colors.terracottaVivid} />
+                  <Text style={styles.summaryLabel}>{t.email.summary}</Text>
+                </View>
+                {summaryLoading ? (
+                  <View style={styles.genLoading}>
+                    <ActivityIndicator color={colors.terracotta} />
+                    <Text style={styles.genLoadingText}>{t.email.aiSummarizing}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.summaryText}>
+                    {summary || (!body ? t.email.noPreview : '')}
+                  </Text>
+                )}
+              </View>
+            </>
           ) : null}
-          <Text style={styles.subject}>{item.title || t.common.noSubject}</Text>
-          <Text style={styles.meta}>{item.author ?? t.common.unknownSender}</Text>
-          <Text style={styles.metaDate}>
-            {new Date(item.received_at).toLocaleString(intl, {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
 
-          {/* Reclassement : changer la catégorie / créer une règle */}
+          {/* Corps de l'email — affiché EN PLUS du résumé (avant, le message
+              lui-même n'était jamais visible dès qu'un résumé existait). */}
+          {body ? (
+            <>
+              <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
+              <LinkifiedText text={body} style={styles.content} />
+            </>
+          ) : null}
+
+          {/* Reclassement — action secondaire : on la place APRES la lecture.
+              Avant, elle s'intercalait entre l'en-tete et le resume : la premiere chose
+              qu'on voyait en ouvrant un mail etait un formulaire de classement. */}
           <View style={styles.reclassify}>
             <Text style={styles.reLabel}>{t.email.category}</Text>
             <View style={styles.chipsWrap}>
@@ -780,7 +833,7 @@ export default function EmailDetail() {
                 <View style={styles.reBoxTop}>
                   <Text style={styles.reBoxTitle}>
                     {t.email.classifyPrefix}
-                    <Text style={{ fontWeight: '700' }}>{catLabel(pendingCat)}</Text>
+                    <Text style={{ fontFamily: fonts.sansBold }}>{catLabel(pendingCat)}</Text>
                     {t.email.classifySuffix}
                   </Text>
                   <Pressable
@@ -847,31 +900,6 @@ export default function EmailDetail() {
             {reError ? <Text style={styles.reErr}>{reError}</Text> : null}
           </View>
 
-          {summaryLoading || summary || !body ? (
-            <>
-              <View style={styles.divider} />
-              <Text style={styles.sectionLabel}>{t.email.summary}</Text>
-              {summaryLoading ? (
-                <View style={styles.genLoading}>
-                  <ActivityIndicator color={colors.terracotta} />
-                  <Text style={styles.genLoadingText}>{t.email.aiSummarizing}</Text>
-                </View>
-              ) : (
-                <Text style={styles.content}>{summary || (!body ? t.email.noPreview : '')}</Text>
-              )}
-            </>
-          ) : null}
-
-          {/* Corps de l'email — affiché EN PLUS du résumé (avant, le message
-              lui-même n'était jamais visible dès qu'un résumé existait). */}
-          {body ? (
-            <>
-              <View style={styles.divider} />
-              <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
-              <LinkifiedText text={body} style={styles.content} />
-            </>
-          ) : null}
-
           <Pressable
             style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
             disabled={tsLoading}
@@ -937,7 +965,12 @@ export default function EmailDetail() {
 
           {/* Brouillon IA */}
           <View style={styles.draftSection}>
-            <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
+            <View style={styles.draftHead}>
+              <View style={styles.draftIcon}>
+                <IconReplySuggested size={16} color={colors.terracottaVivid} />
+              </View>
+              <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
+            </View>
 
             {!draft && !genLoading ? (
               <Pressable style={styles.cta} onPress={() => generate(false)}>
@@ -1174,20 +1207,88 @@ export default function EmailDetail() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   safe: { backgroundColor: colors.charcoal },
-  topbar: { backgroundColor: colors.charcoal, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  back: { color: colors.onDark, fontSize: 16, fontWeight: '600' },
+  topbar: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  backBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(250,247,240,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navCat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    opacity: 0.9,
+  },
+  navCatDot: { width: 6, height: 6, borderRadius: 3 },
+  navCatText: { fontFamily: fonts.sansBold, fontSize: 10.5, letterSpacing: 0.8 },
+  back: { fontFamily: fonts.sansSemibold, color: colors.onDark, fontSize: 16 },
+  draftHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  draftIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(232,93,12,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: { color: colors.muted, fontSize: 15 },
+  empty: { fontFamily: fonts.sans, color: colors.muted, fontSize: 15 },
   body: { flex: 1 },
   bodyContent: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
-  prio: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: spacing.sm },
-  subject: { fontSize: 22, fontWeight: '700', color: colors.ink, lineHeight: 28 },
-  meta: { fontSize: 14, color: colors.ink2, marginTop: spacing.md },
-  metaDate: { fontSize: 12, color: colors.hint, marginTop: 2, textTransform: 'capitalize' },
+  prio: { fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 1.2, marginBottom: spacing.sm },
+
+  // En-tete dans le bandeau charbon
+  hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, paddingTop: spacing.xs },
+  subject: { fontFamily: fonts.sansBold, fontSize: 23, color: colors.onDark, lineHeight: 30, letterSpacing: -0.4 },
+  heroMeta: { marginTop: spacing.md },
+  sender: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: 'rgba(250,247,240,0.82)' },
+  metaDate: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(250,247,240,0.42)', marginTop: 3, textTransform: 'capitalize' },
+
+  // Resume IA : le seul bloc en carte blanche — c'est la valeur ajoutee du produit,
+  // avant il avait exactement le meme traitement que le message brut.
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    borderRadius: radius.md + 3,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.terracottaVivid,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  summaryHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm },
+  summaryLabel: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.terracotta,
+  },
+  summaryText: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
 
   // Reclassement
-  reclassify: { marginTop: spacing.lg },
-  reLabel: { fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.xs },
+  reclassify: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardline,
+  },
+  reLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.xs },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   catChip: {
     paddingHorizontal: 12,
@@ -1195,7 +1296,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  catChipText: { fontSize: 12, fontWeight: '600' },
+  catChipText: { fontFamily: fonts.sansSemibold, fontSize: 12 },
   reBox: {
     marginTop: spacing.md,
     backgroundColor: colors.surface,
@@ -1206,8 +1307,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   reBoxTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
-  reBoxTitle: { flex: 1, fontSize: 13, color: colors.ink2, lineHeight: 18 },
-  reCancel: { fontSize: 12, color: colors.muted },
+  reBoxTitle: { fontFamily: fonts.sans, flex: 1, fontSize: 13, color: colors.ink2, lineHeight: 18 },
+  reCancel: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
   targetChip: {
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -1216,9 +1317,10 @@ const styles = StyleSheet.create({
     borderColor: colors.cardline,
     backgroundColor: colors.cream,
   },
-  targetChipText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
+  targetChipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.ink2 },
   kwRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   kwInput: {
+    fontFamily: fonts.sans,
     flex: 1,
     backgroundColor: colors.cream,
     borderColor: colors.cardline,
@@ -1236,22 +1338,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kwBtnText: { color: colors.cream, fontWeight: '600', fontSize: 13 },
-  reNote: { fontSize: 12, color: colors.muted, marginTop: spacing.sm },
-  reErr: { fontSize: 12, color: colors.danger, marginTop: spacing.xs },
+  kwBtnText: { fontFamily: fonts.sansSemibold, color: colors.cream, fontSize: 13 },
+  reNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: spacing.sm },
+  reErr: { fontFamily: fonts.sans, fontSize: 12, color: colors.danger, marginTop: spacing.xs },
 
   divider: { height: 1, backgroundColor: colors.cardline, marginVertical: spacing.lg },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    fontFamily: fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
-    color: colors.terracotta,
+    color: colors.muted,
     marginBottom: spacing.sm,
   },
-  content: { fontSize: 15, color: colors.ink2, lineHeight: 24 },
+  content: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink2, lineHeight: 24 },
   linkBtn: { marginTop: spacing.lg },
-  linkBtnText: { color: colors.terracotta, fontWeight: '600', fontSize: 14 },
+  linkBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
 
   draftSection: {
     marginTop: spacing.xl,
@@ -1260,10 +1362,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.cardline,
     gap: spacing.md,
   },
-  draftTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  draftTitle: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink },
   genLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
-  genLoadingText: { color: colors.muted, fontSize: 14 },
+  genLoadingText: { fontFamily: fonts.sans, color: colors.muted, fontSize: 14 },
   draftInput: {
+    fontFamily: fonts.sans,
     minHeight: 160,
     backgroundColor: colors.surface,
     borderColor: colors.cardline,
@@ -1276,7 +1379,7 @@ const styles = StyleSheet.create({
   },
   tsBox: { marginTop: spacing.md },
   adaptedRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  adapted: { fontSize: 11, color: colors.hint, fontStyle: 'italic' },
+  adapted: { fontFamily: fonts.sansItalic, fontSize: 11, color: colors.hint },
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1289,9 +1392,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  noticeText: { flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
-  noticeClose: { fontSize: 13, color: colors.hint },
-  refineLabel: { fontSize: 12, color: colors.muted },
+  noticeText: { fontFamily: fonts.sans, flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
+  noticeClose: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint },
+  refineLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
   attRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1305,7 +1408,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
   },
-  attName: { flex: 1, fontSize: 13, color: colors.ink2 },
+  attName: { fontFamily: fonts.sans, flex: 1, fontSize: 13, color: colors.ink2 },
   attAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1318,7 +1421,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
   },
-  attAddText: { fontSize: 13, color: colors.ink, fontWeight: '600' },
+  attAddText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink },
   recvBox: {
     marginTop: spacing.lg,
     backgroundColor: colors.surface,
@@ -1328,8 +1431,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   recvTitle: {
+    fontFamily: fonts.sansBold,
     fontSize: 11,
-    fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: colors.muted,
@@ -1345,8 +1448,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.cardline,
   },
   recvNameWrap: { flex: 1, paddingEnd: spacing.sm },
-  recvName: { fontSize: 14, color: colors.ink },
-  recvDl: { fontSize: 13, color: colors.terracotta, fontWeight: '600' },
+  recvName: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink },
+  recvDl: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracotta },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
   previewClose: { position: 'absolute', top: 52, end: 20, zIndex: 2, padding: 8 },
   previewImg: { width: '100%', height: '100%' },
@@ -1357,7 +1460,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: 12,
   },
-  previewActionText: { color: colors.onDark, fontWeight: '700', fontSize: 15 },
+  previewActionText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(20,18,15,0.45)',
@@ -1371,8 +1474,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sheetTitle: {
+    fontFamily: fonts.sansBold,
     fontSize: 13,
-    fontWeight: '700',
     color: colors.muted,
     textAlign: 'center',
     paddingVertical: spacing.sm,
@@ -1383,9 +1486,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.cardline,
   },
-  sheetItemText: { fontSize: 16, color: colors.terracotta, fontWeight: '600' },
+  sheetItemText: { fontFamily: fonts.sansSemibold, fontSize: 16, color: colors.terracotta },
   sheetCancel: { paddingVertical: 14, alignItems: 'center', marginTop: spacing.xs },
-  sheetCancelText: { fontSize: 16, color: colors.ink2, fontWeight: '700' },
+  sheetCancelText: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink2 },
   refineChip: {
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -1394,8 +1497,9 @@ const styles = StyleSheet.create({
     borderColor: colors.cardline,
     backgroundColor: colors.surface,
   },
-  refineChipText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
+  refineChipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.ink2 },
   instr: {
+    fontFamily: fonts.sans,
     backgroundColor: colors.surface,
     borderColor: colors.cardline,
     borderWidth: 1,
@@ -1415,7 +1519,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaText: { color: colors.onDark, fontWeight: '700', fontSize: 15 },
+  ctaText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   secondaryBtn: {
     borderColor: colors.terracotta,
     borderWidth: 1,
@@ -1425,9 +1529,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryBtnText: { color: colors.terracotta, fontWeight: '600', fontSize: 14 },
+  secondaryBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
   btnDisabled: { opacity: 0.4 },
-  msg: { fontSize: 13, marginTop: spacing.sm },
+  msg: { fontFamily: fonts.sans, fontSize: 13, marginTop: spacing.sm },
   msgOk: { color: colors.sage },
   msgErr: { color: colors.danger },
 
@@ -1438,7 +1542,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendBtnText: { color: colors.cream, fontWeight: '700', fontSize: 15 },
+  sendBtnText: { fontFamily: fonts.sansBold, color: colors.cream, fontSize: 15 },
 
   modalOverlay: {
     flex: 1,
@@ -1452,8 +1556,8 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.sm,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  modalSub: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  modalTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.ink },
+  modalSub: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, lineHeight: 20 },
   modalPreview: {
     maxHeight: 220,
     backgroundColor: colors.surface,
@@ -1463,5 +1567,5 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginVertical: spacing.sm,
   },
-  modalPreviewText: { fontSize: 14, color: colors.ink2, lineHeight: 21 },
+  modalPreviewText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink2, lineHeight: 21 },
 });

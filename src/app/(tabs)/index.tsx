@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { useI18n } from '@/context/i18n';
@@ -19,9 +20,10 @@ import { supabase } from '@/lib/supabase';
 import { apiGet, apiPost } from '@/lib/api';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
-import { colors, radius, spacing } from '@/lib/theme';
-import { IconCheck, IconRefresh } from '@/components/icons';
+import { colors, fonts, radius, spacing } from '@/lib/theme';
+import { IconCheck, IconInbox, IconRefresh, IconSearch } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
+import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
 
 type Item = {
@@ -171,6 +173,7 @@ function sanitizeTerm(q: string): string {
 
 export default function Feed() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t, intl, locale } = useI18n();
 
   const FILTERS: { key: string; label: string }[] = [
@@ -193,6 +196,7 @@ export default function Feed() {
   const [mailboxes, setMailboxes] = useState<{ email: string; provider: string }[]>([]);
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
   const [sheet, setSheet] = useState<null | 'box' | 'type'>(null);
+  const [markingRead, setMarkingRead] = useState(false);
 
   function toggleBox(email: string) {
     const e = email.toLowerCase();
@@ -327,9 +331,13 @@ export default function Feed() {
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
 
   const boxFiltered = useMemo(() => {
-    if (selectedBoxes.length === 0) return items;
+    // Exclure les emails de rapport Vmail eux-mêmes (ré-ingérés depuis la boîte).
+    const src = items.filter(
+      (it) => !/^\s*vmail\s*[—–-]/i.test((it.title || '').toLowerCase()),
+    );
+    if (selectedBoxes.length === 0) return src;
     const wanted = selectedBoxes.map((b) => `box:${b.toLowerCase()}`);
-    return items.filter((it) => {
+    return src.filter((it) => {
       const tags = (it.tags || []).map((tg) => (tg || '').toLowerCase());
       return wanted.some((bt) => tags.includes(bt));
     });
@@ -358,6 +366,45 @@ export default function Feed() {
     });
   }, [boxFiltered, filter, unreadOnly, prio]);
 
+  // Adresses proposees au filtre = boites connectees (Account Store) UNION les
+  // boites presentes dans les items charges (tags `box:`). Sans cette union, un
+  // echec de /api/connect/list masquait completement le filtre. Aligne sur le web.
+  const boxAddresses = useMemo(() => {
+    const set = new Set<string>(mailboxes.map((m) => (m.email || '').toLowerCase()).filter(Boolean));
+    items.forEach((it) => {
+      (it.tags || []).forEach((tg) => {
+        const x = (tg || '').toLowerCase();
+        if (x.startsWith('box:')) set.add(x.slice(4));
+      });
+    });
+    return Array.from(set).sort();
+  }, [mailboxes, items]);
+
+  // Elague les boites cochees qui ne sont plus proposees (ex. recherche).
+  useEffect(() => {
+    setSelectedBoxes((prev) => {
+      const kept = prev.filter((b) => boxAddresses.includes(b));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [boxAddresses]);
+
+  // Marque comme lus tous les emails non lus actuellement visibles.
+  const unreadVisibleIds = visible.filter((it) => it.status === 'unread').map((it) => it.id);
+
+  async function markAllRead() {
+    if (unreadVisibleIds.length === 0 || markingRead) return;
+    setMarkingRead(true);
+    const ids = unreadVisibleIds;
+    const before = items;
+    setItems((prev) => prev.map((it) => (ids.includes(it.id) ? { ...it, status: 'read' } : it)));
+    const { error: updErr } = await supabase
+      .from('items')
+      .update({ status: 'read', read_at: new Date().toISOString() } as never)
+      .in('id', ids);
+    setMarkingRead(false);
+    if (updErr) setItems(before); // rollback : l'affichage ne doit pas mentir
+  }
+
   const boxLabel =
     selectedBoxes.length === 0
       ? t.feed.allBoxes
@@ -368,10 +415,10 @@ export default function Feed() {
 
   const boxOptions: SheetOption[] = [
     { key: '__all__', label: t.feed.allBoxes, selected: selectedBoxes.length === 0 },
-    ...mailboxes.map((m) => ({
-      key: m.email.toLowerCase(),
-      label: m.email,
-      selected: selectedBoxes.includes(m.email.toLowerCase()),
+    ...boxAddresses.map((addr) => ({
+      key: addr,
+      label: addr,
+      selected: selectedBoxes.includes(addr),
     })),
   ];
   const typeOptions: SheetOption[] = FILTERS.map((f) => ({
@@ -386,16 +433,18 @@ export default function Feed() {
   function renderItem({ item }: { item: Item }) {
     const p = prio(item);
     return (
-      <EmailRow
-        subject={item.title || t.common.noSubject}
-        sender={senderName(item.author, t.common.unknownSender)}
-        prioColor={p.color}
-        prioLabel={prioLabel(t, p.key).toUpperCase()}
-        date={formatDate(item.received_at, intl)}
-        preview={item.preview ? cleanText(item.preview) : null}
-        unread={item.status === 'unread'}
-        onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
-      />
+      <View style={styles.rowWrap}>
+        <EmailRow
+          subject={item.title || t.common.noSubject}
+          sender={senderName(item.author, t.common.unknownSender)}
+          prioColor={p.color}
+          prioLabel={prioLabel(t, p.key).toUpperCase()}
+          date={formatDate(item.received_at, intl)}
+          preview={item.preview ? cleanText(item.preview) : null}
+          unread={item.status === 'unread'}
+          onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
+        />
+      </View>
     );
   }
 
@@ -417,17 +466,6 @@ export default function Feed() {
         onPick={(key) => (key === '__all__' ? setSelectedBoxes([]) : toggleBox(key))}
         onClose={() => setSheet(null)}
       />
-      <FilterSheet
-        visible={sheet === 'type'}
-        title={t.feed.byType}
-        options={typeOptions}
-        doneLabel="OK"
-        onPick={(key) => {
-          setFilter(key);
-          setSheet(null);
-        }}
-        onClose={() => setSheet(null)}
-      />
 
       <FlatList
         style={styles.screen}
@@ -440,24 +478,19 @@ export default function Feed() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
         }
         ListHeaderComponent={
-          <View>
-            <View style={styles.header}>
-              <View style={styles.headerTop}>
-                <View style={styles.headerTexts}>
-                  <Text style={styles.greeting}>{t.common.hello}</Text>
-                  <Text style={styles.sub}>
-                    {items.length > 0 ? t.feed.subSorted : t.feed.subEmpty}
-                  </Text>
-                </View>
+          <View style={styles.listHeader}>
+            <View style={[styles.top, { paddingTop: insets.top + spacing.md }]}>
+              <View style={styles.topRow}>
+                <LogoVmail size={23} />
                 <Pressable
                   style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
                   onPress={refreshNow}
                   disabled={refreshingNow}
                 >
                   {refreshingNow ? (
-                    <ActivityIndicator size="small" color={colors.terracotta} />
+                    <ActivityIndicator size="small" color={colors.terracottaLight} />
                   ) : (
-                    <IconRefresh size={13} color={colors.terracotta} />
+                    <IconRefresh size={13} color={colors.terracottaLight} />
                   )}
                   <Text style={styles.refreshBtnText}>
                     {refreshingNow ? t.common.refreshing : t.common.refresh}
@@ -465,46 +498,85 @@ export default function Feed() {
                 </Pressable>
               </View>
 
-              <TextInput
-                style={styles.search}
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t.feed.searchPlaceholder}
-                placeholderTextColor={colors.hint}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-              />
+              <Text style={styles.title}>{t.tabs.feed}</Text>
 
-              {/* Barre de filtres : boites (deroulant) - type (deroulant) - non lus */}
-              <View style={styles.filterBar}>
-                {mailboxes.length > 1 ? (
-                  <Pressable style={styles.fbtn} onPress={() => setSheet('box')}>
-                    <Text style={styles.fbtnText} numberOfLines={1}>
+              {/* Recherche */}
+              <View style={styles.searchWrap}>
+                <IconSearch size={16} color={colors.onDarkMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder={t.feed.searchPlaceholder}
+                  placeholderTextColor={colors.onDarkMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+              </View>
+
+              {/* Filtre par boîte (déroulant) */}
+              {boxAddresses.length > 1 ? (
+                <View style={styles.chipsRow}>
+                  <Pressable style={[styles.chip, styles.chipBox]} onPress={() => setSheet('box')}>
+                    <IconInbox size={14} color={colors.onDark} />
+                    <Text style={[styles.chipText, styles.chipTextBox]} numberOfLines={1}>
                       {boxLabel}
                     </Text>
-                    <Caret />
+                    <Caret color={colors.onDark} size={13} />
                   </Pressable>
-                ) : null}
+                </View>
+              ) : null}
 
-                <Pressable style={styles.fbtn} onPress={() => setSheet('type')}>
-                  <Text style={styles.fbtnText} numberOfLines={1}>
-                    {typeLabel}
+              {/* Filtres de type (chips) */}
+              <View style={styles.chipsRow}>
+                <Pressable
+                  style={[styles.chip, filter === 'all' && styles.chipOn]}
+                  onPress={() => setFilter('all')}
+                >
+                  <Text style={[styles.chipText, filter === 'all' && styles.chipTextOn]}>
+                    {t.feed.filterAll}
                   </Text>
-                  <Caret />
                 </Pressable>
 
                 <Pressable
-                  style={[styles.fbtn, styles.fbtnToggle, unreadOnly && styles.fbtnActive]}
+                  style={[styles.chip, unreadOnly && styles.chipOn]}
                   onPress={() => setUnreadOnly((v) => !v)}
                 >
-                  <Text style={[styles.fbtnText, unreadOnly && styles.fbtnTextActive]} numberOfLines={1}>
+                  <Text style={[styles.chipText, unreadOnly && styles.chipTextOn]}>
                     {t.feed.unread} {unreadCount}
                     {hasMore ? '+' : ''}
                   </Text>
                 </Pressable>
+
+                {PRIORITIES.map((p) => (
+                  <Pressable
+                    key={p.key}
+                    style={[styles.chip, filter === p.key && styles.chipOn]}
+                    onPress={() => setFilter(filter === p.key ? 'all' : p.key)}
+                  >
+                    <Text style={[styles.chipText, filter === p.key && styles.chipTextOn]}>
+                      {prioLabel(t, p.key)}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
+
+              {/* Action groupee « tout marquer comme lu » — existait sur le web
+                  uniquement. Porte ici pour aligner les deux plateformes. */}
+              {unreadVisibleIds.length > 0 ? (
+                <Pressable
+                  style={styles.markAllBtn}
+                  onPress={() => void markAllRead()}
+                  disabled={markingRead}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.markAllText, markingRead && styles.markAllTextBusy]}>
+                    {t.feed.markAllRead} ({unreadVisibleIds.length})
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -565,60 +637,84 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
   content: { paddingBottom: spacing.xxl },
-  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.sm },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTexts: { flex: 1, paddingEnd: spacing.md },
+  markAllBtn: { alignSelf: 'flex-start', marginTop: spacing.sm },
+  markAllText: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.terracottaLight },
+  markAllTextBusy: { opacity: 0.5 },
+  rowWrap: { paddingHorizontal: spacing.xl },
+  // Respiration entre le bandeau charbon et la premiere carte : sans elle, la liste
+  // demarrait au ras du bandeau (l'ecran Accueil, lui, a ses intitules de section).
+  listHeader: { marginBottom: 14 },
+
+  // Bandeau charbon
+  top: {
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: colors.terracotta,
+    borderColor: 'rgba(240,151,90,0.5)',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginTop: spacing.xs,
+    paddingVertical: spacing.xs + 2,
   },
   refreshBtnBusy: { opacity: 0.6 },
-  refreshBtnText: { color: colors.terracotta, fontSize: 12, fontWeight: '600' },
-  greeting: { fontSize: 30, fontWeight: '700', color: colors.ink },
-  sub: { fontSize: 14, color: colors.muted, marginTop: spacing.xs },
-  search: {
-    marginTop: spacing.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.ink,
+  refreshBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 12 },
+  title: {
+    fontFamily: fonts.sansExtrabold,
+    fontSize: 33,
+    color: colors.onDark,
+    letterSpacing: -0.8,
+    marginTop: spacing.md + 2,
   },
-
-  filterBar: {
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: spacing.lg,
+    backgroundColor: 'rgba(250,247,240,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(250,247,240,0.18)',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md + 1,
+    paddingVertical: 4,
+  },
+  searchInput: {
+    fontFamily: fonts.sans,
+    flex: 1,
+    fontSize: 14,
+    letterSpacing: 0,
+    color: colors.onDark,
+    paddingVertical: 8,
+  },
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 7,
     marginTop: spacing.md,
   },
-  fbtn: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     flexShrink: 1,
     maxWidth: '100%',
     borderWidth: 1,
-    borderColor: colors.cardline,
-    backgroundColor: colors.surface,
+    borderColor: 'rgba(250,247,240,0.20)',
     borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
   },
-  fbtnText: { fontSize: 13, fontWeight: '600', color: colors.ink, flexShrink: 1 },
-  fbtnToggle: { borderColor: colors.cardline },
-  fbtnActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  fbtnTextActive: { color: colors.cream },
+  chipOn: { backgroundColor: '#f0975a', borderColor: '#f0975a' },
+  chipBox: { borderColor: 'rgba(250,247,240,0.28)' },
+  chipText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.onDarkMuted, flexShrink: 1 },
+  chipTextOn: { color: colors.charcoal },
+  chipTextBox: { color: colors.onDark },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(33,30,25,0.45)', justifyContent: 'flex-end' },
   sheet: {
@@ -630,8 +726,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.terracotta,
   },
   sheetTitle: {
+    fontFamily: fonts.sansBold,
     fontSize: 12,
-    fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.muted,
@@ -646,19 +742,19 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardline,
     gap: spacing.md,
   },
-  sheetRowText: { fontSize: 15, color: colors.ink2, flexShrink: 1 },
-  sheetRowTextSel: { color: colors.terracotta, fontWeight: '700' },
+  sheetRowText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink2, flexShrink: 1 },
+  sheetRowTextSel: { fontFamily: fonts.sansBold, color: colors.terracotta },
   sheetRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sheetCount: { fontSize: 13, color: colors.hint },
+  sheetCount: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint },
   sheetDone: {
     marginTop: spacing.lg,
     backgroundColor: colors.ink,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  sheetDoneText: { color: colors.cream, fontSize: 14, fontWeight: '700' },
+  sheetDoneText: { fontFamily: fonts.sansBold, color: colors.cream, fontSize: 14 },
 
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
+  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginTop: spacing.sm, paddingHorizontal: spacing.xl },
   loadMoreBtn: {
     alignSelf: 'center',
     marginTop: spacing.lg,
@@ -672,9 +768,10 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
   },
-  loadMoreText: { fontSize: 13, fontWeight: '600', color: colors.terracotta },
+  loadMoreText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracotta },
   emptyWrap: { alignItems: 'center', marginTop: spacing.xxl, gap: spacing.sm },
   empty: {
+    fontFamily: fonts.sans,
     textAlign: 'center',
     color: colors.hint,
     fontSize: 14,
@@ -685,11 +782,11 @@ const styles = StyleSheet.create({
   accent: { width: 3, marginEnd: spacing.md },
   rowBody: { flex: 1 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-  prioLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  date: { fontSize: 11, color: colors.hint },
-  subject: { fontSize: 15, fontWeight: '500', color: colors.ink2 },
-  subjectUnread: { color: colors.ink, fontWeight: '700' },
-  sender: { fontSize: 12, color: colors.muted, marginTop: 1 },
-  preview: { fontSize: 12, color: colors.hint, marginTop: 2 },
+  prioLabel: { fontFamily: fonts.sansBold, fontSize: 10, letterSpacing: 1 },
+  date: { fontFamily: fonts.sans, fontSize: 11, color: colors.hint },
+  subject: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink2 },
+  subjectUnread: { fontFamily: fonts.sansBold, color: colors.ink },
+  sender: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 1 },
+  preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 2 },
   sep: { height: 1, backgroundColor: colors.cardline, marginStart: spacing.lg },
 });

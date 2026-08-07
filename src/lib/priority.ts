@@ -36,10 +36,19 @@ export function domainOf(author: string | null): string {
 }
 
 export function priorityFromTags(tags: string[]): Priority {
-  const t = (tags || []).map((x) => x.toLowerCase());
-  if (t.includes('urgent')) return PRIORITY_BY_KEY.urgent;
-  if (t.includes('important')) return PRIORITY_BY_KEY.important;
-  if (t.includes('human')) return PRIORITY_BY_KEY.human;
+  // Le bucket doit refléter la CATÉGORIE du classifieur (le `type`, poussé en
+  // premier dans les tags par le workflow "push to app"), et NON les drapeaux
+  // 'important'/'urgent' ajoutés ensuite (isImportant / isHumanUrgent).
+  // On renvoie donc la première catégorie rencontrée dans l'ordre des tags
+  // (= le type), au lieu de scanner urgent>important>human sur toute la liste,
+  // ce qui laissait un drapeau écraser la vraie catégorie (divergence app↔digest).
+  for (const raw of tags || []) {
+    const x = (raw || '').toLowerCase();
+    if (x === 'urgent') return PRIORITY_BY_KEY.urgent;
+    if (x === 'important') return PRIORITY_BY_KEY.important;
+    if (x === 'human') return PRIORITY_BY_KEY.human;
+    if (x === 'info' || x === 'suspect') return PRIORITY_BY_KEY.info;
+  }
   return PRIORITY_BY_KEY.info;
 }
 
