@@ -1624,7 +1624,7 @@ const ru: Dict = {
   tabs: {
     accueil: 'Главная',
     feed: 'Письма',
-    sent: 'Отправленные',
+    sent: 'Исходящие',
     drafts: 'Черновики',
     sources: 'Источники',
     rules: 'Правила',
