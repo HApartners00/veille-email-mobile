@@ -42,3 +42,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Dossier tampon local (verrous git morts, fichiers en attente de suppression).
+# Jamais commite : EAS CLI 21.x embarque les fichiers non commites dans le build.
+_to_delete/
