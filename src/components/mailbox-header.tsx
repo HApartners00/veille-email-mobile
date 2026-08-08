@@ -19,6 +19,7 @@ export function MailboxHeader({
   onQueryChange,
   searchPlaceholder,
   accounts,
+  emptyBoxes,
   selectedBoxes,
   onToggleBox,
   onClearBoxes,
@@ -34,6 +35,12 @@ export function MailboxHeader({
   onQueryChange: (v: string) => void;
   searchPlaceholder: string;
   accounts: string[];
+  /**
+   * Boîtes dont on SAIT qu'elles n'ont aucun élément — affichées avec « · 0 ».
+   * Optionnel : l'onglet Brouillons ne s'en sert pas (une boîte sans brouillon
+   * n'est pas une anomalie), l'onglet Envoyés si.
+   */
+  emptyBoxes?: string[];
   selectedBoxes: string[];
   onToggleBox: (email: string) => void;
   onClearBoxes: () => void;
@@ -100,6 +107,9 @@ export function MailboxHeader({
                   numberOfLines={1}
                 >
                   {addr}
+                  {(emptyBoxes || []).includes(addr) ? (
+                    <Text style={styles.chipZero}> · 0</Text>
+                  ) : null}
                 </Text>
               </Pressable>
             );
@@ -116,6 +126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
   },
+  chipZero: { opacity: 0.6 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   refreshBtn: {
     flexDirection: 'row',

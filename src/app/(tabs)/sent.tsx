@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MailboxHeader } from '@/components/mailbox-header';
 import { useI18n } from '@/context/i18n';
-import { apiPost } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
 import {
   cleanText,
@@ -77,6 +77,15 @@ export default function SentScreen() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
+  /**
+   * Boîtes CONNECTÉES, lues à la source (mail_accounts via /api/mailboxes) et non
+   * déduites des envois présents. Jumeau du web : `apps/web/src/lib/mailboxes.ts`.
+   *
+   * POURQUOI (08/08/2026) : une boîte connectée SANS aucun envoi disparaissait de
+   * la liste, donc le filtre se masquait et la boîte muette devenait invisible.
+   * Mesuré sur la boîte Outlook de HA : 141 mails reçus sur 30 jours, 0 envoi.
+   */
+  const [mailboxes, setMailboxes] = useState<{ email: string; sentCount: number }[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [forwardFor, setForwardFor] = useState<string | null>(null);
   const [forwardTo, setForwardTo] = useState('');
@@ -117,17 +126,69 @@ export default function SentScreen() {
     void load(debouncedQuery, 0, true);
   }, [debouncedQuery, load]);
 
+  // Liste des boîtes : une seule fois au montage, en parallèle des envois. Un
+  // échec ne doit rien casser — on retombe sur les boîtes vues dans les données,
+  // le filtre est alors moins complet mais ne ment pas.
+  useEffect(() => {
+    let vivant = true;
+    void (async () => {
+      try {
+        const r = await apiGet<{ mailboxes?: { email?: string; sentCount?: number }[] }>(
+          '/api/mailboxes',
+        );
+        if (!vivant) return;
+        setMailboxes(
+          (r?.mailboxes || [])
+            .filter((m) => m && m.email)
+            .map((m) => ({
+              email: String(m.email).toLowerCase(),
+              sentCount: typeof m.sentCount === 'number' ? m.sentCount : -1,
+            })),
+        );
+      } catch (e) {
+        // RIEN EN SILENCE, mais pas d'alerte à l'écran : le filtre est un confort,
+        // pas le contenu de l'onglet.
+        console.warn('[sent] liste des boîtes indisponible', e);
+      }
+    })();
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load(debouncedQuery, 0, true);
     setRefreshing(false);
   }, [load, debouncedQuery]);
 
-  const accounts = useMemo(() => {
-    const s = new Set<string>();
-    items.forEach((it) => it.account_email && s.add(it.account_email.toLowerCase()));
-    return Array.from(s).sort();
-  }, [items]);
+  // Boîtes affichées = boîtes CONNECTÉES ∪ boîtes vues dans les envois. L'union
+  // et pas seulement la liste connectée : une boîte déconnectée plus tard laisse
+  // ses envois en base, ils doivent rester filtrables. Même règle que le web.
+  const comptesParBoite = useMemo(() => {
+    const m = new Map<string, number>();
+    mailboxes.forEach((b) => m.set(b.email, b.sentCount));
+    items.forEach((it) => {
+      const e = (it.account_email || '').toLowerCase();
+      if (e && !m.has(e)) m.set(e, -1); // -1 = comptage inconnu, jamais « zéro »
+    });
+    return m;
+  }, [items, mailboxes]);
+
+  const accounts = useMemo(
+    () => Array.from(comptesParBoite.keys()).sort((a, b) => a.localeCompare(b)),
+    [comptesParBoite],
+  );
+
+  // `sentCount` est un compte EXACT venu du serveur, pas le nombre de lignes
+  // chargées : un « 0 » veut dire zéro envoi, jamais « absente de la 1re page ».
+  const emptyBoxes = useMemo(
+    () => accounts.filter((e) => comptesParBoite.get(e) === 0),
+    [accounts, comptesParBoite],
+  );
+
+  const boiteVideSelectionnee =
+    selectedBoxes.length === 1 && emptyBoxes.includes(selectedBoxes[0] as string);
 
   const toggleBox = useCallback((email: string) => {
     const e = email.toLowerCase();
@@ -194,6 +255,7 @@ export default function SentScreen() {
       onQueryChange={setQuery}
       searchPlaceholder={tx.searchPlaceholder}
       accounts={accounts}
+      emptyBoxes={emptyBoxes}
       selectedBoxes={selectedBoxes}
       onToggleBox={toggleBox}
       onClearBoxes={() => setSelectedBoxes([])}
@@ -241,8 +303,12 @@ export default function SentScreen() {
         }
         ListEmptyComponent={
           <View style={styles.rowWrap}>
-            <Text style={styles.empty}>{debouncedQuery ? tx.noMatch : tx.empty}</Text>
-            {!debouncedQuery ? <Text style={styles.emptyHint}>{tx.emptyHint}</Text> : null}
+            <Text style={styles.empty}>
+              {debouncedQuery ? tx.noMatch : boiteVideSelectionnee ? tx.emptyBox : tx.empty}
+            </Text>
+            {!debouncedQuery && !boiteVideSelectionnee ? (
+              <Text style={styles.emptyHint}>{tx.emptyHint}</Text>
+            ) : null}
           </View>
         }
         ListFooterComponent={
