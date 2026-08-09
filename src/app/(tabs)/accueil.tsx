@@ -15,6 +15,7 @@ import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
 import { setPendingFeedFilter } from '@/lib/feed-filter';
+import { marqueurDe } from '@/lib/mail-state';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
@@ -187,8 +188,20 @@ export default function Accueil() {
     // Exclure les emails de rapport Vmail eux-mêmes : ils arrivent dans la boîte,
     // sont ré-ingérés, et comme leur sujet contient « urgent/important » ils
     // polluaient les buckets. Ce ne sont pas des emails à trier.
+    //
+    // MIS DE COTE (09/08/2026) : l'accueil ne montre JAMAIS les publicites, les mails
+    // sortis de la boite, les indesirables ni la corbeille — quelle que soit leur
+    // categorie. Decision de HA : « je les veux pas melanger avec le reste ».
+    //
+    // ⚠️ CE FILTRE MANQUAIT ICI, ET C'ETAIT VISIBLE : des mails ranges en « Publicites »
+    // dans l'onglet Emails apparaissaient quand meme en « Info » sur l'accueil. Le web
+    // avait la regle, son jumeau mobile ne l'avait pas — exactement le piege des deux
+    // copies qui divergent. `marqueurDe` est partage avec l'onglet Emails : il n'y a
+    // plus qu'une definition de « hors flux » sur cette plateforme.
     const clean = items.filter(
-      (it) => !/^\s*vmail\s*[—–-]/i.test((it.title || '').toLowerCase()),
+      (it) =>
+        !/^\s*vmail\s*[—–-]/i.test((it.title || '').toLowerCase()) &&
+        marqueurDe(it.tags) === null,
     );
     const today = clean.filter((it) => {
       const t = new Date(it.received_at).getTime();

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { IconRefresh, IconSearch } from '@/components/icons';
+import { Caret, FilterSheet, type SheetOption } from '@/components/filter-sheet';
+import { IconInbox, IconRefresh, IconSearch } from '@/components/icons';
 import { LogoVmail } from '@/components/logo-v';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
@@ -9,8 +11,19 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
  *
  * Reprend le vocabulaire visuel du bandeau de l'onglet Emails
  * (`app/(tabs)/index.tsx`) : logo + titre extrabold, champ de recherche translucide,
- * puces de filtre par boîte. Le design reste propre au mobile — c'est la logique
+ * filtre par boîte. Le design reste propre au mobile — c'est la logique
  * (filtres, recherche, libellés) qui doit être identique au web.
+ *
+ * FILTRE PAR BOÎTE : LISTE DÉROULANTE depuis le 09/08/2026, demande de HA.
+ * C'était une rangée de puces, une par boîte. Trois raisons de basculer :
+ *  • l'onglet Emails utilise déjà une déroulante — deux façons de filtrer par boîte
+ *    dans la même app, c'était une de trop ;
+ *  • à quatre ou cinq boîtes connectées, la rangée passe sur deux lignes et pousse
+ *    la liste vers le bas, sur un écran où la hauteur est ce qui manque ;
+ *  • la déroulante affiche le nombre d'éléments par boîte, ce que les puces ne
+ *    faisaient que pour les boîtes vides (« · 0 »).
+ * La feuille est le composant PARTAGÉ `components/filter-sheet.tsx`, celui-là même
+ * qu'utilise l'onglet Emails — pas une copie.
  */
 export function MailboxHeader({
   title,
@@ -51,6 +64,30 @@ export function MailboxHeader({
   refreshing?: boolean;
   paddingTop: number;
 }) {
+  const [sheet, setSheet] = useState(false);
+
+  // Même libellé que l'onglet Emails : « Toutes les boîtes », l'adresse quand il n'y
+  // en a qu'une de cochée, sinon le nombre. Pas de troisième formulation à retenir.
+  const boxLabel =
+    selectedBoxes.length === 0
+      ? allBoxesLabel
+      : selectedBoxes.length === 1
+        ? (selectedBoxes[0] as string)
+        : `${selectedBoxes.length}`;
+
+  // `emptyBoxes` servait à écrire « · 0 » sur une puce. La feuille affiche un compte
+  // pour chaque boîte : 0 pour celles qu'on sait vides, rien pour les autres — on ne
+  // devine pas un chiffre qu'on n'a pas.
+  const options: SheetOption[] = [
+    { key: '__all__', label: allBoxesLabel, selected: selectedBoxes.length === 0 },
+    ...accounts.map((addr) => ({
+      key: addr,
+      label: addr,
+      count: (emptyBoxes || []).includes(addr) ? 0 : undefined,
+      selected: selectedBoxes.includes(addr),
+    })),
+  ];
+
   return (
     <View style={[styles.top, { paddingTop }]}>
       <View style={styles.topRow}>
@@ -86,36 +123,24 @@ export function MailboxHeader({
       {/* Filtre par boîte — affiché seulement à partir de 2 boîtes, comme le web. */}
       {accounts.length > 1 ? (
         <View style={styles.chipsRow}>
-          <Pressable
-            style={[styles.chip, selectedBoxes.length === 0 && styles.chipActive]}
-            onPress={onClearBoxes}
-          >
-            <Text style={[styles.chipText, selectedBoxes.length === 0 && styles.chipTextActive]}>
-              {allBoxesLabel}
+          <Pressable style={[styles.chip, styles.chipBox]} onPress={() => setSheet(true)}>
+            <IconInbox size={14} color={colors.onDark} />
+            <Text style={[styles.chipText, styles.chipTextBox]} numberOfLines={1}>
+              {boxLabel}
             </Text>
+            <Caret color={colors.onDark} size={13} />
           </Pressable>
-          {accounts.map((addr) => {
-            const active = selectedBoxes.includes(addr);
-            return (
-              <Pressable
-                key={addr}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => onToggleBox(addr)}
-              >
-                <Text
-                  style={[styles.chipText, active && styles.chipTextActive]}
-                  numberOfLines={1}
-                >
-                  {addr}
-                  {(emptyBoxes || []).includes(addr) ? (
-                    <Text style={styles.chipZero}> · 0</Text>
-                  ) : null}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
       ) : null}
+
+      <FilterSheet
+        visible={sheet}
+        title={allBoxesLabel}
+        options={options}
+        doneLabel="OK"
+        onPick={(key) => (key === '__all__' ? onClearBoxes() : onToggleBox(key))}
+        onClose={() => setSheet(false)}
+      />
     </View>
   );
 }
@@ -188,6 +213,15 @@ const styles = StyleSheet.create({
     maxWidth: 230,
   },
   chipActive: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
+  // Puce d'ouverture de la déroulante — mêmes valeurs que `chipBox` de l'onglet Emails.
+  chipBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(250,247,240,0.10)',
+    borderColor: 'rgba(250,247,240,0.28)',
+  },
+  chipTextBox: { color: colors.onDark, flexShrink: 1 },
   chipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.onDarkMuted },
   chipTextActive: { color: colors.onDark },
 });
