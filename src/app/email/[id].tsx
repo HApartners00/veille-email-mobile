@@ -31,6 +31,7 @@ import {
   type Rule,
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
+import { MailActions } from '@/components/mail-actions';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import {
   IconChevronLeft,
@@ -799,6 +800,19 @@ export default function EmailDetail() {
               <LinkifiedText text={body} style={styles.content} />
             </>
           ) : null}
+
+          {/* Actions sur le mail (archiver / corbeille / restaurer). Placees APRES la
+              lecture et AVANT le reclassement : ce sont des actions sur l'objet, le
+              reclassement est un reglage. Jumeau du volet de lecture web. */}
+          <MailActions
+            itemId={String(id)}
+            tags={item.tags || []}
+            onDone={(op, nouveaux) => {
+              // On garde l'ecran ouvert (l'annulation doit rester atteignable) mais on
+              // met l'item a jour pour que les boutons refletent le nouvel etat.
+              if (nouveaux) setItem({ ...item, tags: nouveaux });
+            }}
+          />
 
           {/* Reclassement — action secondaire : on la place APRES la lecture.
               Avant, elle s'intercalait entre l'en-tete et le resume : la premiere chose

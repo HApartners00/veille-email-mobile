@@ -54,6 +54,23 @@ const fr = {
     allClearSub:
       'Aucun email ne requiert votre attention. Tirez vers le bas ou « Actualiser » pour vérifier.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Archiver',
+    unarchive: 'Remettre en boîte',
+    trash: 'Corbeille',
+    untrash: 'Restaurer',
+    unspam: 'Non indésirable',
+    doneArchived: 'Archivé dans votre messagerie.',
+    doneUnarchived: 'Remis dans votre boîte de réception.',
+    doneTrashed: 'Mis à la corbeille de votre messagerie.',
+    doneUntrashed: 'Remis dans votre boîte de réception.',
+    doneUnspam: 'Sorti des indésirables.',
+    undo: 'Annuler',
+    working: 'En cours…',
+    errGeneric: 'L\'action n\'a pas pu être effectuée.',
+  },
   feed: {
     subSorted: 'Vos emails récents, triés.',
     subEmpty: 'Rien à afficher pour le moment.',
@@ -67,6 +84,14 @@ const fr = {
     emptySearch: 'Aucun email ne correspond à cette recherche.',
     emptyFilter: 'Aucun email dans ce filtre.',
     emptyDefault: 'Les emails apparaîtront ici dès le prochain rapport matinal.',
+    folderInbox: 'Boîte de réception',
+    folderArchived: 'Archivés',
+    folderDeleted: 'Supprimés',
+    filterPub: 'Publicités',
+    filterSpam: 'Indésirables',
+    attachments: 'Pièces jointes',
+    emptyFolder: 'Ce dossier est vide.',
+    trashNote: 'Conservés 30 jours.',
   },
   sources: {
     connectedTitle: 'Boîtes connectées',
@@ -285,6 +310,23 @@ const en: Dict = {
     allClearSub:
       'No email needs your attention. Pull down or tap “Refresh” to check.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Archive',
+    unarchive: 'Move to inbox',
+    trash: 'Trash',
+    untrash: 'Restore',
+    unspam: 'Not spam',
+    doneArchived: 'Archived in your mailbox.',
+    doneUnarchived: 'Moved back to your inbox.',
+    doneTrashed: 'Moved to your mailbox trash.',
+    doneUntrashed: 'Moved back to your inbox.',
+    doneUnspam: 'Removed from spam.',
+    undo: 'Undo',
+    working: 'Working…',
+    errGeneric: 'The action could not be completed.',
+  },
   feed: {
     subSorted: 'Your recent emails, sorted.',
     subEmpty: 'Nothing to show right now.',
@@ -298,6 +340,14 @@ const en: Dict = {
     emptySearch: 'No email matches this search.',
     emptyFilter: 'No email in this filter.',
     emptyDefault: 'Emails will appear here at the next morning report.',
+    folderInbox: 'Inbox',
+    folderArchived: 'Archived',
+    folderDeleted: 'Deleted',
+    filterPub: 'Promotions',
+    filterSpam: 'Spam',
+    attachments: 'Attachments',
+    emptyFolder: 'This folder is empty.',
+    trashNote: 'Kept for 30 days.',
   },
   sources: {
     connectedTitle: 'Connected mailboxes',
@@ -514,6 +564,23 @@ const es: Dict = {
     allClearSub:
       'Ningún correo requiere tu atención. Desliza hacia abajo o pulsa «Actualizar» para comprobar.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Archivar',
+    unarchive: 'Mover a la bandeja',
+    trash: 'Papelera',
+    untrash: 'Restaurar',
+    unspam: 'No es spam',
+    doneArchived: 'Archivado en su buzón.',
+    doneUnarchived: 'Devuelto a su bandeja de entrada.',
+    doneTrashed: 'Movido a la papelera de su buzón.',
+    doneUntrashed: 'Devuelto a su bandeja de entrada.',
+    doneUnspam: 'Retirado del correo no deseado.',
+    undo: 'Deshacer',
+    working: 'Procesando…',
+    errGeneric: 'No se pudo realizar la acción.',
+  },
   feed: {
     subSorted: 'Tus correos recientes, ordenados.',
     subEmpty: 'Nada que mostrar por ahora.',
@@ -527,6 +594,14 @@ const es: Dict = {
     emptySearch: 'Ningún correo coincide con esta búsqueda.',
     emptyFilter: 'Ningún correo en este filtro.',
     emptyDefault: 'Los correos aparecerán aquí en el próximo informe matinal.',
+    folderInbox: 'Bandeja de entrada',
+    folderArchived: 'Archivados',
+    folderDeleted: 'Eliminados',
+    filterPub: 'Promociones',
+    filterSpam: 'No deseado',
+    attachments: 'Adjuntos',
+    emptyFolder: 'Esta carpeta está vacía.',
+    trashNote: 'Se conservan 30 días.',
   },
   sources: {
     connectedTitle: 'Buzones conectados',
@@ -743,6 +818,23 @@ const de: Dict = {
     allClearSub:
       'Keine E-Mail braucht deine Aufmerksamkeit. Nach unten ziehen oder „Aktualisieren“ tippen, um zu prüfen.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Archivieren',
+    unarchive: 'In den Posteingang',
+    trash: 'Papierkorb',
+    untrash: 'Wiederherstellen',
+    unspam: 'Kein Spam',
+    doneArchived: 'In Ihrem Postfach archiviert.',
+    doneUnarchived: 'Zurück in den Posteingang verschoben.',
+    doneTrashed: 'In den Papierkorb Ihres Postfachs verschoben.',
+    doneUntrashed: 'Zurück in den Posteingang verschoben.',
+    doneUnspam: 'Aus dem Spam entfernt.',
+    undo: 'Rückgängig',
+    working: 'Wird ausgeführt…',
+    errGeneric: 'Die Aktion konnte nicht ausgeführt werden.',
+  },
   feed: {
     subSorted: 'Deine neuesten E-Mails, sortiert.',
     subEmpty: 'Gerade nichts anzuzeigen.',
@@ -756,6 +848,14 @@ const de: Dict = {
     emptySearch: 'Keine E-Mail passt zu dieser Suche.',
     emptyFilter: 'Keine E-Mail in diesem Filter.',
     emptyDefault: 'E-Mails erscheinen hier beim nächsten Morgenbericht.',
+    folderInbox: 'Posteingang',
+    folderArchived: 'Archiviert',
+    folderDeleted: 'Gelöscht',
+    filterPub: 'Werbung',
+    filterSpam: 'Spam',
+    attachments: 'Anhänge',
+    emptyFolder: 'Dieser Ordner ist leer.',
+    trashNote: '30 Tage aufbewahrt.',
   },
   sources: {
     connectedTitle: 'Verbundene Postfächer',
@@ -972,6 +1072,23 @@ const pt: Dict = {
     allClearSub:
       'Nenhum email requer a sua atenção. Puxe para baixo ou toque em «Atualizar» para verificar.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Arquivar',
+    unarchive: 'Mover para a caixa',
+    trash: 'Lixo',
+    untrash: 'Restaurar',
+    unspam: 'Não é spam',
+    doneArchived: 'Arquivado na sua caixa.',
+    doneUnarchived: 'Devolvido à sua caixa de entrada.',
+    doneTrashed: 'Movido para o lixo da sua caixa.',
+    doneUntrashed: 'Devolvido à sua caixa de entrada.',
+    doneUnspam: 'Retirado do spam.',
+    undo: 'Anular',
+    working: 'A processar…',
+    errGeneric: 'Não foi possível realizar a ação.',
+  },
   feed: {
     subSorted: 'Os seus emails recentes, organizados.',
     subEmpty: 'Nada a mostrar de momento.',
@@ -985,6 +1102,14 @@ const pt: Dict = {
     emptySearch: 'Nenhum email corresponde a esta pesquisa.',
     emptyFilter: 'Nenhum email neste filtro.',
     emptyDefault: 'Os emails aparecerão aqui no próximo relatório matinal.',
+    folderInbox: 'Caixa de entrada',
+    folderArchived: 'Arquivados',
+    folderDeleted: 'Eliminados',
+    filterPub: 'Promoções',
+    filterSpam: 'Spam',
+    attachments: 'Anexos',
+    emptyFolder: 'Esta pasta está vazia.',
+    trashNote: 'Guardados 30 dias.',
   },
   sources: {
     connectedTitle: 'Caixas conectadas',
@@ -1201,6 +1326,23 @@ const it: Dict = {
     allClearSub:
       'Nessuna email richiede la tua attenzione. Tira verso il basso o tocca «Aggiorna» per controllare.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'Archivia',
+    unarchive: 'Riporta in posta',
+    trash: 'Cestino',
+    untrash: 'Ripristina',
+    unspam: 'Non è spam',
+    doneArchived: 'Archiviata nella tua casella.',
+    doneUnarchived: 'Riportata nella posta in arrivo.',
+    doneTrashed: 'Spostata nel cestino della tua casella.',
+    doneUntrashed: 'Riportata nella posta in arrivo.',
+    doneUnspam: 'Rimossa dalla posta indesiderata.',
+    undo: 'Annulla',
+    working: 'In corso…',
+    errGeneric: 'Non è stato possibile eseguire l\'azione.',
+  },
   feed: {
     subSorted: 'Le tue email recenti, ordinate.',
     subEmpty: 'Niente da mostrare al momento.',
@@ -1214,6 +1356,14 @@ const it: Dict = {
     emptySearch: 'Nessuna email corrisponde a questa ricerca.',
     emptyFilter: 'Nessuna email in questo filtro.',
     emptyDefault: 'Le email appariranno qui al prossimo report mattutino.',
+    folderInbox: 'Posta in arrivo',
+    folderArchived: 'Archiviate',
+    folderDeleted: 'Eliminate',
+    filterPub: 'Promozioni',
+    filterSpam: 'Indesiderata',
+    attachments: 'Allegati',
+    emptyFolder: 'Questa cartella è vuota.',
+    trashNote: 'Conservate 30 giorni.',
   },
   sources: {
     connectedTitle: 'Caselle collegate',
@@ -1430,6 +1580,23 @@ const ar: Dict = {
     allClearSub:
       'لا توجد رسالة تتطلب انتباهك. اسحب للأسفل أو اضغط «تحديث» للتحقق.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'أرشفة',
+    unarchive: 'إعادة إلى البريد الوارد',
+    trash: 'سلة المحذوفات',
+    untrash: 'استعادة',
+    unspam: 'ليست غير مرغوبة',
+    doneArchived: 'تمت الأرشفة في بريدك.',
+    doneUnarchived: 'أُعيدت إلى البريد الوارد.',
+    doneTrashed: 'نُقلت إلى سلة المحذوفات.',
+    doneUntrashed: 'أُعيدت إلى البريد الوارد.',
+    doneUnspam: 'أُخرجت من غير المرغوب فيه.',
+    undo: 'تراجع',
+    working: 'جارٍ التنفيذ…',
+    errGeneric: 'تعذّر تنفيذ الإجراء.',
+  },
   feed: {
     subSorted: 'رسائلك الأخيرة، مُرتَّبة.',
     subEmpty: 'لا شيء لعرضه الآن.',
@@ -1443,6 +1610,14 @@ const ar: Dict = {
     emptySearch: 'لا توجد رسالة تطابق هذا البحث.',
     emptyFilter: 'لا توجد رسالة في هذا الفلتر.',
     emptyDefault: 'ستظهر الرسائل هنا عند التقرير الصباحي القادم.',
+    folderInbox: 'البريد الوارد',
+    folderArchived: 'المؤرشفة',
+    folderDeleted: 'المحذوفة',
+    filterPub: 'عروض',
+    filterSpam: 'غير مرغوب',
+    attachments: 'المرفقات',
+    emptyFolder: 'هذا المجلد فارغ.',
+    trashNote: 'تُحفظ 30 يوماً.',
   },
   sources: {
     connectedTitle: 'الصناديق المتصلة',
@@ -1659,6 +1834,23 @@ const ru: Dict = {
     allClearSub:
       'Ни одно письмо не требует вашего внимания. Потяните вниз или нажмите «Обновить», чтобы проверить.',
   },
+  // Actions sur un mail recu (09/08/2026) — jumeau de
+  // Veille Email/apps/web/src/lib/i18n/mail-actions.ts, mot pour mot.
+  mailActions: {
+    archive: 'В архив',
+    unarchive: 'Вернуть во входящие',
+    trash: 'В корзину',
+    untrash: 'Восстановить',
+    unspam: 'Не спам',
+    doneArchived: 'Отправлено в архив вашей почты.',
+    doneUnarchived: 'Возвращено во входящие.',
+    doneTrashed: 'Перемещено в корзину вашей почты.',
+    doneUntrashed: 'Возвращено во входящие.',
+    doneUnspam: 'Убрано из спама.',
+    undo: 'Отменить',
+    working: 'Выполняется…',
+    errGeneric: 'Не удалось выполнить действие.',
+  },
   feed: {
     subSorted: 'Ваши недавние письма, отсортированы.',
     subEmpty: 'Сейчас нечего показать.',
@@ -1672,6 +1864,14 @@ const ru: Dict = {
     emptySearch: 'Ни одно письмо не соответствует этому запросу.',
     emptyFilter: 'В этом фильтре нет писем.',
     emptyDefault: 'Письма появятся здесь в следующем утреннем отчёте.',
+    folderInbox: 'Входящие',
+    folderArchived: 'В архиве',
+    folderDeleted: 'Удалённые',
+    filterPub: 'Реклама',
+    filterSpam: 'Спам',
+    attachments: 'Вложения',
+    emptyFolder: 'Эта папка пуста.',
+    trashNote: 'Хранятся 30 дней.',
   },
   sources: {
     connectedTitle: 'Подключённые ящики',
