@@ -45,15 +45,27 @@ function htmlToTexte(input: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
-  // ⚠️ Les lignes « vides » d'un mail en tables contiennent UNE espace. Ni
-  // `[ \t]{2,}` (qui exige 2 espaces) ni `\n{3,}` (qui ne voit pas « \n \n \n »)
-  // ne les attrapaient. Mesure du 11/08 sur une reproduction du mail Revolut :
-  // 122 lignes vides sur 127, le vrai texte repoussé à la ligne 125, donc hors
-  // du cadre replié — c'est le grand vide qu'a vu HA. On nettoie autour des
-  // retours AVANT de les regrouper. Vérifié sans perte sur un vrai mail HTML
-  // (le digest Vmail) : 103 lignes -> 53, texte utile strictement identique.
+  // ⚠️ « BLANC » NE VEUT PAS DIRE « ESPACE ».
+  //
+  // Les lignes « vides » d'un mail en tables ne sont pas vides. Deux mesures :
+  //   - sur le gabarit du mail « code de connexion » lu depuis le disque (LF) :
+  //     14 lignes, tout va bien ;
+  //   - sur l'APPAREIL, via une sonde posée dans l'écran le 11/08 :
+  //     `lignes=58  vides=49  codes_vides=[U+000D]`.
+  // Gmail renvoie le corps en CRLF : chaque ligne vide contient un retour
+  // chariot. `[ \t]` ne le voit pas, donc `\n{3,}` ne voyait jamais trois
+  // retours d'affilée et rien n'était regroupé. C'est le grand vide qu'a vu HA.
+  //
+  // `[^\S\n]` = tout caractère d'espacement SAUF le retour à la ligne : \r, \t,
+  // l'espace insécable U+00A0, toutes les espaces Unicode. Les caractères de
+  // largeur nulle ne sont pas des espaces pour `\s` : on les retire à part.
+  //
+  // Reproduction du 11/08, même gabarit converti en CRLF :
+  //   avant : 58 lignes / 49 vides   ·   après : 14 lignes / 5 vides
+  // (les chiffres de la sonde au caractère près).
   return t
-    .replace(/[ \t]+/g, ' ')
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .replace(/[^\S\n]+/g, ' ')
     .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
