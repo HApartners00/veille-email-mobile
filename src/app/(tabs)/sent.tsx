@@ -158,7 +158,15 @@ function CorpsEnvoye({
       <View style={deplie || !deborde ? undefined : { maxHeight: hauteurRepliee, overflow: 'hidden' }}>
         {/* On ne garde QUE la plus grande hauteur vue : sinon le clipping ferait
             retomber `deborde` a faux et l'encadre oscillerait indefiniment. */}
-        <View onLayout={(e) => setHauteur((h) => Math.max(h, e.nativeEvent.layout.height))}>
+        <View
+          onLayout={(e) => {
+            // ⚠️ Même correction que app/email/[id].tsx : lire l'événement AVANT que
+            // React Native ne le recycle. L'updater de setState arrive trop tard et
+            // recevait `e.nativeEvent === null` — l'app se fermait au clic.
+            const hauteurMesuree = e.nativeEvent.layout.height;
+            setHauteur((h) => Math.max(h, hauteurMesuree));
+          }}
+        >
           <Text style={styles.corpsTexte}>{corps}</Text>
         </View>
         {deborde && !deplie ? (

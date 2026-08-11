@@ -911,17 +911,26 @@ export default function EmailDetail() {
   const p = item ? effectivePriority(item, rules) : null;
   const senderEmail = item ? extractEmail(item.author) : '';
   const senderDomain = item ? domainOf(item.author) : '';
-  // Corps complet nettoyé ; si le nettoyage laisse des balises (HTML récalcitrant),
-  // on retombe sur l'aperçu propre extrait par le pipeline.
-  // Le corps du serveur remplace l'aperçu dès qu'il arrive. `htmlToText` reste
-  // nécessaire : get-message rend le HTML brut du fournisseur.
+  // Corps complet nettoyé. Le corps du serveur remplace l'aperçu dès qu'il arrive.
+  // `htmlToText` reste nécessaire : get-message rend le HTML brut du fournisseur.
+  //
+  // ⚠️ Le repli ne se déclenche QUE sur un corps vide. Il testait aussi
+  // `body.includes('<')`, censé détecter un nettoyage raté — mesuré le 11/08/2026,
+  // ce test ne pouvait PAS faire ça : `htmlToText` retire tout `<…>`, donc un « < »
+  // survivant vient forcément du texte lui-même —
+  //     « Prix < 100 euros »            -> « Prix < 100 euros »
+  //     « Prix &lt; 100 euros »         -> « Prix < 100 euros »
+  //     « Prix &amp;lt; 100 euros »     -> « Prix < 100 euros »
+  // Le seul cas de vrai résidu est une balise tronquée en fin de source
+  // (« … <div » sans « > »), et un « <div » orphelin vaut mieux que de jeter
+  // 29 000 caractères de mail pour le remplacer par 200 d'aperçu.
   let body = htmlToText(corpsServeur ?? (item?.content || item?.body || ''));
   const lireStr = LIRE_STR[locale] ?? LIRE_STR.en;
   // 55 % de l'écran, plancher à 260 px pour rester lisible sur un petit appareil.
   const hauteurRepliee = Math.max(260, Math.round(hauteurEcran * 0.55));
   // 48 px de marge : en dessous, déplier ferait sauter l'écran pour trois lignes.
   const corpsDeborde = hauteurCorps > hauteurRepliee + 48;
-  if (!body || body.includes('<')) {
+  if (!body) {
     body = htmlToText(item?.preview || '');
   }
 
@@ -1032,9 +1041,16 @@ export default function EmailDetail() {
                     maxHeight (hauteurCorps vaut 0), donc la vraie hauteur est
                     toujours mesurée au moins une fois. */}
                 <View
-                  onLayout={(e) =>
-                    setHauteurCorps((h) => Math.max(h, e.nativeEvent.layout.height))
-                  }
+                  onLayout={(e) => {
+                    // ⚠️ On LIT la hauteur TOUT DE SUITE. L'événement synthétique est
+                    // recyclé par React Native dès la fin du gestionnaire, alors que
+                    // l'updater passé à setState est appelé PLUS TARD, pendant le
+                    // rendu. Le lire à l'intérieur donnait `e.nativeEvent === null` :
+                    // « Cannot read property 'layout' of null », à chaque ouverture
+                    // de mail (mesuré sur appareil le 11/08/2026, build 14).
+                    const hauteurMesuree = e.nativeEvent.layout.height;
+                    setHauteurCorps((h) => Math.max(h, hauteurMesuree));
+                  }}
                 >
                   <LinkifiedText text={body} style={styles.content} />
                 </View>
