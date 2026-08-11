@@ -83,14 +83,30 @@ function htmlToText(input: string): string {
       const href = (h1 || h2 || '').trim();
       const label = inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       if (!href || href.startsWith('mailto:') || !/^https?:\/\//i.test(href)) return label;
-      if (!label || label === href) return href;
+      // ⚠️ Un lien SANS texte visible est une image ou un pixel de traçage : son
+      // URL n'apporte rien à la lecture, et sur un mail marketing elle arrive en
+      // TÊTE du corps sur six lignes. Constaté par HA le 11/08 sur le mail
+      // Revolut. Un lien dont le texte EST l'URL, lui, reste affiché.
+      if (!label) return ' ';
+      if (label === href) return href;
       return `${label} (${href})`;
     },
   );
   t = t.replace(/<\/(p|div|tr|h[1-6]|li|ul|ol|table)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
   t = t.replace(/<[^>]+>/g, ' ');
   t = decodeEntities(t); // 2e passe (double encodage éventuel)
-  return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  // ⚠️ Les lignes « vides » d'un mail en tables contiennent UNE espace. Ni
+  // `[ \t]{2,}` (qui exige 2 espaces) ni `\n{3,}` (qui ne voit pas « \n \n \n »)
+  // ne les attrapaient. Mesure du 11/08 sur une reproduction du mail Revolut :
+  // 122 lignes vides sur 127, le vrai texte repoussé à la ligne 125, donc hors
+  // du cadre replié — c'est le grand vide qu'a vu HA. On nettoie autour des
+  // retours AVANT de les regrouper. Vérifié sans perte sur un vrai mail HTML
+  // (le digest Vmail) : 103 lignes -> 53, texte utile strictement identique.
+  return t
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Texte avec URLs cliquables (le corps de l'email peut contenir des liens).
@@ -926,8 +942,12 @@ export default function EmailDetail() {
   // 29 000 caractères de mail pour le remplacer par 200 d'aperçu.
   let body = htmlToText(corpsServeur ?? (item?.content || item?.body || ''));
   const lireStr = LIRE_STR[locale] ?? LIRE_STR.en;
-  // 55 % de l'écran, plancher à 260 px pour rester lisible sur un petit appareil.
-  const hauteurRepliee = Math.max(260, Math.round(hauteurEcran * 0.55));
+  // 32 % de l'écran — aligné sur le web (components/mail-body-panel.tsx) après
+  // l'arbitrage HA du 11/08. Plancher à 200 px : il doit rester SOUS la valeur
+  // calculée sur les écrans courants, sinon il écraserait le réglage. Sur un
+  // écran de 844 pt : 270 pt. L'ancien plancher de 260 px l'aurait annulé dès
+  // qu'un appareil descend sous 813 pt.
+  const hauteurRepliee = Math.max(200, Math.round(hauteurEcran * 0.32));
   // 48 px de marge : en dessous, déplier ferait sauter l'écran pour trois lignes.
   const corpsDeborde = hauteurCorps > hauteurRepliee + 48;
   if (!body) {
@@ -1670,7 +1690,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: spacing.sm,
   },
-  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 76 },
+  // 52 px et non 76 : sur un cadre de 270 pt, l'ancien fondu rendait illisible
+  // près d'un tiers de ce qu'on donne à lire. Même proportion que le web.
+  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
   fonduBande: { flex: 1, backgroundColor: colors.cream },
   deplierBtn: {
     marginTop: spacing.md,

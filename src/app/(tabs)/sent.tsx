@@ -45,7 +45,18 @@ function htmlToTexte(input: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
-  return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  // ⚠️ Les lignes « vides » d'un mail en tables contiennent UNE espace. Ni
+  // `[ \t]{2,}` (qui exige 2 espaces) ni `\n{3,}` (qui ne voit pas « \n \n \n »)
+  // ne les attrapaient. Mesure du 11/08 sur une reproduction du mail Revolut :
+  // 122 lignes vides sur 127, le vrai texte repoussé à la ligne 125, donc hors
+  // du cadre replié — c'est le grand vide qu'a vu HA. On nettoie autour des
+  // retours AVANT de les regrouper. Vérifié sans perte sur un vrai mail HTML
+  // (le digest Vmail) : 103 lignes -> 53, texte utile strictement identique.
+  return t
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 import { MailboxHeader } from '@/components/mailbox-header';
@@ -145,7 +156,9 @@ function CorpsEnvoye({
     };
   }, [sentId]);
 
-  const hauteurRepliee = Math.max(240, Math.round(hauteurEcran * 0.55));
+  // 32 % de l'écran, plancher à 200 px — mêmes valeurs que l'écran d'un mail
+  // reçu et que le web. Voir app/email/[id].tsx pour le détail du plancher.
+  const hauteurRepliee = Math.max(200, Math.round(hauteurEcran * 0.32));
   const deborde = hauteur > hauteurRepliee + 48;
 
   return (
@@ -597,7 +610,8 @@ const styles = StyleSheet.create({
   corpsWrap: { marginTop: spacing.sm },
   corpsNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: 6 },
   corpsTexte: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
-  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 72 },
+  // 52 px, comme l'écran d'un mail reçu, pour le nouveau cadre à 32 %.
+  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
   fonduBande: { flex: 1, backgroundColor: colors.surface },
   deplierBtn: {
     marginTop: spacing.sm,
