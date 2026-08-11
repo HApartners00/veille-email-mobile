@@ -1034,7 +1034,16 @@ export default function EmailDetail() {
 
           {/* Corps de l'email — affiché EN PLUS du résumé (avant, le message
               lui-même n'était jamais visible dès qu'un résumé existait). */}
-          {body ? (
+          {/* ⚠️ PENDANT LE CHARGEMENT, AUCUN TEXTE — aligné sur le web
+              (apps/web/src/components/mail-body-panel.tsx), arbitrage HA du 11/08.
+              On affichait l'aperçu en base (~200 caractères) SOUS la mention
+              « Chargement du message… », puis le vrai corps le remplaçait. HA :
+              « ça affiche un message pendant "chargement du message", c'est pas
+              normal ». Un extrait qui se présente comme le mail est exactement ce
+              que ce chantier cherche à supprimer. L'aperçu ne sert plus que de
+              repli si la lecture échoue, et il est alors annoncé par
+              « version abrégée ». */}
+          {body || !corpsCharge ? (
             <>
               <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
               {!corpsCharge ? (
@@ -1042,7 +1051,9 @@ export default function EmailDetail() {
               ) : corpsAbrege ? (
                 <Text style={styles.corpsNote}>{lireStr.abrege}</Text>
               ) : null}
-              {/* Encadré déroulant — arbitrage HA du 11/08 : replié à 55 % de la
+              {corpsCharge ? (
+                <>
+              {/* Encadré déroulant — arbitrage HA du 11/08 : replié à 32 % de la
                   hauteur d'écran, fondu de coupe, « Afficher tout » qui déplie à la
                   hauteur RÉELLE. Pas de ScrollView imbriquée : deux zones de
                   défilement se disputeraient le doigt, et c'est exactement le
@@ -1095,6 +1106,8 @@ export default function EmailDetail() {
                     {deplie ? lireStr.replier : lireStr.tout}
                   </Text>
                 </Pressable>
+              ) : null}
+                </>
               ) : null}
             </>
           ) : null}

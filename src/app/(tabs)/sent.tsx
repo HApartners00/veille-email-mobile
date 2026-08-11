@@ -111,7 +111,7 @@ function sanitize(q: string): string {
 
 /**
  * Corps d'un mail ENVOYÉ, replié. Jumeau mobile de `components/mail-body-panel.tsx`
- * côté web — arbitrage HA du 11/08 : replié à 55 % d'écran, fondu de coupe,
+ * côté web — arbitrage HA du 11/08 : replié à 32 % d'écran, fondu de coupe,
  * « Afficher tout », pas d'ascenseur imbriqué.
  *
  * `sent_items.content` porte déjà le corps complet (mesuré le 11/08 : 107 lignes
@@ -129,7 +129,9 @@ function CorpsEnvoye({
 }) {
   const lire = LIRE_STR[locale] ?? LIRE_STR.en;
   const { height: hauteurEcran } = useWindowDimensions();
-  const [corps, setCorps] = useState(apercu);
+  // Vide au depart : pendant le chargement on n'affiche AUCUN texte (meme regle
+  // que l'ecran d'un mail recu et que le web). L'apercu ne sort qu'en cas d'echec.
+  const [corps, setCorps] = useState('');
   const [charge, setCharge] = useState(false);
   const [abrege, setAbrege] = useState(true);
   const [deplie, setDeplie] = useState(false);
@@ -146,7 +148,8 @@ function CorpsEnvoye({
         }
       })
       .catch(() => {
-        // RIEN EN SILENCE : le bandeau « version abrégée » reste affiché.
+        // RIEN EN SILENCE : on sort l'aperçu ET le bandeau « version abrégée ».
+        if (vivant) setCorps(apercu);
       })
       .finally(() => {
         if (vivant) setCharge(true);
@@ -168,6 +171,8 @@ function CorpsEnvoye({
       ) : abrege ? (
         <Text style={styles.corpsNote}>{lire.abrege}</Text>
       ) : null}
+      {charge ? (
+        <>
       <View style={deplie || !deborde ? undefined : { maxHeight: hauteurRepliee, overflow: 'hidden' }}>
         {/* On ne garde QUE la plus grande hauteur vue : sinon le clipping ferait
             retomber `deborde` a faux et l'encadre oscillerait indefiniment. */}
@@ -194,6 +199,8 @@ function CorpsEnvoye({
         <Pressable style={styles.deplierBtn} onPress={() => setDeplie((v) => !v)}>
           <Text style={styles.deplierBtnText}>{deplie ? lire.replier : lire.tout}</Text>
         </Pressable>
+      ) : null}
+        </>
       ) : null}
     </View>
   );
