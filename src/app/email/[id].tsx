@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -127,6 +128,22 @@ const BODY_STR: Record<string, string> = {
   ru: 'Сообщение',
 };
 
+// Encadré déroulant du corps du mail — 11/08/2026. Dictionnaire autonome, même
+// patron que BODY_STR : on ne touche pas au gros dictionnaire pour 4 chaînes.
+const LIRE_STR: Record<
+  string,
+  { chargement: string; tout: string; replier: string; abrege: string }
+> = {
+  fr: { chargement: 'Chargement du message…', tout: 'Afficher tout', replier: 'Replier', abrege: 'Version abrégée — le message complet n’a pas pu être récupéré.' },
+  en: { chargement: 'Loading the message…', tout: 'Show all', replier: 'Collapse', abrege: 'Shortened version — the full message could not be retrieved.' },
+  es: { chargement: 'Cargando el mensaje…', tout: 'Mostrar todo', replier: 'Contraer', abrege: 'Versión abreviada: no se ha podido recuperar el mensaje completo.' },
+  de: { chargement: 'Nachricht wird geladen…', tout: 'Alles anzeigen', replier: 'Einklappen', abrege: 'Gekürzte Fassung – die vollständige Nachricht konnte nicht geladen werden.' },
+  pt: { chargement: 'A carregar a mensagem…', tout: 'Mostrar tudo', replier: 'Recolher', abrege: 'Versão abreviada — não foi possível obter a mensagem completa.' },
+  it: { chargement: 'Caricamento del messaggio…', tout: 'Mostra tutto', replier: 'Comprimi', abrege: 'Versione abbreviata — non è stato possibile recuperare il messaggio completo.' },
+  ar: { chargement: 'جارٍ تحميل الرسالة…', tout: 'عرض الكل', replier: 'طيّ', abrege: 'نسخة مختصرة — تعذّر استرجاع الرسالة كاملة.' },
+  ru: { chargement: 'Загрузка сообщения…', tout: 'Показать полностью', replier: 'Свернуть', abrege: 'Сокращённая версия — не удалось получить письмо целиком.' },
+};
+
 // Libellés de personnalisation (autonomes, repli anglais) — évite de modifier le gros dictionnaire.
 const PERSO_STR: Record<string, { adapted: string; notice: string }> = {
   fr: {
@@ -176,6 +193,13 @@ const ATT_STR: Record<
     camera: string;
     cancel: string;
     permDenied: string;
+    // Échecs d'ajout — 11/08/2026. Avant, `catch {}` vide : le fichier disparaissait
+    // sans un mot, sur mobile comme sur le web.
+    tooBig: string;
+    badType: string;
+    tooMany: string;
+    failed: string;
+    network: string;
   }
 > = {
   fr: {
@@ -188,6 +212,46 @@ const ATT_STR: Record<
     camera: 'Appareil photo',
     cancel: 'Annuler',
     permDenied: 'Accès refusé. Autorisez l’accès dans les réglages de votre appareil.',
+    tooBig: 'Файл слишком большой — максимум 4 МБ.',
+    badType: 'Тип файла не поддерживается.',
+    tooMany: 'Не более 10 вложений.',
+    failed: 'Вложение отклонено.',
+    network: 'Ошибка сети.',
+    tooBig: 'الملف كبير جدًا — 4 ميغابايت كحد أقصى.',
+    badType: 'نوع الملف غير مدعوم.',
+    tooMany: '10 مرفقات كحد أقصى.',
+    failed: 'تم رفض المرفق.',
+    network: 'خطأ في الشبكة.',
+    tooBig: 'File troppo pesante — massimo 4 MB.',
+    badType: 'Tipo di file non supportato.',
+    tooMany: 'Massimo 10 allegati.',
+    failed: 'Allegato rifiutato.',
+    network: 'Errore di rete.',
+    tooBig: 'Ficheiro demasiado pesado — máximo 4 MB.',
+    badType: 'Tipo de ficheiro não suportado.',
+    tooMany: 'Máximo de 10 anexos.',
+    failed: 'Anexo recusado.',
+    network: 'Erro de rede.',
+    tooBig: 'Datei zu groß – maximal 4 MB.',
+    badType: 'Dateityp nicht unterstützt.',
+    tooMany: 'Maximal 10 Anhänge.',
+    failed: 'Anhang abgelehnt.',
+    network: 'Netzwerkfehler.',
+    tooBig: 'Archivo demasiado pesado: 4 MB como máximo.',
+    badType: 'Tipo de archivo no admitido.',
+    tooMany: 'Máximo 10 archivos adjuntos.',
+    failed: 'Archivo adjunto rechazado.',
+    network: 'Error de red.',
+    tooBig: 'File too large — 4 MB maximum.',
+    badType: 'File type not supported.',
+    tooMany: 'Maximum 10 attachments.',
+    failed: 'Attachment rejected.',
+    network: 'Network error.',
+    tooBig: 'Fichier trop lourd — 4 Mo maximum.',
+    badType: 'Type de fichier non pris en charge.',
+    tooMany: 'Maximum 10 pièces jointes.',
+    failed: 'Pièce jointe refusée.',
+    network: 'Erreur réseau.',
   },
   en: {
     label: 'Attachments',
@@ -312,6 +376,21 @@ export default function EmailDetail() {
   // Résumé de la conversation (fil) — à la demande.
   const [threadSummary, setThreadSummary] = useState('');
   const [tsLoading, setTsLoading] = useState(false);
+  // Chantier F — le bouton « Résumer la conversation » ne s'affiche QUE s'il y a
+  // vraiment un fil (arbitrage HA du 11/08). null = on ne sait pas encore, donc
+  // on ne rend rien : pas de bouton qui apparaît puis s'efface.
+  const [estFil, setEstFil] = useState<boolean | null>(null);
+  const [tsMessages, setTsMessages] = useState(1);
+  const [tsPartiel, setTsPartiel] = useState(false);
+  // Chantier C — le corps COMPLET du mail. Mesure du 11/08 : items.content ne
+  // contient que l'aperçu (1072 items sur 1139 à ~200 caractères). On va chercher
+  // le vrai corps chez le fournisseur via /api/message-body.
+  const [corpsServeur, setCorpsServeur] = useState<string | null>(null);
+  const [corpsAbrege, setCorpsAbrege] = useState(true);
+  const [corpsCharge, setCorpsCharge] = useState(false);
+  const [deplie, setDeplie] = useState(false);
+  const [hauteurCorps, setHauteurCorps] = useState(0);
+  const { height: hauteurEcran } = useWindowDimensions();
 
   // Brouillon
   const [draft, setDraft] = useState('');
@@ -330,6 +409,7 @@ export default function EmailDetail() {
   // Pièces jointes du brouillon de réponse
   const [atts, setAtts] = useState<{ id: string; filename: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [attError, setAttError] = useState<string | null>(null);
   const [attMenu, setAttMenu] = useState(false);
 
   // Pièces jointes REÇUES de l'email (téléchargeables)
@@ -415,6 +495,44 @@ export default function EmailDetail() {
     }
   }
 
+  // Corps complet du mail + détection du fil. Deux appels, en tâche de fond :
+  // l'écran affiche l'aperçu tout de suite et se complète ensuite.
+  useEffect(() => {
+    let vivant = true;
+    apiPost<{ corps?: string; source?: string }>('/api/message-body', { itemId: String(id) })
+      .then((j) => {
+        if (!vivant) return;
+        if (j?.corps) {
+          setCorpsServeur(j.corps);
+          setCorpsAbrege(j.source !== 'fournisseur' && j.source !== 'base_complet');
+        }
+      })
+      .catch(() => {
+        // RIEN EN SILENCE : on garde l'aperçu ET le bandeau « version abrégée »,
+        // qui reste affiché puisque corpsAbrege vaut true par défaut.
+      })
+      .finally(() => {
+        if (vivant) setCorpsCharge(true);
+      });
+    apiPost<{ ok?: boolean; estFil?: boolean; messages?: number; corpsComplet?: boolean }>(
+      '/api/thread-summary',
+      { id: String(id), mode: 'detect' },
+    )
+      .then((j) => {
+        if (!vivant) return;
+        setEstFil(!!j?.estFil);
+        setTsMessages(Number(j?.messages) || 1);
+      })
+      .catch(() => {
+        // On ne sait pas : on ne propose pas. Mieux vaut un bouton absent qu'un
+        // bouton qui promet un résumé impossible.
+        if (vivant) setEstFil(false);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, [id]);
+
   // Charge les PJ déjà attachées à ce brouillon.
   useEffect(() => {
     apiGet<{ attachments: { id: string; filename: string }[] }>(
@@ -483,11 +601,72 @@ export default function EmailDetail() {
     setDlRecvId(null);
   }
 
+  // Doit rester égal à MAX_BYTES de apps/web/src/app/api/reply-attachments/route.ts.
+  // Au-delà de 4,5 Mo, Vercel renvoie un 413 AVANT d'exécuter la fonction (mesuré le
+  // 11/08/2026) : on refuse ici plutôt que de faire voyager un fichier condamné.
+  const MAX_ATT_BYTES = 4 * 1024 * 1024;
+
+  // `expo-document-picker` renvoie souvent `application/octet-stream` pour un fichier
+  // parfaitement ordinaire, et c'est le seul type que la route refuse à coup sûr. On
+  // déduit alors le type de l'extension. Même table que côté serveur.
+  const MIME_PAR_EXTENSION: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp',
+    tif: 'image/tiff', tiff: 'image/tiff',
+    pdf: 'application/pdf', txt: 'text/plain', csv: 'text/csv', md: 'text/markdown',
+    ics: 'text/calendar', rtf: 'application/rtf',
+    doc: 'application/msword', xls: 'application/vnd.ms-excel', ppt: 'application/vnd.ms-powerpoint',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    zip: 'application/zip',
+  };
+
+  function typeRetenu(nom: string, declare: string): string {
+    const d = (declare || '').toLowerCase().split(';')[0].trim();
+    if (d && d !== 'application/octet-stream' && d !== 'binary/octet-stream') return d;
+    const ext = (nom || '').toLowerCase().split('.').pop() || '';
+    return MIME_PAR_EXTENSION[ext] || d || 'application/octet-stream';
+  }
+
+  /** Nom lisible : `uri.split('/').pop()` renvoie un nom déjà encodé en URL. */
+  function nomLisible(nom: string): string {
+    try {
+      return decodeURIComponent(nom || '').trim() || 'fichier';
+    } catch {
+      return (nom || 'fichier').trim();
+    }
+  }
+
+  /** Message d'échec, jamais muet. Renvoie null quand tout s'est bien passé. */
+  function messageEchecPJ(e: unknown): string {
+    const msg = String((e as { message?: string })?.message || e || '');
+    if (/\b413\b/.test(msg) || /trop volumineux|too large|Entity Too Large/i.test(msg)) return attStr.tooBig;
+    if (/\b415\b/.test(msg) || /non pris en charge|non autoris|not supported/i.test(msg)) return attStr.badType;
+    if (/\b409\b/.test(msg) || /maximum de pi|Maximum 10|maximum attach/i.test(msg)) return attStr.tooMany;
+    if (/Network request failed|réseau|network/i.test(msg)) return attStr.network;
+    return msg ? `${attStr.failed} ${msg}`.trim() : attStr.failed;
+  }
+
   // Upload d'un fichier (objet RN FormData { uri, name, type }).
-  async function uploadAsset(uri: string, name: string, type: string) {
+  // Renvoie null si le fichier est ajouté, sinon le message d'échec à afficher.
+  // 11/08/2026 — le `catch {}` était vide : un 413, un 415 ou un 409 laissait la liste
+  // vide sans un mot. C'est ce silence qui a fait passer la panne pour un mystère.
+  async function uploadAsset(
+    uri: string,
+    name: string,
+    type: string,
+    taille?: number | null,
+  ): Promise<string | null> {
+    const nom = nomLisible(name);
+    if (typeof taille === 'number' && taille > MAX_ATT_BYTES) {
+      return `${nom} — ${attStr.tooBig}`;
+    }
     const form = new FormData();
     form.append('item_id', String(id));
-    form.append('file', { uri, name, type } as unknown as Blob);
+    form.append('file', { uri, name: nom, type: typeRetenu(nom, type) } as unknown as Blob);
     try {
       const j = await apiUpload<{ attachment: { id: string; filename: string } }>(
         '/api/reply-attachments',
@@ -495,9 +674,11 @@ export default function EmailDetail() {
       );
       if (j?.attachment) {
         setAtts((p) => [...p, { id: j.attachment.id, filename: j.attachment.filename }]);
+        return null;
       }
-    } catch {
-      // ignore ce fichier
+      return `${nom} — ${attStr.failed}`;
+    } catch (e) {
+      return `${nom} — ${messageEchecPJ(e)}`;
     }
   }
 
@@ -508,11 +689,21 @@ export default function EmailDetail() {
       const res = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
       if (res.canceled || !res.assets?.length) return;
       setUploading(true);
+      setAttError(null);
+      const echecs: string[] = [];
       for (const a of res.assets) {
-        await uploadAsset(a.uri, a.name || 'fichier', a.mimeType || 'application/octet-stream');
+        const err = await uploadAsset(
+          a.uri,
+          a.name || 'fichier',
+          a.mimeType || 'application/octet-stream',
+          a.size ?? null,
+        );
+        if (err) echecs.push(err);
       }
+      if (echecs.length) setAttError(echecs.join(' · '));
       setUploading(false);
-    } catch {
+    } catch (e) {
+      setAttError(messageEchecPJ(e));
       setUploading(false);
     }
   }
@@ -533,12 +724,17 @@ export default function EmailDetail() {
       });
       if (res.canceled || !res.assets?.length) return;
       setUploading(true);
+      setAttError(null);
+      const echecs: string[] = [];
       for (const a of res.assets) {
         const name = a.fileName || a.uri.split('/').pop() || 'image.jpg';
-        await uploadAsset(a.uri, name, a.mimeType || 'image/jpeg');
+        const err = await uploadAsset(a.uri, name, a.mimeType || 'image/jpeg', a.fileSize ?? null);
+        if (err) echecs.push(err);
       }
+      if (echecs.length) setAttError(echecs.join(' · '));
       setUploading(false);
-    } catch {
+    } catch (e) {
+      setAttError(messageEchecPJ(e));
       setUploading(false);
     }
   }
@@ -555,10 +751,18 @@ export default function EmailDetail() {
       const res = await ImagePicker.launchCameraAsync({ quality: 0.9 });
       if (res.canceled || !res.assets?.length) return;
       setUploading(true);
+      setAttError(null);
       const a = res.assets[0];
-      await uploadAsset(a.uri, a.fileName || 'photo.jpg', a.mimeType || 'image/jpeg');
+      const err = await uploadAsset(
+        a.uri,
+        a.fileName || 'photo.jpg',
+        a.mimeType || 'image/jpeg',
+        a.fileSize ?? null,
+      );
+      if (err) setAttError(err);
       setUploading(false);
-    } catch {
+    } catch (e) {
+      setAttError(messageEchecPJ(e));
       setUploading(false);
     }
   }
@@ -709,7 +913,14 @@ export default function EmailDetail() {
   const senderDomain = item ? domainOf(item.author) : '';
   // Corps complet nettoyé ; si le nettoyage laisse des balises (HTML récalcitrant),
   // on retombe sur l'aperçu propre extrait par le pipeline.
-  let body = htmlToText(item?.content || item?.body || '');
+  // Le corps du serveur remplace l'aperçu dès qu'il arrive. `htmlToText` reste
+  // nécessaire : get-message rend le HTML brut du fournisseur.
+  let body = htmlToText(corpsServeur ?? (item?.content || item?.body || ''));
+  const lireStr = LIRE_STR[locale] ?? LIRE_STR.en;
+  // 55 % de l'écran, plancher à 260 px pour rester lisible sur un petit appareil.
+  const hauteurRepliee = Math.max(260, Math.round(hauteurEcran * 0.55));
+  // 48 px de marge : en dessous, déplier ferait sauter l'écran pour trois lignes.
+  const corpsDeborde = hauteurCorps > hauteurRepliee + 48;
   if (!body || body.includes('<')) {
     body = htmlToText(item?.preview || '');
   }
@@ -797,7 +1008,58 @@ export default function EmailDetail() {
           {body ? (
             <>
               <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
-              <LinkifiedText text={body} style={styles.content} />
+              {!corpsCharge ? (
+                <Text style={styles.corpsNote}>{lireStr.chargement}</Text>
+              ) : corpsAbrege ? (
+                <Text style={styles.corpsNote}>{lireStr.abrege}</Text>
+              ) : null}
+              {/* Encadré déroulant — arbitrage HA du 11/08 : replié à 55 % de la
+                  hauteur d'écran, fondu de coupe, « Afficher tout » qui déplie à la
+                  hauteur RÉELLE. Pas de ScrollView imbriquée : deux zones de
+                  défilement se disputeraient le doigt, et c'est exactement le
+                  « overflow: scroll posé à la va-vite » dont HA ne veut pas. */}
+              <View
+                style={
+                  deplie || !corpsDeborde
+                    ? undefined
+                    : { maxHeight: hauteurRepliee, overflow: 'hidden' }
+                }
+              >
+                {/* On ne garde QUE la plus grande hauteur vue. Sans ça : le corps
+                    complet arrive -> deborde -> on clippe -> onLayout renvoie la
+                    hauteur CLIPPÉE -> deborde redevient faux -> on declippe…
+                    une oscillation permanente. Le premier rendu se fait sans
+                    maxHeight (hauteurCorps vaut 0), donc la vraie hauteur est
+                    toujours mesurée au moins une fois. */}
+                <View
+                  onLayout={(e) =>
+                    setHauteurCorps((h) => Math.max(h, e.nativeEvent.layout.height))
+                  }
+                >
+                  <LinkifiedText text={body} style={styles.content} />
+                </View>
+                {corpsDeborde && !deplie ? (
+                  // Fondu sans dépendance : `expo-linear-gradient` n'est pas installé
+                  // (vérifié dans package.json), et l'ajouter pour un dégradé
+                  // imposerait un build EAS de plus. Sept bandes suffisent à l'œil.
+                  <View pointerEvents="none" style={styles.fondu}>
+                    {[0.06, 0.16, 0.3, 0.48, 0.68, 0.86, 1].map((o, i) => (
+                      <View key={i} style={[styles.fonduBande, { opacity: o }]} />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+              {corpsDeborde ? (
+                <Pressable
+                  style={styles.deplierBtn}
+                  onPress={() => setDeplie((v) => !v)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.deplierBtnText}>
+                    {deplie ? lireStr.replier : lireStr.tout}
+                  </Text>
+                </Pressable>
+              ) : null}
             </>
           ) : null}
 
@@ -914,32 +1176,50 @@ export default function EmailDetail() {
             {reError ? <Text style={styles.reErr}>{reError}</Text> : null}
           </View>
 
-          <Pressable
-            style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
-            disabled={tsLoading}
-            onPress={async () => {
-              if (tsLoading) return;
-              setTsLoading(true);
-              try {
-                const r = await apiPost<{ summary: string }>('/api/thread-summary', { id, locale });
-                setThreadSummary(r.summary || '');
-              } catch (e: any) {
-                setMsg({ type: 'err', text: e?.message || t.email.genFail });
-              }
-              setTsLoading(false);
-            }}
-          >
-            {tsLoading ? (
-              <ActivityIndicator size="small" color={colors.terracotta} />
-            ) : (
-              <Text style={styles.linkBtnText}>{t.email.summarizeThread}</Text>
-            )}
-          </Pressable>
-          {threadSummary ? (
-            <View style={styles.tsBox}>
-              <Text style={styles.sectionLabel}>{t.email.threadSummaryTitle}</Text>
-              <Text style={styles.content}>{threadSummary}</Text>
-            </View>
+          {/* Chantier F, arbitrage HA du 11/08 : le bouton DISPARAÎT quand le mail
+              est isolé. `estFil === null` = on ne sait pas encore -> rien non plus,
+              pour éviter un bouton qui clignote. Mesure qui l'a motivé : le mail
+              Direct Assurance fait 194 caractères en base et 28 998 chez Gmail, et
+              on demandait au modèle d'en résumer « les échanges clés ». */}
+          {estFil === true ? (
+            <>
+              <Pressable
+                style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
+                disabled={tsLoading}
+                onPress={async () => {
+                  if (tsLoading) return;
+                  setTsLoading(true);
+                  try {
+                    const r = await apiPost<{ summary: string; corpsComplet?: boolean }>(
+                      '/api/thread-summary',
+                      { id, locale },
+                    );
+                    setThreadSummary(r.summary || '');
+                    setTsPartiel(r.corpsComplet === false);
+                  } catch (e: any) {
+                    setMsg({ type: 'err', text: e?.message || t.email.genFail });
+                  }
+                  setTsLoading(false);
+                }}
+              >
+                {tsLoading ? (
+                  <ActivityIndicator size="small" color={colors.terracotta} />
+                ) : (
+                  <Text style={styles.linkBtnText}>{t.email.summarizeThread}</Text>
+                )}
+              </Pressable>
+              {threadSummary ? (
+                <View style={styles.tsBox}>
+                  <Text style={styles.sectionLabel}>
+                    {t.email.threadSummaryTitle} · {tsMessages}
+                  </Text>
+                  {/* Un résumé fait sur l'aperçu ne doit jamais passer pour un
+                      résumé du mail entier. */}
+                  {tsPartiel ? <Text style={styles.corpsNote}>{lireStr.abrege}</Text> : null}
+                  <Text style={styles.content}>{threadSummary}</Text>
+                </View>
+              ) : null}
+            </>
           ) : null}
 
           {item.url ? (
@@ -1051,6 +1331,7 @@ export default function EmailDetail() {
                   )}
                   <Text style={styles.attAddText}>{uploading ? attStr.sending : attStr.add}</Text>
                 </Pressable>
+                {attError ? <Text style={styles.attError}>{attError}</Text> : null}
 
                 {/* Reformulations rapides */}
                 <Text style={styles.refineLabel}>{t.email.adjust}</Text>
@@ -1366,6 +1647,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   content: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink2, lineHeight: 24 },
+  corpsNote: {
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
+  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 76 },
+  fonduBande: { flex: 1, backgroundColor: colors.cream },
+  deplierBtn: {
+    marginTop: spacing.md,
+    paddingVertical: 11,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardline,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+  },
+  deplierBtnText: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.ink },
   linkBtn: { marginTop: spacing.lg },
   linkBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
 
@@ -1422,6 +1722,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
   },
+  attError: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.danger, marginTop: 6, lineHeight: 18 },
   attName: { fontFamily: fonts.sans, flex: 1, fontSize: 13, color: colors.ink2 },
   attAddBtn: {
     flexDirection: 'row',

@@ -19,7 +19,7 @@ import { marqueurDe } from '@/lib/mail-state';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconPaperclip, IconRefresh } from '@/components/icons';
+import { IconRefresh } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 
@@ -242,12 +242,17 @@ export default function Accueil() {
         <View style={styles.topRow}>
           <LogoVmail size={24} />
           <View style={styles.actions}>
+            {/* 11/08/2026 — même bouton que l'onglet Emails (styles.pjBtn de
+                (tabs)/index.tsx) : pilule bordée et libellé en toutes lettres, à la
+                place du trombone seul. Les deux écrans lisent le MÊME libellé
+                `t.feed.attachments`, donc les 8 langues restent alignées. */}
             <Pressable
-              style={styles.iconBtn}
+              style={styles.pjBtn}
               onPress={() => router.push('/attachments')}
-              accessibilityLabel={t.home.attachmentsLabel}
+              accessibilityLabel={t.feed.attachments}
+              hitSlop={6}
             >
-              <IconPaperclip size={15} color={colors.terracottaLight} />
+              <Text style={styles.pjBtnText}>{t.feed.attachments}</Text>
             </Pressable>
             <Pressable
               style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
@@ -355,15 +360,16 @@ const styles = StyleSheet.create({
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconBtn: {
-    width: 36,
-    height: 36,
+  // Copie a l'identique de styles.pjBtn / styles.pjBtnText de (tabs)/index.tsx.
+  // Toucher l'un, toucher l'autre.
+  pjBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(240,151,90,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: colors.charline,
   },
+  pjBtnText: { fontFamily: fonts.sansSemibold, fontSize: 11.5, color: colors.onDarkMuted },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
