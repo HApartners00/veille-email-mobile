@@ -23,9 +23,21 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
  * confirmation avant suppression n'avait plus de justification.
  */
 
-type Op = 'archive' | 'unarchive' | 'trash' | 'untrash' | 'unspam';
+export type Op = 'archive' | 'unarchive' | 'trash' | 'untrash' | 'unspam';
 
-export function MailActions({
+/**
+ * LA LOGIQUE, SANS LE DESSIN — extraite le 12/08/2026.
+ *
+ * La page mail passe ses actions dans une barre fixe en bas et un menu ⋯ : deux
+ * conteneurs differents, alors qu'un composant ne peut se rendre qu'a un seul
+ * endroit. Recopier l'appel a `/api/mail-action` dans la barre aurait donne deux
+ * implementations qui se seraient mises a diverger a la premiere retouche — c'est
+ * exactement ce qui est arrive au classifieur sur ce projet.
+ *
+ * Il n'y a donc qu'UNE implementation de `agir`, ici, et deux facons de l'afficher :
+ * ce hook pour la page mail, et `<MailActions>` juste en dessous, inchange.
+ */
+export function useMailActions({
   itemId,
   tags,
   onDone,
@@ -44,7 +56,15 @@ export function MailActions({
   const [annulable, setAnnulable] = useState<{ message: string; inverse: Op } | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => setEtat(tags), [tags]);
+  // ⚠️ DEPENDANCE SUR LE CONTENU, PAS SUR L'IDENTITE DU TABLEAU. Un appelant qui
+  // ecrit `tags={item.tags || []}` fabrique un tableau NEUF a chaque rendu ; avec
+  // `[tags]` en dependance, l'effet repartirait a chaque rendu, `setEtat` poserait
+  // une reference differente, et on tournerait en boucle. Ça ne se voyait pas tant
+  // que le hook vivait dans un composant enfant (le tableau n'etait recree que
+  // quand le PARENT rendait) — ça se verrait immediatement ici, ou il vit dans la
+  // page elle-meme.
+  const cleTags = tags.map((x) => (x || '').toLowerCase()).sort().join('|');
+  useEffect(() => setEtat(tags), [cleTags]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { if (minuteur.current) clearTimeout(minuteur.current); }, []);
 
   const marqueurs = etat.map((x) => (x || '').toLowerCase());
@@ -90,6 +110,34 @@ export function MailActions({
     }
   }
 
+  /** Rejoue l'operation inverse et retire la banniere. */
+  function annuler() {
+    if (!annulable) return;
+    const inv = annulable.inverse;
+    setAnnulable(null);
+    void agir(inv, true);
+  }
+
+  return { m, etat, busy, erreur, annulable, agir, annuler, estArchive, estSpam, estCorbeille };
+}
+
+/**
+ * Actions en ligne — la forme d'origine, mot pour mot. Elle n'est plus utilisee par
+ * la page mail depuis le 12/08 (barre fixe), mais elle reste le jumeau de
+ * `apps/web/src/app/email/mail-actions.tsx` et le rendu de reference.
+ */
+export function MailActions({
+  itemId,
+  tags,
+  onDone,
+}: {
+  itemId: string;
+  tags: string[];
+  onDone?: (op: Op, tags: string[] | null) => void;
+}) {
+  const { m, busy, erreur, annulable, agir, annuler, estArchive, estSpam, estCorbeille } =
+    useMailActions({ itemId, tags, onDone });
+
   function Bouton({ op, label, danger }: { op: Op; label: string; danger?: boolean }) {
     return (
       <Pressable
@@ -130,15 +178,7 @@ export function MailActions({
       {annulable ? (
         <View style={styles.undoRow}>
           <Text style={styles.undoText}>{annulable.message}</Text>
-          <Pressable
-            disabled={!!busy}
-            onPress={() => {
-              const inv = annulable.inverse;
-              setAnnulable(null);
-              void agir(inv, true);
-            }}
-            hitSlop={8}
-          >
+          <Pressable disabled={!!busy} onPress={annuler} hitSlop={8}>
             <Text style={styles.undoLink}>{m.undo}</Text>
           </Pressable>
         </View>
@@ -167,7 +207,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnDanger: { borderColor: colors.danger },
-  btnText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.ink2 },
+  // ⚠️ POSE DIRECTEMENT SUR LE FOND SOMBRE (pas dans une carte) : texte clair,
+  // sinon invisible. Voir `fond` dans lib/theme.ts.
+  btnText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.onDark },
   btnTextDanger: { color: colors.danger },
   undoRow: {
     flexDirection: 'row',
@@ -176,7 +218,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     flexWrap: 'wrap',
   },
-  undoText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, flexShrink: 1 },
+  undoText: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted, flexShrink: 1 },
   undoLink: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.terracotta },
   err: { fontFamily: fonts.sans, fontSize: 12, color: colors.danger, marginTop: spacing.sm },
 });

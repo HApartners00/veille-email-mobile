@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 
 import { useI18n } from '@/context/i18n';
@@ -33,13 +33,16 @@ import {
   type Rule,
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
-import { MailActions } from '@/components/mail-actions';
+import { useMailActions } from '@/components/mail-actions';
 import MailHtml from '@/components/mail-html';
 import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import {
   IconChevronLeft,
   IconClose,
+  IconFunnel,
+  IconInbox,
+  IconMore,
   IconPlus,
   IconReplySuggested,
   IconSparkle,
@@ -157,6 +160,19 @@ function LinkifiedText({ text, style }: { text: string; style?: any }) {
   );
 }
 
+/**
+ * Couleur du texte d'une puce de categorie NON selectionnee, sur le fond sombre.
+ *
+ * Les puces prennent la couleur de leur categorie (`priorityColors`, partagee
+ * avec le web et le digest). Mesure du 11/08 sur le fond #211e19 :
+ *   urgent    #c2410c  3,21:1     important #b8860b  5,10:1
+ *   info      #3f7e58  3,43:1     human     #4a443a  1,72:1  <-- INVISIBLE
+ *
+ * Seul « A repondre » disparait vraiment. On ne remplace donc QUE celui-la, par
+ * un taupe eclairci (4,44:1). Les trois autres gardent leur couleur de marque :
+ * HA a dit « c'etait bien comme c'etait », et une couleur de marque ne se
+ * retouche pas parce qu'un fond a change d'un cote seulement.
+ */
 // Libellé de la section « Message » (corps de l'email) — dict local 8 langues.
 const BODY_STR: Record<string, string> = {
   fr: 'Message',
@@ -253,41 +269,6 @@ const ATT_STR: Record<
     camera: 'Appareil photo',
     cancel: 'Annuler',
     permDenied: 'Accès refusé. Autorisez l’accès dans les réglages de votre appareil.',
-    tooBig: 'Файл слишком большой — максимум 4 МБ.',
-    badType: 'Тип файла не поддерживается.',
-    tooMany: 'Не более 10 вложений.',
-    failed: 'Вложение отклонено.',
-    network: 'Ошибка сети.',
-    tooBig: 'الملف كبير جدًا — 4 ميغابايت كحد أقصى.',
-    badType: 'نوع الملف غير مدعوم.',
-    tooMany: '10 مرفقات كحد أقصى.',
-    failed: 'تم رفض المرفق.',
-    network: 'خطأ في الشبكة.',
-    tooBig: 'File troppo pesante — massimo 4 MB.',
-    badType: 'Tipo di file non supportato.',
-    tooMany: 'Massimo 10 allegati.',
-    failed: 'Allegato rifiutato.',
-    network: 'Errore di rete.',
-    tooBig: 'Ficheiro demasiado pesado — máximo 4 MB.',
-    badType: 'Tipo de ficheiro não suportado.',
-    tooMany: 'Máximo de 10 anexos.',
-    failed: 'Anexo recusado.',
-    network: 'Erro de rede.',
-    tooBig: 'Datei zu groß – maximal 4 MB.',
-    badType: 'Dateityp nicht unterstützt.',
-    tooMany: 'Maximal 10 Anhänge.',
-    failed: 'Anhang abgelehnt.',
-    network: 'Netzwerkfehler.',
-    tooBig: 'Archivo demasiado pesado: 4 MB como máximo.',
-    badType: 'Tipo de archivo no admitido.',
-    tooMany: 'Máximo 10 archivos adjuntos.',
-    failed: 'Archivo adjunto rechazado.',
-    network: 'Error de red.',
-    tooBig: 'File too large — 4 MB maximum.',
-    badType: 'File type not supported.',
-    tooMany: 'Maximum 10 attachments.',
-    failed: 'Attachment rejected.',
-    network: 'Network error.',
     tooBig: 'Fichier trop lourd — 4 Mo maximum.',
     badType: 'Type de fichier non pris en charge.',
     tooMany: 'Maximum 10 pièces jointes.',
@@ -304,6 +285,11 @@ const ATT_STR: Record<
     camera: 'Camera',
     cancel: 'Cancel',
     permDenied: 'Access denied. Enable access in your device settings.',
+    tooBig: 'File too large — 4 MB maximum.',
+    badType: 'File type not supported.',
+    tooMany: 'Maximum 10 attachments.',
+    failed: 'Attachment rejected.',
+    network: 'Network error.',
   },
   es: {
     label: 'Archivos adjuntos',
@@ -315,6 +301,11 @@ const ATT_STR: Record<
     camera: 'Cámara',
     cancel: 'Cancelar',
     permDenied: 'Acceso denegado. Activa el acceso en los ajustes de tu dispositivo.',
+    tooBig: 'Archivo demasiado pesado: 4 MB como máximo.',
+    badType: 'Tipo de archivo no admitido.',
+    tooMany: 'Máximo 10 archivos adjuntos.',
+    failed: 'Archivo adjunto rechazado.',
+    network: 'Error de red.',
   },
   de: {
     label: 'Anhänge',
@@ -326,6 +317,11 @@ const ATT_STR: Record<
     camera: 'Kamera',
     cancel: 'Abbrechen',
     permDenied: 'Zugriff verweigert. Erlaube den Zugriff in den Geräteeinstellungen.',
+    tooBig: 'Datei zu groß – maximal 4 MB.',
+    badType: 'Dateityp nicht unterstützt.',
+    tooMany: 'Maximal 10 Anhänge.',
+    failed: 'Anhang abgelehnt.',
+    network: 'Netzwerkfehler.',
   },
   pt: {
     label: 'Anexos',
@@ -337,6 +333,11 @@ const ATT_STR: Record<
     camera: 'Câmara',
     cancel: 'Cancelar',
     permDenied: 'Acesso negado. Ative o acesso nas definições do seu dispositivo.',
+    tooBig: 'Ficheiro demasiado pesado — máximo 4 MB.',
+    badType: 'Tipo de ficheiro não suportado.',
+    tooMany: 'Máximo de 10 anexos.',
+    failed: 'Anexo recusado.',
+    network: 'Erro de rede.',
   },
   it: {
     label: 'Allegati',
@@ -348,6 +349,11 @@ const ATT_STR: Record<
     camera: 'Fotocamera',
     cancel: 'Annulla',
     permDenied: 'Accesso negato. Abilita l’accesso nelle impostazioni del dispositivo.',
+    tooBig: 'File troppo pesante — massimo 4 MB.',
+    badType: 'Tipo di file non supportato.',
+    tooMany: 'Massimo 10 allegati.',
+    failed: 'Allegato rifiutato.',
+    network: 'Errore di rete.',
   },
   ar: {
     label: 'المرفقات',
@@ -359,6 +365,11 @@ const ATT_STR: Record<
     camera: 'الكاميرا',
     cancel: 'إلغاء',
     permDenied: 'تم رفض الوصول. فعّل الإذن من إعدادات جهازك.',
+    tooBig: 'الملف كبير جدًا — 4 ميغابايت كحد أقصى.',
+    badType: 'نوع الملف غير مدعوم.',
+    tooMany: '10 مرفقات كحد أقصى.',
+    failed: 'تم رفض المرفق.',
+    network: 'خطأ في الشبكة.',
   },
   ru: {
     label: 'Вложения',
@@ -370,6 +381,11 @@ const ATT_STR: Record<
     camera: 'Камера',
     cancel: 'Отмена',
     permDenied: 'Доступ запрещён. Разрешите доступ в настройках устройства.',
+    tooBig: 'Файл слишком большой — максимум 4 МБ.',
+    badType: 'Тип файла не поддерживается.',
+    tooMany: 'Не более 10 вложений.',
+    failed: 'Вложение отклонено.',
+    network: 'Ошибка сети.',
   },
 };
 
@@ -496,11 +512,35 @@ export default function EmailDetail() {
   const [sent, setSent] = useState(false);
 
   // Reclassement (changer la catégorie / créer une règle)
+  /**
+   * FEUILLE OUVERTE (12/08/2026, piste A). La page ne porte plus que la LECTURE ;
+   * repondre, classer et les actions secondaires vivent dans des feuilles ouvertes
+   * depuis la barre du bas. `null` = on lit.
+   */
+  const [feuille, setFeuille] = useState<null | 'repondre' | 'classer' | 'plus'>(null);
+
   const [pendingCat, setPendingCat] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [reBusy, setReBusy] = useState(false);
   const [reNote, setReNote] = useState<string | null>(null);
   const [reError, setReError] = useState<string | null>(null);
+
+  const insets = useSafeAreaInsets();
+
+  // ⚠️ MEMOISE. `useMailActions` vit maintenant dans la page, et non plus dans un
+  // composant enfant : lui passer `item?.tags ?? []` directement fabriquerait un
+  // tableau neuf a chaque rendu de la page. Le hook s'en protege aussi de son cote
+  // (dependance sur le contenu), mais on ne compte pas sur une seule ceinture.
+  const tagsItem = useMemo(() => item?.tags ?? [], [item]);
+  const actions = useMailActions({
+    itemId: String(id),
+    tags: tagsItem,
+    onDone: (_op, nouveaux) => {
+      // On garde l'ecran ouvert (l'annulation doit rester atteignable) mais on met
+      // l'item a jour pour que la barre reflete le nouvel etat.
+      if (nouveaux) setItem((prec) => (prec ? { ...prec, tags: nouveaux } : prec));
+    },
+  });
 
   useEffect(() => {
     (async () => {
@@ -1022,6 +1062,36 @@ export default function EmailDetail() {
     body = htmlToText(item?.preview || '');
   }
 
+  /**
+   * CE QUE PORTE LE ⋯. Construit ici et non dans le JSX, pour que la barre puisse
+   * savoir s'il y a quelque chose a proposer AVANT de dessiner le bouton — un ⋯
+   * qui ouvre une feuille vide est pire que pas de ⋯ du tout.
+   */
+  const optionsPlus: { cle: string; libelle: string; danger?: boolean; faire: () => void }[] = [];
+  if (!actions.estCorbeille) {
+    optionsPlus.push({
+      cle: 'trash',
+      libelle: actions.m.trash,
+      danger: true,
+      faire: () => void actions.agir('trash'),
+    });
+  }
+  if (actions.estSpam) {
+    optionsPlus.push({
+      cle: 'unspam',
+      libelle: actions.m.unspam,
+      faire: () => void actions.agir('unspam'),
+    });
+  }
+  if (item?.url) {
+    const lien = item.url;
+    optionsPlus.push({
+      cle: 'open',
+      libelle: t.email.openInMail,
+      faire: () => void Linking.openURL(lien),
+    });
+  }
+
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -1072,6 +1142,7 @@ export default function EmailDetail() {
           <Text style={styles.empty}>{t.email.notFound}</Text>
         </View>
       ) : (
+        <>
         <ScrollView
           ref={pageRef}
           style={styles.body}
@@ -1216,22 +1287,159 @@ export default function EmailDetail() {
             </>
           ) : null}
 
-          {/* Actions sur le mail (archiver / corbeille / restaurer). Placees APRES la
-              lecture et AVANT le reclassement : ce sont des actions sur l'objet, le
-              reclassement est un reglage. Jumeau du volet de lecture web. */}
-          <MailActions
-            itemId={String(id)}
-            tags={item.tags || []}
-            onDone={(op, nouveaux) => {
-              // On garde l'ecran ouvert (l'annulation doit rester atteignable) mais on
-              // met l'item a jour pour que les boutons refletent le nouvel etat.
-              if (nouveaux) setItem({ ...item, tags: nouveaux });
-            }}
-          />
 
-          {/* Reclassement — action secondaire : on la place APRES la lecture.
-              Avant, elle s'intercalait entre l'en-tete et le resume : la premiere chose
-              qu'on voyait en ouvrant un mail etait un formulaire de classement. */}
+          {/* Chantier F, arbitrage HA du 11/08 : le bouton DISPARAÎT quand le mail
+              est isolé. `estFil === null` = on ne sait pas encore -> rien non plus,
+              pour éviter un bouton qui clignote. Mesure qui l'a motivé : le mail
+              Direct Assurance fait 194 caractères en base et 28 998 chez Gmail, et
+              on demandait au modèle d'en résumer « les échanges clés ». */}
+          {estFil === true ? (
+            <>
+              <Pressable
+                style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
+                disabled={tsLoading}
+                onPress={async () => {
+                  if (tsLoading) return;
+                  setTsLoading(true);
+                  try {
+                    const r = await apiPost<{ summary: string; corpsComplet?: boolean }>(
+                      '/api/thread-summary',
+                      { id, locale },
+                    );
+                    setThreadSummary(r.summary || '');
+                    setTsPartiel(r.corpsComplet === false);
+                  } catch (e: any) {
+                    setMsg({ type: 'err', text: e?.message || t.email.genFail });
+                  }
+                  setTsLoading(false);
+                }}
+              >
+                {tsLoading ? (
+                  <ActivityIndicator size="small" color={colors.terracotta} />
+                ) : (
+                  <Text style={styles.linkBtnText}>{t.email.summarizeThread}</Text>
+                )}
+              </Pressable>
+              {threadSummary ? (
+                <View style={styles.tsBox}>
+                  <Text style={styles.sectionLabel}>
+                    {t.email.threadSummaryTitle} · {tsMessages}
+                  </Text>
+                  {/* Un résumé fait sur l'aperçu ne doit jamais passer pour un
+                      résumé du mail entier. */}
+                  {tsPartiel ? <Text style={styles.corpsNote}>{lireStr.abrege}</Text> : null}
+                  <Text style={styles.content}>{threadSummary}</Text>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Pièces jointes reçues */}
+          {recvAtts.length > 0 ? (
+            <View style={styles.recvBox}>
+              <Text style={styles.recvTitle}>
+                {attStr.label} ({recvAtts.length})
+              </Text>
+              {recvAtts.map((a) => (
+                <View key={a.id} style={styles.recvRow}>
+                  <Pressable
+                    style={styles.recvNameWrap}
+                    onPress={() => openRecv(a)}
+                    disabled={dlRecvId === a.id}
+                  >
+                    <Text style={styles.recvName} numberOfLines={1}>
+                      {a.filename}
+                    </Text>
+                  </Pressable>
+                  {dlRecvId === a.id ? (
+                    <ActivityIndicator size="small" color={colors.terracotta} />
+                  ) : (
+                    <Pressable onPress={() => shareRecv(a)} hitSlop={8}>
+                      <Text style={styles.recvDl}>{recvStr.download}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* ------------------------------------------------------------------
+            BARRE FIXE — 12/08/2026, piste A validee par HA.
+            Le defilement ne porte plus que la LECTURE (resume, message,
+            conversation, pieces jointes recues). Repondre, classer et les
+            actions secondaires descendent ici : ce sont des gestes qu'on fait
+            APRES avoir lu, et les chercher au bas d'une page longue n'avait
+            aucune raison d'etre. L'ecran est une route HORS `(tabs)` : il n'y a
+            pas de barre d'onglets en dessous, la place est libre.
+            ------------------------------------------------------------------ */}
+        {actions.annulable ? (
+          <View style={styles.dockAvis}>
+            <Text style={styles.dockAvisTexte}>{actions.annulable.message}</Text>
+            <Pressable disabled={!!actions.busy} onPress={actions.annuler} hitSlop={8}>
+              <Text style={styles.dockAvisLien}>{actions.m.undo}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {actions.erreur ? <Text style={styles.dockErreur}>{actions.erreur}</Text> : null}
+
+        <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <Pressable style={[styles.cta, styles.flex1]} onPress={() => setFeuille('repondre')}>
+            <Text style={styles.ctaText}>{t.email.actionReply}</Text>
+          </Pressable>
+
+          <Pressable style={styles.dockBtn} onPress={() => setFeuille('classer')}>
+            <IconFunnel size={18} color={colors.onDark} />
+            <Text style={styles.dockLbl} numberOfLines={1}>{t.email.actionClassify}</Text>
+          </Pressable>
+
+          {/* Un mail a la corbeille n'a qu'une action qui ait du sens : en sortir.
+              Meme regle que `<MailActions>`, et une seule implementation de
+              `agir` — celle du hook. */}
+          <Pressable
+            style={styles.dockBtn}
+            disabled={!!actions.busy}
+            onPress={() =>
+              void actions.agir(
+                actions.estCorbeille ? 'untrash' : actions.estArchive ? 'unarchive' : 'archive',
+              )
+            }
+          >
+            {actions.busy === 'archive' ||
+            actions.busy === 'unarchive' ||
+            actions.busy === 'untrash' ? (
+              <ActivityIndicator size="small" color={colors.onDark} />
+            ) : (
+              <IconInbox size={18} color={colors.onDark} />
+            )}
+            <Text style={styles.dockLbl} numberOfLines={1}>
+              {actions.estCorbeille
+                ? actions.m.untrash
+                : actions.estArchive
+                  ? actions.m.unarchive
+                  : actions.m.archive}
+            </Text>
+          </Pressable>
+
+          {/* Le ⋯ ne s'affiche que s'il a quelque chose a proposer : dans la
+              corbeille, sur un mail non signale et sans lien, il serait vide. */}
+          {optionsPlus.length > 0 ? (
+            <Pressable style={styles.dockBtn} onPress={() => setFeuille('plus')}>
+              <IconMore size={18} color={colors.onDark} />
+              <Text style={styles.dockLbl} numberOfLines={1}>{t.email.actionMore}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* ---------------- FEUILLE « CLASSER » ---------------- */}
+        <Modal
+          visible={feuille === 'classer'}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setFeuille(null)}
+        >
+          <Pressable style={styles.sheetOverlay} onPress={() => setFeuille(null)}>
+            <Pressable style={styles.feuilleCarte} onPress={() => {}}>
           <View style={styles.reclassify}>
             <Text style={styles.reLabel}>{t.email.category}</Text>
             <View style={styles.chipsWrap}>
@@ -1249,7 +1457,12 @@ export default function EmailDetail() {
                         : { borderColor: colors.cardline },
                     ]}
                   >
-                    <Text style={[styles.catChipText, { color: active ? '#ffffff' : c.color }]}>
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        { color: active ? '#ffffff' : c.color },
+                      ]}
+                    >
                       {prioLabel(t, c.key)}
                     </Text>
                   </Pressable>
@@ -1328,89 +1541,79 @@ export default function EmailDetail() {
             {reNote ? <Text style={styles.reNote}>{reNote}</Text> : null}
             {reError ? <Text style={styles.reErr}>{reError}</Text> : null}
           </View>
-
-          {/* Chantier F, arbitrage HA du 11/08 : le bouton DISPARAÎT quand le mail
-              est isolé. `estFil === null` = on ne sait pas encore -> rien non plus,
-              pour éviter un bouton qui clignote. Mesure qui l'a motivé : le mail
-              Direct Assurance fait 194 caractères en base et 28 998 chez Gmail, et
-              on demandait au modèle d'en résumer « les échanges clés ». */}
-          {estFil === true ? (
-            <>
-              <Pressable
-                style={[styles.linkBtn, tsLoading && styles.btnDisabled]}
-                disabled={tsLoading}
-                onPress={async () => {
-                  if (tsLoading) return;
-                  setTsLoading(true);
-                  try {
-                    const r = await apiPost<{ summary: string; corpsComplet?: boolean }>(
-                      '/api/thread-summary',
-                      { id, locale },
-                    );
-                    setThreadSummary(r.summary || '');
-                    setTsPartiel(r.corpsComplet === false);
-                  } catch (e: any) {
-                    setMsg({ type: 'err', text: e?.message || t.email.genFail });
-                  }
-                  setTsLoading(false);
-                }}
-              >
-                {tsLoading ? (
-                  <ActivityIndicator size="small" color={colors.terracotta} />
-                ) : (
-                  <Text style={styles.linkBtnText}>{t.email.summarizeThread}</Text>
-                )}
+              <Pressable style={styles.feuilleOk} onPress={() => setFeuille(null)}>
+                <Text style={styles.ctaText}>{t.common.close}</Text>
               </Pressable>
-              {threadSummary ? (
-                <View style={styles.tsBox}>
-                  <Text style={styles.sectionLabel}>
-                    {t.email.threadSummaryTitle} · {tsMessages}
-                  </Text>
-                  {/* Un résumé fait sur l'aperçu ne doit jamais passer pour un
-                      résumé du mail entier. */}
-                  {tsPartiel ? <Text style={styles.corpsNote}>{lireStr.abrege}</Text> : null}
-                  <Text style={styles.content}>{threadSummary}</Text>
-                </View>
-              ) : null}
-            </>
-          ) : null}
-
-          {item.url ? (
-            <Pressable style={styles.linkBtn} onPress={() => Linking.openURL(item.url as string)}>
-              <Text style={styles.linkBtnText}>{t.email.openInMail}</Text>
             </Pressable>
-          ) : null}
+          </Pressable>
+        </Modal>
 
-          {/* Pièces jointes reçues */}
-          {recvAtts.length > 0 ? (
-            <View style={styles.recvBox}>
-              <Text style={styles.recvTitle}>
-                {attStr.label} ({recvAtts.length})
-              </Text>
-              {recvAtts.map((a) => (
-                <View key={a.id} style={styles.recvRow}>
-                  <Pressable
-                    style={styles.recvNameWrap}
-                    onPress={() => openRecv(a)}
-                    disabled={dlRecvId === a.id}
-                  >
-                    <Text style={styles.recvName} numberOfLines={1}>
-                      {a.filename}
-                    </Text>
-                  </Pressable>
-                  {dlRecvId === a.id ? (
-                    <ActivityIndicator size="small" color={colors.terracotta} />
-                  ) : (
-                    <Pressable onPress={() => shareRecv(a)} hitSlop={8}>
-                      <Text style={styles.recvDl}>{recvStr.download}</Text>
-                    </Pressable>
-                  )}
-                </View>
+        {/* ---------------- FEUILLE « PLUS » ----------------
+            Meme forme que le menu « source de la piece jointe » plus bas :
+            cette page a deja un idiome de feuille d'actions creme, on le reprend
+            au lieu d'en inventer un second. */}
+        <Modal
+          visible={feuille === 'plus'}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setFeuille(null)}
+        >
+          <Pressable style={styles.sheetOverlay} onPress={() => setFeuille(null)}>
+            <View style={styles.sheet}>
+              <Text style={styles.sheetTitle}>{t.email.actionMore}</Text>
+              {optionsPlus.map((o) => (
+                <Pressable
+                  key={o.cle}
+                  style={styles.sheetItem}
+                  onPress={() => {
+                    setFeuille(null);
+                    o.faire();
+                  }}
+                >
+                  <Text style={[styles.sheetItemText, o.danger ? styles.sheetItemDanger : null]}>
+                    {o.libelle}
+                  </Text>
+                </Pressable>
               ))}
+              <Pressable style={styles.sheetCancel} onPress={() => setFeuille(null)}>
+                <Text style={styles.sheetCancelText}>{t.common.cancel}</Text>
+              </Pressable>
             </View>
-          ) : null}
+          </Pressable>
+        </Modal>
 
-          {/* Brouillon IA */}
+        {/* ---------------- FEUILLE « REPONDRE », PLEIN ECRAN ----------------
+            FOND SOMBRE, et non creme comme le montrait la maquette. Mesure du
+            12/08 : sur creme, `hint` tombe a 2,15:1 et `muted` a 3,36:1, alors
+            qu'ils sont a 6,52:1 et 4,17:1 sur le fond sombre. Garder le fond de
+            la page, c'est aussi ne toucher AUCUN style enfant de ce bloc.
+
+            ⚠️ LES DEUX FENETRES DECLENCHEES D'ICI (source de la piece jointe,
+            confirmation d'envoi) SONT RENDUES A L'INTERIEUR DE CELLE-CI. Sur
+            iOS, une fenetre posee en dehors de l'arbre d'une fenetre visible ne
+            s'affiche pas au-dessus d'elle. L'apercu plein ecran d'une piece
+            jointe RECUE se declenche depuis la page : il reste dehors.
+            ------------------------------------------------------------------ */}
+        <Modal
+          visible={feuille === 'repondre'}
+          animationType="slide"
+          onRequestClose={() => setFeuille(null)}
+        >
+          <View style={styles.feuilleRacine}>
+            <SafeAreaView edges={['top']} style={styles.feuilleSafe}>
+              <View style={styles.feuilleEntete}>
+                <Text style={styles.feuilleTitre}>{t.email.draftTitle}</Text>
+                <Pressable onPress={() => setFeuille(null)} hitSlop={12}>
+                  <IconClose size={20} color={colors.onDark} />
+                </Pressable>
+              </View>
+            </SafeAreaView>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.feuilleContenu}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
+            >
           <View style={styles.draftSection}>
             <View style={styles.draftHead}>
               <View style={styles.draftIcon}>
@@ -1542,29 +1745,7 @@ export default function EmailDetail() {
               <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
             ) : null}
           </View>
-
-          {/* Aperçu plein écran d'une PJ image */}
-          <Modal
-            visible={!!previewUri}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setPreviewUri(null)}
-          >
-            <View style={styles.previewOverlay}>
-              <Pressable style={styles.previewClose} onPress={() => setPreviewUri(null)} hitSlop={12}>
-                <IconClose size={26} color={colors.onDark} />
-              </Pressable>
-              {previewUri ? (
-                <Image source={{ uri: previewUri }} style={styles.previewImg} resizeMode="contain" />
-              ) : null}
-              <View style={styles.previewBar}>
-                <Pressable style={styles.previewAction} onPress={sharePreview}>
-                  <Text style={styles.previewActionText}>{recvStr.share}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </Modal>
-
+            </ScrollView>
           {/* Menu : source de la pièce jointe */}
           <Modal
             visible={attMenu}
@@ -1590,7 +1771,6 @@ export default function EmailDetail() {
               </View>
             </Pressable>
           </Modal>
-
           {/* Écran de confirmation d'envoi */}
           <Modal
             visible={showConfirm}
@@ -1608,6 +1788,7 @@ export default function EmailDetail() {
                       style={styles.cta}
                       onPress={() => {
                         setShowConfirm(false);
+                        setFeuille(null);
                         router.back();
                       }}
                     >
@@ -1646,7 +1827,31 @@ export default function EmailDetail() {
               </View>
             </View>
           </Modal>
-        </ScrollView>
+          </View>
+        </Modal>
+
+          {/* Aperçu plein écran d'une PJ image */}
+          <Modal
+            visible={!!previewUri}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPreviewUri(null)}
+          >
+            <View style={styles.previewOverlay}>
+              <Pressable style={styles.previewClose} onPress={() => setPreviewUri(null)} hitSlop={12}>
+                <IconClose size={26} color={colors.onDark} />
+              </Pressable>
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.previewImg} resizeMode="contain" />
+              ) : null}
+              <View style={styles.previewBar}>
+                <Pressable style={styles.previewAction} onPress={sharePreview}>
+                  <Text style={styles.previewActionText}>{recvStr.share}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+        </>
       )}
     </View>
   );
@@ -1654,9 +1859,28 @@ export default function EmailDetail() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.fond },
-  safe: { backgroundColor: colors.charcoal },
+  // ==========================================================================
+  // BANDEAU — 12/08/2026. MESURE : `colors.charcoal` et `colors.fond` valent
+  // TOUS LES DEUX '#211e19'. Le bandeau et le corps de la page etaient donc
+  // rigoureusement de la meme couleur, et la separation que decrit encore le
+  // commentaire de `hero` (« bandeau charbon = identite de l'ecran, creme =
+  // contenu ») ne se voyait plus du tout depuis le passage au fond sombre du
+  // 11/08. Ce n'etait pas une question de gout : le sujet, l'expediteur et la
+  // date flottaient au-dessus du resume sans rien qui les rattache.
+  //
+  // `charcoalSoft` (#2a251e) + un filet `charline` (#37322b) : un cran plus
+  // clair que le corps, et un trait qui ferme la zone. Rien de plus — un
+  // bandeau franchement plus clair aurait diverge des autres ecrans, ou le
+  // bandeau et le fond partagent la meme teinte parce que les cartes creme
+  // font la separation. Ici il n'y a pas de cartes : c'est du texte sur le fond.
+  // ==========================================================================
+  safe: {
+    backgroundColor: colors.charcoalSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.charline,
+  },
   topbar: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.charcoalSoft,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
@@ -1668,7 +1892,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(250,247,240,0.10)',
+    backgroundColor: 'rgba(234,225,208,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1697,15 +1921,16 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { fontFamily: fonts.sans, color: colors.muted, fontSize: 15 },
   body: { flex: 1 },
-  bodyContent: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
+  // La barre fixe occupe le bas : plus besoin des 64 px de reserve d'avant.
+  bodyContent: { padding: spacing.xl, paddingBottom: spacing.xl },
   prio: { fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 1.2, marginBottom: spacing.sm },
 
   // En-tete dans le bandeau charbon
   hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, paddingTop: spacing.xs },
   subject: { fontFamily: fonts.sansBold, fontSize: 23, color: colors.onDark, lineHeight: 30, letterSpacing: -0.4 },
   heroMeta: { marginTop: spacing.md },
-  sender: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: 'rgba(250,247,240,0.82)' },
-  metaDate: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(250,247,240,0.42)', marginTop: 3, textTransform: 'capitalize' },
+  sender: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: 'rgba(234,225,208,0.82)' },
+  metaDate: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(234,225,208,0.42)', marginTop: 3, textTransform: 'capitalize' },
 
   // Resume IA : le seul bloc en carte blanche — c'est la valeur ajoutee du produit,
   // avant il avait exactement le meme traitement que le message brut.
@@ -1730,12 +1955,11 @@ const styles = StyleSheet.create({
   summaryText: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
 
   // Reclassement
-  reclassify: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardline,
-  },
+  // 12/08 : ce bloc ne vit plus dans le fil de lecture mais dans la feuille
+  // « Classer ». Plus de marge ni de filet de separation — la feuille les porte.
+  reclassify: { gap: spacing.sm },
+  // ⚠️ 12/08 : POSE SUR CREME desormais (feuille « Classer »), plus sur le fond
+  // sombre. `onDarkMuted` y serait presque invisible.
   reLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.xs },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   catChip: {
@@ -1827,14 +2051,12 @@ const styles = StyleSheet.create({
   linkBtn: { marginTop: spacing.lg },
   linkBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
 
-  draftSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardline,
-    gap: spacing.md,
-  },
-  draftTitle: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink },
+  // 12/08 : le brouillon est passe dans une feuille plein ecran. Le filet et la
+  // marge qui le detachaient de la lecture n'ont plus d'objet.
+  draftSection: { gap: spacing.md },
+  // ⚠️ POSE DIRECTEMENT SUR LE FOND SOMBRE (pas dans une carte) : texte clair,
+  // sinon invisible. Voir `fond` dans lib/theme.ts.
+  draftTitle: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.onDark },
   genLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
   genLoadingText: { fontFamily: fonts.sans, color: colors.muted, fontSize: 14 },
   draftInput: {
@@ -2041,4 +2263,81 @@ const styles = StyleSheet.create({
     marginVertical: spacing.sm,
   },
   modalPreviewText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink2, lineHeight: 21 },
+
+  // ==========================================================================
+  // BARRE FIXE DU BAS (12/08/2026)
+  // Meme teinte que le bandeau du haut : les deux zones de commande encadrent la
+  // lecture, et la lecture seule reste sur le fond de page.
+  // ==========================================================================
+  dock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: colors.charcoalSoft,
+    borderTopWidth: 1,
+    borderTopColor: colors.charline,
+  },
+  // 58 x ~44 : au-dessous, on rate la cible au pouce. L'icone et le libelle sont
+  // empiles parce qu'un libelle seul en 9,5 pt ne se lit pas d'un coup d'oeil, et
+  // qu'une icone seule ne dit pas « Desarchiver ».
+  dockBtn: { minWidth: 58, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 5 },
+  dockLbl: {
+    fontFamily: fonts.sansSemibold,
+    fontSize: 9.5,
+    color: colors.onDarkMuted,
+    maxWidth: 68,
+    textAlign: 'center',
+  },
+  dockAvis: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.charcoalSoft,
+    borderTopWidth: 1,
+    borderTopColor: colors.charline,
+  },
+  dockAvisTexte: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted, flexShrink: 1 },
+  dockAvisLien: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.terracottaLight },
+  dockErreur: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.danger,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.charcoalSoft,
+  },
+
+  // Feuille « Classer » — carte creme posee en bas, comme le menu des pieces jointes.
+  feuilleCarte: { backgroundColor: colors.cream, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
+  feuilleOk: {
+    backgroundColor: colors.ink,
+    borderRadius: radius.sm,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+
+  // Feuille « Repondre » — plein ecran, sur le fond de la page (cf. la mesure de
+  // contraste dans le commentaire du rendu).
+  feuilleRacine: { flex: 1, backgroundColor: colors.fond },
+  feuilleSafe: {
+    backgroundColor: colors.charcoalSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.charline,
+  },
+  feuilleEntete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+  },
+  feuilleTitre: { fontFamily: fonts.sansBold, fontSize: 17, color: colors.onDark },
+  feuilleContenu: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
+  sheetItemDanger: { color: colors.danger },
 });

@@ -211,6 +211,9 @@ const fr = {
     confirmTitle: 'Envoyer cette réponse ?',
     confirmSub: 'Elle partira directement depuis votre messagerie, dans le fil d’origine.',
     confirmSend: 'Confirmer l’envoi',
+    actionReply: 'Répondre',
+    actionClassify: 'Classer',
+    actionMore: 'Plus',
   },
   sent: {
     title: 'Emails envoyés',
@@ -471,6 +474,9 @@ const en: Dict = {
     confirmTitle: 'Send this reply?',
     confirmSub: 'It will be sent straight from your mailbox, in the original thread.',
     confirmSend: 'Confirm send',
+    actionReply: 'Reply',
+    actionClassify: 'Categorize',
+    actionMore: 'More',
   },
   sent: {
     title: 'Sent emails',
@@ -729,6 +735,9 @@ const es: Dict = {
     confirmTitle: '¿Enviar esta respuesta?',
     confirmSub: 'Se enviará directamente desde tu correo, en el hilo original.',
     confirmSend: 'Confirmar envío',
+    actionReply: 'Responder',
+    actionClassify: 'Clasificar',
+    actionMore: 'Más',
   },
   sent: {
     title: 'Correos enviados',
@@ -987,6 +996,9 @@ const de: Dict = {
     confirmTitle: 'Diese Antwort senden?',
     confirmSub: 'Sie wird direkt aus deinem Postfach im ursprünglichen Thread gesendet.',
     confirmSend: 'Senden bestätigen',
+    actionReply: 'Antworten',
+    actionClassify: 'Einordnen',
+    actionMore: 'Mehr',
   },
   sent: {
     title: 'Gesendete E-Mails',
@@ -1245,6 +1257,9 @@ const pt: Dict = {
     confirmTitle: 'Enviar esta resposta?',
     confirmSub: 'Será enviada diretamente da sua caixa, na conversa original.',
     confirmSend: 'Confirmar envio',
+    actionReply: 'Responder',
+    actionClassify: 'Classificar',
+    actionMore: 'Mais',
   },
   sent: {
     title: 'Emails enviados',
@@ -1503,6 +1518,9 @@ const it: Dict = {
     confirmTitle: 'Inviare questa risposta?',
     confirmSub: 'Verrà inviata direttamente dalla tua posta, nella conversazione originale.',
     confirmSend: 'Conferma invio',
+    actionReply: 'Rispondi',
+    actionClassify: 'Classifica',
+    actionMore: 'Altro',
   },
   sent: {
     title: 'Email inviate',
@@ -1761,6 +1779,9 @@ const ar: Dict = {
     confirmTitle: 'إرسال هذا الرد؟',
     confirmSub: 'سيُرسَل مباشرة من بريدك، في المحادثة الأصلية.',
     confirmSend: 'تأكيد الإرسال',
+    actionReply: 'رد',
+    actionClassify: 'تصنيف',
+    actionMore: 'المزيد',
   },
   sent: {
     title: 'الرسائل المُرسَلة',
@@ -2019,6 +2040,9 @@ const ru: Dict = {
     confirmTitle: 'Отправить этот ответ?',
     confirmSub: 'Он будет отправлен напрямую из вашей почты, в исходной цепочке.',
     confirmSend: 'Подтвердить отправку',
+    actionReply: 'Ответить',
+    actionClassify: 'Категория',
+    actionMore: 'Ещё',
   },
   sent: {
     title: 'Отправленные письма',
