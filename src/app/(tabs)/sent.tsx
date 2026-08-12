@@ -672,7 +672,9 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { fontFamily: fonts.sansSemibold, fontSize: 12.5, color: colors.onDark },
 
-  empty: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.muted, textAlign: 'center', marginTop: spacing.xl },
+  // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
+  // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
+  empty: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.onDarkMuted, textAlign: 'center', marginTop: spacing.xl },
   emptyHint: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.hint, textAlign: 'center', marginTop: 6 },
   error: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.danger, marginBottom: spacing.sm },
   notice: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.terracotta, marginBottom: spacing.sm },

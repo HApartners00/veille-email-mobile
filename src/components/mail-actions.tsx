@@ -145,8 +145,9 @@ export function MailActions({
         disabled={!!busy}
         onPress={() => void agir(op)}
       >
+        {/* Indicateur sur fond sombre : `muted` n'y passe plus depuis le 12/08. */}
         {busy === op ? (
-          <ActivityIndicator size="small" color={colors.muted} />
+          <ActivityIndicator size="small" color={colors.onDarkMuted} />
         ) : (
           <Text style={[styles.btnText, danger && styles.btnTextDanger]}>{label}</Text>
         )}

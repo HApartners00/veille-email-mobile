@@ -27,23 +27,56 @@ export const colors = {
   /** Version transparente de `fond` — pour les degrades de coupe. */
   fondT: 'rgba(33,30,25,0)',
 
-  cream: '#faf7f0',
-  creamAlt: '#f3eee3',
-  surface: '#ffffff',
-  cardline: '#e4dcc9',
-  line: '#e7e1d4',
-  avatar: '#efe9da',
+  // ⚠️ LES SURFACES CLAIRES SONT RECHAUFFEES — HA, 11/08 : « le fond j'aime
+  // bien, c'est le clair que j'aime pas, c'est trop blanc ». Du blanc pur sur
+  // du charbon fait des blocs qui sautent aux yeux ; un crème chaud garde la
+  // lisibilité du texte sombre sans trouer la page.
+  //   surface  #ffffff -> #f2ece0   (les cartes : mails, boutons, Réglages)
+  //   creamAlt #f3eee3 -> #e9e2d3   (les fonds secondaires, un cran en dessous)
+  //   cardline #e4dcc9 -> #d9d0ba   (les bordures, pour rester visibles)
+  // ⚠️ `surfaceT` DOIT suivre `surface` : c'est le départ transparent du dégradé
+  // de coupe de l'onglet Envoyés. Laissé sur du blanc, il teinterait le fondu.
+  cream: '#f2ebde',
+  creamAlt: '#e4dccb',
+  surface: '#eae1d0',
+  cardline: '#d3c9b2',
+  line: '#d9cfba',
+  avatar: '#ddd3bd',
 
-  /** Version transparente de `surface`. */
-  surfaceT: 'rgba(255,255,255,0)',
+  /** Version transparente de `surface` — doit rester la même teinte. */
+  surfaceT: 'rgba(234,225,208,0)',
 
   // Texte
   ink: '#1a1a17',
   ink2: '#2a2a25',
-  muted: '#857f70',
+  // ==========================================================================
+  // ⚠️ `muted` EST LE JETON DU TEXTE SECONDAIRE SUR SURFACE CLAIRE, ET LUI SEUL.
+  //
+  // Mesure du 12/08/2026 : a #857f70 il donnait 3,07:1 sur les cartes creme —
+  // sous le seuil AA de 4,5:1. Le HANDOFF proposait #6b6455 « en un jeton » ;
+  // c'etait faux, parce que `muted` servait AUSSI de texte sur le fond sombre,
+  // ou il passait de 4,17:1 a 2,83:1. Exactement le piege deja paye par `cream`
+  // (voir plus haut) : un jeton, deux roles.
+  //
+  // Les deux roles sont donc separes. Les huit endroits qui posaient du `muted`
+  // sur le fond sombre prennent desormais `onDarkMuted` (5,9 a 6,3:1) :
+  //   attachments (sous-titre, intro) · rules (sous-titre) · style (sous-titre)
+  //   drafts (liste vide) · sent (liste vide) · email/[id] (liste vide,
+  //   « L'IA redige… », intitules du brouillon) · mail-actions (indicateur)
+  //
+  // #6b6455 -> 4,52:1 sur `surface`, 4,95:1 sur `cream`. Retour arriere :
+  // remettre '#857f70' ICI et rebasculer ces huit endroits sur `muted`.
+  // ==========================================================================
+  muted: '#6b6455',
   hint: '#a8a291',
-  onDark: '#faf7f0',
-  onDarkMuted: 'rgba(250,247,240,0.66)',
+  // ⚠️ ESSAI HA du 11/08 : « toutes les polices blanches dans cette meme
+  // couleur ». Le texte clair ne prend plus le creme d'origine (#faf7f0, quasi
+  // blanc) mais EXACTEMENT la teinte des cartes (#eae1d0). Bandeaux, boutons
+  // terracotta et textes sur fond sombre parlent donc la meme langue que le
+  // reste de l'app. Retour en arriere : remettre '#faf7f0' ici et relancer le
+  // remplacement inverse des rgba(234,225,208,...) -> rgba(250,247,240,...).
+  onDark: '#eae1d0',
+  onDarkMuted: 'rgba(234,225,208,0.66)',
 
   // Accents
   terracotta: '#c2410c',

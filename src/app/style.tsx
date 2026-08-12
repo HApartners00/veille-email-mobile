@@ -366,7 +366,9 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   bodyContent: { padding: spacing.xl, gap: spacing.md },
   title: { fontFamily: fonts.sansBold, fontSize: 24, color: colors.ink },
-  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 2, marginBottom: spacing.sm },
+  // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
+  // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.onDarkMuted, marginTop: 2, marginBottom: spacing.sm },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.cardline,

@@ -154,7 +154,9 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
   title: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.ink },
-  sub: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, marginTop: spacing.xs, lineHeight: 20 },
+  // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
+  // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
+  sub: { fontFamily: fonts.sans, fontSize: 14, color: colors.onDarkMuted, marginTop: spacing.xs, lineHeight: 20 },
   error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginTop: spacing.sm },
   empty: {
     fontFamily: fonts.sans,

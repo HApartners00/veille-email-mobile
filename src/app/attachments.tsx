@@ -539,10 +539,14 @@ const styles = StyleSheet.create({
   },
   previewActionText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   intro: { paddingHorizontal: spacing.xl, paddingTop: spacing.md },
-  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
+  // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
+  // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.onDarkMuted },
   body: { flex: 1 },
   bodyContent: { padding: spacing.xl, paddingBottom: spacing.xl, gap: spacing.md },
-  introText: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, marginBottom: spacing.md },
+  // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
+  // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
+  introText: { fontFamily: fonts.sans, fontSize: 14, color: colors.onDarkMuted, marginBottom: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: 12,

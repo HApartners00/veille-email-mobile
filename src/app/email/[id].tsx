@@ -517,7 +517,18 @@ export default function EmailDetail() {
    * repondre, classer et les actions secondaires vivent dans des feuilles ouvertes
    * depuis la barre du bas. `null` = on lit.
    */
-  const [feuille, setFeuille] = useState<null | 'repondre' | 'classer' | 'plus'>(null);
+  const [feuille, setFeuille] = useState<null | 'classer' | 'plus'>(null);
+  /**
+   * LA REPONSE EST DANS LE FIL, PAS DANS UNE FEUILLE (correction HA du 12/08).
+   * Elle n'apparait qu'a la demande — sinon on retombe sur la page fourre-tout
+   * d'avant — mais elle apparait A LA SUITE DU MAIL, pour qu'on puisse remonter
+   * le relire en cours de redaction.
+   */
+  const [repondreOuvert, setRepondreOuvert] = useState(false);
+  /** Ordonnee du bloc de reponse dans le defilement, pour l'amener a l'ecran. */
+  const yReponse = useRef(0);
+  /** Arme au prochain `onLayout` du bloc : « une fois pose, va dessus ». */
+  const defilerVersReponse = useRef(false);
 
   const [pendingCat, setPendingCat] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -1067,6 +1078,23 @@ export default function EmailDetail() {
    * savoir s'il y a quelque chose a proposer AVANT de dessiner le bouton — un ⋯
    * qui ouvre une feuille vide est pire que pas de ⋯ du tout.
    */
+  /**
+   * Ouvre le bloc de reponse et amene l'ecran dessus.
+   *
+   * Le defilement ne peut PAS se faire ici : au premier appui le bloc n'est pas
+   * encore monte, son ordonnee vaut 0. On arme un drapeau, et c'est `onLayout`
+   * du bloc — donc une fois qu'il existe et qu'il est mesure — qui defile. Deja
+   * ouvert, on y va tout de suite.
+   */
+  function ouvrirReponse() {
+    if (repondreOuvert) {
+      pageRef.current?.scrollTo({ y: Math.max(0, yReponse.current - 12), animated: true });
+      return;
+    }
+    defilerVersReponse.current = true;
+    setRepondreOuvert(true);
+  }
+
   const optionsPlus: { cle: string; libelle: string; danger?: boolean; faire: () => void }[] = [];
   if (!actions.estCorbeille) {
     optionsPlus.push({
@@ -1154,10 +1182,10 @@ export default function EmailDetail() {
           {summaryLoading || summary || !body ? (
             <>
               <View style={styles.summaryCard}>
-                <View style={styles.summaryHead}>
-                  <IconSparkle size={13} color={colors.terracottaVivid} />
-                  <Text style={styles.summaryLabel}>{t.email.summary}</Text>
-                </View>
+                {/* ⚠️ PLUS D'ETOILE — HA, 12/08 : « la petite etoile avant resume
+                    on enleve ». Elle disait « IA » a un endroit ou plus rien
+                    d'autre ne pouvait l'etre. L'intitule suffit. */}
+                <Text style={styles.summaryLabel}>{t.email.summary}</Text>
                 {summaryLoading ? (
                   <View style={styles.genLoading}>
                     <ActivityIndicator color={colors.terracotta} />
@@ -1362,6 +1390,174 @@ export default function EmailDetail() {
               ))}
             </View>
           ) : null}
+
+          {/* ------------------------------------------------------------------
+              LA REPONSE S'ECRIT A LA SUITE DU MAIL — correction HA du 12/08.
+              Elle vivait dans une feuille plein ecran ; HA : « je veux que ca
+              apparaisse a la suite du mail comme ca on peut y rejeter un coup
+              d'oeil facilement en remontant pdt qu'on ecrit la reponse ». Une
+              feuille couvre le mail, et relire ce a quoi on repond demandait de
+              la fermer. Le bloc revient donc DANS le defilement, mais il n'y est
+              qu'a la demande : « Repondre » l'ouvre et amene l'ecran dessus.
+              ------------------------------------------------------------------ */}
+          {repondreOuvert ? (
+            <View
+              onLayout={(e) => {
+                // ⚠️ On LIT l'ordonnee TOUT DE SUITE : l'evenement synthetique est
+                // recycle par React Native des la fin du gestionnaire. Meme piege
+                // que la mesure de hauteur du corps, paye le 11/08 (build 14).
+                const y = e.nativeEvent.layout.y;
+                yReponse.current = y;
+                if (defilerVersReponse.current) {
+                  defilerVersReponse.current = false;
+                  pageRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+                }
+              }}
+            >
+          <View style={styles.draftSection}>
+            <View style={styles.draftHeadRow}>
+              <View style={styles.draftHead}>
+                <View style={styles.draftIcon}>
+                  <IconReplySuggested size={16} color={colors.terracottaVivid} />
+                </View>
+                <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
+              </View>
+              {/* Replier — sinon le bloc, une fois ouvert, ne se referme jamais. */}
+              <Pressable onPress={() => setRepondreOuvert(false)} hitSlop={10}>
+                <IconClose size={18} color={colors.onDarkMuted} />
+              </Pressable>
+            </View>
+
+            {!draft && !genLoading ? (
+              <Pressable style={styles.cta} onPress={() => generate(false)}>
+                <Text style={styles.ctaText}>{t.email.generateDraft}</Text>
+              </Pressable>
+            ) : null}
+
+            {genLoading ? (
+              <View style={styles.genLoading}>
+                <ActivityIndicator color={colors.terracotta} />
+                <Text style={styles.genLoadingText}>{t.email.aiWriting}</Text>
+              </View>
+            ) : null}
+
+            {draft && !genLoading ? (
+              <>
+                <TextInput
+                  style={styles.draftInput}
+                  value={draft}
+                  onChangeText={setDraft}
+                  multiline
+                  textAlignVertical="top"
+                />
+
+                {/* Ligne discrète : adaptation au style */}
+                {personalized ? (
+                  <View style={styles.adaptedRow}>
+                    <IconSparkle size={12} color={colors.hint} />
+                    <Text style={styles.adapted}>{persoStr.adapted}</Text>
+                  </View>
+                ) : null}
+
+                {/* Avis unique (opt-out) */}
+                {notice ? (
+                  <View style={styles.noticeBox}>
+                    <Text style={styles.noticeText}>{persoStr.notice}</Text>
+                    <Pressable onPress={() => setNotice(false)} hitSlop={8}>
+                      <IconClose size={15} color={colors.hint} />
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {/* Pièces jointes */}
+                <Text style={styles.refineLabel}>{attStr.label}</Text>
+                {atts.map((a) => (
+                  <View key={a.id} style={styles.attRow}>
+                    <Text style={styles.attName} numberOfLines={1}>
+                      {a.filename}
+                    </Text>
+                    <Pressable onPress={() => removeAtt(a.id)} hitSlop={8}>
+                      <IconClose size={15} color={colors.hint} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={[styles.attAddBtn, uploading && styles.btnDisabled]}
+                  onPress={() => setAttMenu(true)}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color={colors.onDarkMuted} />
+                  ) : (
+                    <IconPlus size={14} color={colors.onDark} />
+                  )}
+                  <Text style={styles.attAddText}>{uploading ? attStr.sending : attStr.add}</Text>
+                </Pressable>
+                {attError ? <Text style={styles.attError}>{attError}</Text> : null}
+
+                {/* Reformulations rapides */}
+                <Text style={styles.refineLabel}>{t.email.adjust}</Text>
+                <View style={styles.chipsWrap}>
+                  {QUICK_REFINEMENTS.map((q) => (
+                    <Pressable
+                      key={q.label}
+                      style={styles.refineChip}
+                      disabled={genLoading}
+                      onPress={() => generate(true, q.instruction)}
+                    >
+                      <Text style={styles.refineChipText}>{q.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={styles.instr}
+                  value={instructions}
+                  onChangeText={setInstructions}
+                  placeholder={t.email.instrPlaceholder}
+                  placeholderTextColor={colors.hint}
+                />
+                <View style={styles.row}>
+                  <Pressable
+                    style={[styles.secondaryBtn, !instructions.trim() && styles.btnDisabled]}
+                    onPress={() => generate(true)}
+                    disabled={!instructions.trim()}
+                  >
+                    <Text style={styles.secondaryBtnText}>{t.email.reformulate}</Text>
+                  </Pressable>
+                  {/* ⚠️ ECHANGES LE 12/08 — position ET couleur. « Mettre dans ma
+                      boite » portait le bouton plein orange et « Envoyer » le
+                      bouton sombre en dessous : l'accent principal allait au geste
+                      SECONDAIRE. Envoyer est l'action qui termine le travail, elle
+                      prend la place et la couleur d'action principale ; deposer un
+                      brouillon dans la messagerie devient le geste de repli. */}
+                  <Pressable
+                    style={[styles.cta, styles.flex1]}
+                    onPress={() => {
+                      setSent(false);
+                      setShowConfirm(true);
+                    }}
+                  >
+                    <Text style={styles.ctaText}>{t.email.sendDirectly}</Text>
+                  </Pressable>
+                </View>
+
+                <Pressable style={styles.sendBtn} onPress={pushToMailbox} disabled={pushing}>
+                  {pushing ? (
+                    <ActivityIndicator color={colors.onDark} />
+                  ) : (
+                    <Text style={styles.sendBtnText}>{t.email.putInMailbox}</Text>
+                  )}
+                </Pressable>
+              </>
+            ) : null}
+
+            {msg ? (
+              <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
+            ) : null}
+          </View>
+            </View>
+          ) : null}
         </ScrollView>
 
         {/* ------------------------------------------------------------------
@@ -1384,7 +1580,7 @@ export default function EmailDetail() {
         {actions.erreur ? <Text style={styles.dockErreur}>{actions.erreur}</Text> : null}
 
         <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-          <Pressable style={[styles.cta, styles.flex1]} onPress={() => setFeuille('repondre')}>
+          <Pressable style={[styles.cta, styles.flex1]} onPress={ouvrirReponse}>
             <Text style={styles.ctaText}>{t.email.actionReply}</Text>
           </Pressable>
 
@@ -1582,170 +1778,6 @@ export default function EmailDetail() {
           </Pressable>
         </Modal>
 
-        {/* ---------------- FEUILLE « REPONDRE », PLEIN ECRAN ----------------
-            FOND SOMBRE, et non creme comme le montrait la maquette. Mesure du
-            12/08 : sur creme, `hint` tombe a 2,15:1 et `muted` a 3,36:1, alors
-            qu'ils sont a 6,52:1 et 4,17:1 sur le fond sombre. Garder le fond de
-            la page, c'est aussi ne toucher AUCUN style enfant de ce bloc.
-
-            ⚠️ LES DEUX FENETRES DECLENCHEES D'ICI (source de la piece jointe,
-            confirmation d'envoi) SONT RENDUES A L'INTERIEUR DE CELLE-CI. Sur
-            iOS, une fenetre posee en dehors de l'arbre d'une fenetre visible ne
-            s'affiche pas au-dessus d'elle. L'apercu plein ecran d'une piece
-            jointe RECUE se declenche depuis la page : il reste dehors.
-            ------------------------------------------------------------------ */}
-        <Modal
-          visible={feuille === 'repondre'}
-          animationType="slide"
-          onRequestClose={() => setFeuille(null)}
-        >
-          <View style={styles.feuilleRacine}>
-            <SafeAreaView edges={['top']} style={styles.feuilleSafe}>
-              <View style={styles.feuilleEntete}>
-                <Text style={styles.feuilleTitre}>{t.email.draftTitle}</Text>
-                <Pressable onPress={() => setFeuille(null)} hitSlop={12}>
-                  <IconClose size={20} color={colors.onDark} />
-                </Pressable>
-              </View>
-            </SafeAreaView>
-            <ScrollView
-              style={styles.body}
-              contentContainerStyle={styles.feuilleContenu}
-              keyboardShouldPersistTaps="handled"
-              automaticallyAdjustKeyboardInsets
-            >
-          <View style={styles.draftSection}>
-            <View style={styles.draftHead}>
-              <View style={styles.draftIcon}>
-                <IconReplySuggested size={16} color={colors.terracottaVivid} />
-              </View>
-              <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
-            </View>
-
-            {!draft && !genLoading ? (
-              <Pressable style={styles.cta} onPress={() => generate(false)}>
-                <Text style={styles.ctaText}>{t.email.generateDraft}</Text>
-              </Pressable>
-            ) : null}
-
-            {genLoading ? (
-              <View style={styles.genLoading}>
-                <ActivityIndicator color={colors.terracotta} />
-                <Text style={styles.genLoadingText}>{t.email.aiWriting}</Text>
-              </View>
-            ) : null}
-
-            {draft && !genLoading ? (
-              <>
-                <TextInput
-                  style={styles.draftInput}
-                  value={draft}
-                  onChangeText={setDraft}
-                  multiline
-                  textAlignVertical="top"
-                />
-
-                {/* Ligne discrète : adaptation au style */}
-                {personalized ? (
-                  <View style={styles.adaptedRow}>
-                    <IconSparkle size={12} color={colors.hint} />
-                    <Text style={styles.adapted}>{persoStr.adapted}</Text>
-                  </View>
-                ) : null}
-
-                {/* Avis unique (opt-out) */}
-                {notice ? (
-                  <View style={styles.noticeBox}>
-                    <Text style={styles.noticeText}>{persoStr.notice}</Text>
-                    <Pressable onPress={() => setNotice(false)} hitSlop={8}>
-                      <IconClose size={15} color={colors.hint} />
-                    </Pressable>
-                  </View>
-                ) : null}
-
-                {/* Pièces jointes */}
-                <Text style={styles.refineLabel}>{attStr.label}</Text>
-                {atts.map((a) => (
-                  <View key={a.id} style={styles.attRow}>
-                    <Text style={styles.attName} numberOfLines={1}>
-                      {a.filename}
-                    </Text>
-                    <Pressable onPress={() => removeAtt(a.id)} hitSlop={8}>
-                      <IconClose size={15} color={colors.hint} />
-                    </Pressable>
-                  </View>
-                ))}
-                <Pressable
-                  style={[styles.attAddBtn, uploading && styles.btnDisabled]}
-                  onPress={() => setAttMenu(true)}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <ActivityIndicator size="small" color={colors.muted} />
-                  ) : (
-                    <IconPlus size={14} color={colors.ink} />
-                  )}
-                  <Text style={styles.attAddText}>{uploading ? attStr.sending : attStr.add}</Text>
-                </Pressable>
-                {attError ? <Text style={styles.attError}>{attError}</Text> : null}
-
-                {/* Reformulations rapides */}
-                <Text style={styles.refineLabel}>{t.email.adjust}</Text>
-                <View style={styles.chipsWrap}>
-                  {QUICK_REFINEMENTS.map((q) => (
-                    <Pressable
-                      key={q.label}
-                      style={styles.refineChip}
-                      disabled={genLoading}
-                      onPress={() => generate(true, q.instruction)}
-                    >
-                      <Text style={styles.refineChipText}>{q.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <TextInput
-                  style={styles.instr}
-                  value={instructions}
-                  onChangeText={setInstructions}
-                  placeholder={t.email.instrPlaceholder}
-                  placeholderTextColor={colors.hint}
-                />
-                <View style={styles.row}>
-                  <Pressable
-                    style={[styles.secondaryBtn, !instructions.trim() && styles.btnDisabled]}
-                    onPress={() => generate(true)}
-                    disabled={!instructions.trim()}
-                  >
-                    <Text style={styles.secondaryBtnText}>{t.email.reformulate}</Text>
-                  </Pressable>
-                  <Pressable style={[styles.cta, styles.flex1]} onPress={pushToMailbox} disabled={pushing}>
-                    {pushing ? (
-                      <ActivityIndicator color={colors.onDark} />
-                    ) : (
-                      <Text style={styles.ctaText}>{t.email.putInMailbox}</Text>
-                    )}
-                  </Pressable>
-                </View>
-
-                {/* Envoi direct depuis l'app (avec confirmation) */}
-                <Pressable
-                  style={styles.sendBtn}
-                  onPress={() => {
-                    setSent(false);
-                    setShowConfirm(true);
-                  }}
-                >
-                  <Text style={styles.sendBtnText}>{t.email.sendDirectly}</Text>
-                </Pressable>
-              </>
-            ) : null}
-
-            {msg ? (
-              <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
-            ) : null}
-          </View>
-            </ScrollView>
           {/* Menu : source de la pièce jointe */}
           <Modal
             visible={attMenu}
@@ -1788,7 +1820,7 @@ export default function EmailDetail() {
                       style={styles.cta}
                       onPress={() => {
                         setShowConfirm(false);
-                        setFeuille(null);
+                        setRepondreOuvert(false);
                         router.back();
                       }}
                     >
@@ -1827,9 +1859,6 @@ export default function EmailDetail() {
               </View>
             </View>
           </Modal>
-          </View>
-        </Modal>
-
           {/* Aperçu plein écran d'une PJ image */}
           <Modal
             visible={!!previewUri}
@@ -1919,11 +1948,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: { fontFamily: fonts.sans, color: colors.muted, fontSize: 15 },
+  // Pose sur le fond sombre (styles.center) : jeton clair.
+  empty: { fontFamily: fonts.sans, color: colors.onDarkMuted, fontSize: 15 },
   body: { flex: 1 },
   // La barre fixe occupe le bas : plus besoin des 64 px de reserve d'avant.
   bodyContent: { padding: spacing.xl, paddingBottom: spacing.xl },
-  prio: { fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 1.2, marginBottom: spacing.sm },
 
   // En-tete dans le bandeau charbon
   hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, paddingTop: spacing.xs },
@@ -1934,25 +1963,37 @@ const styles = StyleSheet.create({
 
   // Resume IA : le seul bloc en carte blanche — c'est la valeur ajoutee du produit,
   // avant il avait exactement le meme traitement que le message brut.
+  // ==========================================================================
+  // CARTE DE RESUME — refaite le 12/08. HA : « l'encadre resume j'aime pas ».
+  //
+  // C'etait le bloc le plus clair de l'ecran (#eae1d0 plein), double d'un rail
+  // orange de 3 px : sur une page sombre, il criait au lieu de simplement se
+  // distinguer. Et HA avait deja dit du clair, le 11/08 : « c'est le clair que
+  // j'aime pas, c'est trop blanc ».
+  //
+  // Elle reste une carte — c'est la valeur ajoutee du produit, elle ne doit pas
+  // se confondre avec le mail — mais une carte SOMBRE : `charcoalSoft`, le meme
+  // cran que le bandeau et la barre du bas, avec le filet `charline`. Le texte
+  // passe en `onDark` (11,71:1) et l'intitule en `terracottaLight` (6,47:1) ;
+  // `terracottaVivid` n'aurait donne que 4,34:1 sur cette teinte.
+  // ==========================================================================
   summaryCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.charcoalSoft,
     borderWidth: 1,
-    borderColor: colors.cardline,
+    borderColor: colors.charline,
     borderRadius: radius.md + 3,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.terracottaVivid,
     padding: spacing.lg,
     marginBottom: spacing.xl,
   },
-  summaryHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm },
   summaryLabel: {
     fontFamily: fonts.sansBold,
     fontSize: 10.5,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    color: colors.terracotta,
+    color: colors.terracottaLight,
+    marginBottom: spacing.sm,
   },
-  summaryText: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
+  summaryText: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.onDark, lineHeight: 23 },
 
   // Reclassement
   // 12/08 : ce bloc ne vit plus dans le fil de lecture mais dans la feuille
@@ -2014,7 +2055,6 @@ const styles = StyleSheet.create({
   reNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: spacing.sm },
   reErr: { fontFamily: fonts.sans, fontSize: 12, color: colors.danger, marginTop: spacing.xs },
 
-  divider: { height: 1, backgroundColor: colors.cardline, marginVertical: spacing.lg },
   sectionLabel: {
     fontFamily: fonts.sansBold,
     fontSize: 10.5,
@@ -2049,16 +2089,26 @@ const styles = StyleSheet.create({
   },
   deplierBtnText: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.ink },
   linkBtn: { marginTop: spacing.lg },
-  linkBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
+  // ⚠️ Pose sur le fond sombre : `terracotta` n'y donne que 3,21:1. Sa version
+  // claire monte a 7,07:1 — meme famille, meme intention.
+  linkBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 14 },
 
-  // 12/08 : le brouillon est passe dans une feuille plein ecran. Le filet et la
-  // marge qui le detachaient de la lecture n'ont plus d'objet.
-  draftSection: { gap: spacing.md },
+  // Le brouillon est de nouveau dans le fil, a la suite du mail : le filet le
+  // detache de la lecture sans l'en sortir.
+  draftSection: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.charline,
+    gap: spacing.md,
+  },
+  draftHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // ⚠️ POSE DIRECTEMENT SUR LE FOND SOMBRE (pas dans une carte) : texte clair,
   // sinon invisible. Voir `fond` dans lib/theme.ts.
   draftTitle: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.onDark },
   genLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
-  genLoadingText: { fontFamily: fonts.sans, color: colors.muted, fontSize: 14 },
+  // Les deux emplois (carte de resume, brouillon) sont sur fond sombre.
+  genLoadingText: { fontFamily: fonts.sans, color: colors.onDarkMuted, fontSize: 14 },
   draftInput: {
     fontFamily: fonts.sans,
     minHeight: 160,
@@ -2087,8 +2137,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   noticeText: { fontFamily: fonts.sans, flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
-  noticeClose: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint },
-  refineLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
+  // « Pieces jointes » et « Ajuster : » — poses sur le fond sombre du brouillon.
+  refineLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted },
   attRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2116,7 +2166,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
   },
-  attAddText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink },
+  // ⚠️ ETAIT INVISIBLE — HA, 12/08 : « joindre un fichier est invisible pcq c
+  // fonce sur fonce ». Mesure : `ink` #1a1a17 sur le fond #211e19 = 1,05:1,
+  // soit rigoureusement rien. Ce bouton n'est PAS dans une carte, il est pose
+  // sur le fond de la page comme le reste du brouillon.
+  attAddText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.onDark },
   recvBox: {
     marginTop: spacing.lg,
     backgroundColor: colors.surface,
@@ -2215,8 +2269,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
+  // Idem : bouton pose sur le fond sombre, pas dans une carte.
   secondaryBtn: {
-    borderColor: colors.terracotta,
+    borderColor: colors.terracottaLight,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: 14,
@@ -2224,20 +2279,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
+  secondaryBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 14 },
   btnDisabled: { opacity: 0.4 },
   msg: { fontFamily: fonts.sans, fontSize: 13, marginTop: spacing.sm },
   msgOk: { color: colors.sage },
   msgErr: { color: colors.danger },
 
+  // ⚠️ SA FORME NE SE VOYAIT PAS : un aplat `ink` #1a1a17 sur le fond #211e19,
+  // c'est 1,05:1 — le texte creme se lisait, le bouton non. Depuis qu'il porte
+  // l'action SECONDAIRE (« Mettre dans ma boite »), il prend le contour clair
+  // deja utilise pour les controles poses sur fond sombre ailleurs dans l'app
+  // (cf. `chip` dans l'onglet Emails).
   sendBtn: {
-    backgroundColor: colors.ink,
+    borderWidth: 1,
+    borderColor: 'rgba(234,225,208,0.28)',
     borderRadius: radius.sm,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendBtnText: { fontFamily: fonts.sansBold, color: colors.cream, fontSize: 15 },
+  sendBtnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
 
   modalOverlay: {
     flex: 1,
@@ -2322,22 +2383,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 
-  // Feuille « Repondre » — plein ecran, sur le fond de la page (cf. la mesure de
-  // contraste dans le commentaire du rendu).
-  feuilleRacine: { flex: 1, backgroundColor: colors.fond },
-  feuilleSafe: {
-    backgroundColor: colors.charcoalSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.charline,
-  },
-  feuilleEntete: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-  },
-  feuilleTitre: { fontFamily: fonts.sansBold, fontSize: 17, color: colors.onDark },
-  feuilleContenu: { padding: spacing.xl, paddingBottom: spacing.xxl * 2 },
   sheetItemDanger: { color: colors.danger },
 });
