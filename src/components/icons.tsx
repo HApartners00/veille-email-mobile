@@ -377,6 +377,27 @@ export function IconFunnel({ size = 18, color = DEF, strokeWidth = 1.7 }: IconPr
   );
 }
 
+/**
+ * Trois points horizontaux - menu « plus d'options ».
+ *
+ * VECTORIEL ET NON UN GLYPHE (« ⋯ », « … ») : meme raison que le Caret de
+ * filter-sheet.tsx — les points de suspension ne sont pas rendus a la meme
+ * chasse ni a la meme hauteur d'un systeme a l'autre, et un caractere ne se
+ * met pas a l'echelle avec `size`. Trois cercles pleins, donc `fill` et non
+ * `stroke` : `strokeWidth` est ignore ici, il n'est accepte que pour garder
+ * la meme signature que les 25 autres icones du fichier.
+ */
+export function IconMore({ size = 18, color = DEF }: IconProps) {
+  const r = 1.7;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={5.5} cy={12} r={r} fill={color} />
+      <Circle cx={12} cy={12} r={r} fill={color} />
+      <Circle cx={18.5} cy={12} r={r} fill={color} />
+    </Svg>
+  );
+}
+
 /** Trombone - pieces jointes. */
 export function IconPaperclip({ size = 18, color = DEF, strokeWidth = 2 }: IconProps) {
   return (

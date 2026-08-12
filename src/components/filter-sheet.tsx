@@ -22,6 +22,27 @@ export type SheetOption = {
   /** `true` = le compte est calcule sur ce qui est charge, il en reste peut-etre. */
   partial?: boolean;
   selected: boolean;
+  /**
+   * Ligne d'ACTION et non de choix (« Actualiser », « Tout marquer comme lu ») :
+   * pas de coche, pas d'etat coche/decoche, et le libelle prend la couleur
+   * d'accent pour dire qu'il se passe quelque chose quand on appuie.
+   * Ajoute le 12/08/2026 pour le menu ⋯ de l'onglet Emails.
+   */
+  action?: boolean;
+  /** Texte discret a droite du libelle (ex. le dossier courant). */
+  value?: string;
+  /** Grise la ligne et ignore l'appui — sans la faire disparaitre. */
+  disabled?: boolean;
+};
+
+/**
+ * Un groupe de lignes sous un intertitre. Une feuille SANS section reste
+ * possible (prop `options`) : les trois appelants d'origine ne changent pas.
+ */
+export type SheetSection = {
+  /** Absent = groupe sans intertitre. */
+  title?: string;
+  options: SheetOption[];
 };
 
 /** Chevron bas vectoriel (pas de glyphe : ils ne sont pas rendus pareil partout). */
@@ -58,41 +79,76 @@ export function FilterSheet({
   visible,
   title,
   options,
+  sections,
   doneLabel,
   onPick,
   onClose,
 }: {
   visible: boolean;
   title: string;
-  options: SheetOption[];
+  /** Liste a plat — la forme d'origine, gardee telle quelle. */
+  options?: SheetOption[];
+  /**
+   * Liste groupee sous des intertitres. Prioritaire sur `options` quand les
+   * deux sont fournies. Une seule feuille porte alors plusieurs natures de
+   * choix (dossier, boite, actions) — c'est ce que demande le menu ⋯.
+   */
+  sections?: SheetSection[];
   doneLabel: string;
   onPick: (key: string) => void;
   onClose: () => void;
 }) {
+  // Normalisation : tout se rend comme des sections. Sans `sections`, on en
+  // fabrique une seule, sans intertitre — rendu identique a l'ancien.
+  const groupes: SheetSection[] = sections ?? [{ options: options ?? [] }];
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <Text style={styles.sheetTitle}>{title}</Text>
           <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
-            {options.map((o) => (
-              <Pressable key={o.key} style={styles.sheetRow} onPress={() => onPick(o.key)}>
-                <Text
-                  style={[styles.sheetRowText, o.selected && styles.sheetRowTextSel]}
-                  numberOfLines={1}
-                >
-                  {o.label}
-                </Text>
-                <View style={styles.sheetRight}>
-                  {o.count != null ? (
-                    <Text style={styles.sheetCount}>
-                      {o.count}
-                      {o.partial ? '+' : ''}
+            {groupes.map((g, gi) => (
+              <View key={g.title ?? `g${gi}`}>
+                {g.title ? (
+                  <Text style={[styles.sectionTitle, gi > 0 && styles.sectionTitleNext]}>
+                    {g.title}
+                  </Text>
+                ) : null}
+                {g.options.map((o) => (
+                  <Pressable
+                    key={o.key}
+                    style={[styles.sheetRow, o.disabled && styles.sheetRowOff]}
+                    disabled={o.disabled}
+                    onPress={() => onPick(o.key)}
+                  >
+                    <Text
+                      style={[
+                        styles.sheetRowText,
+                        o.action && styles.sheetRowTextAction,
+                        o.selected && styles.sheetRowTextSel,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {o.label}
                     </Text>
-                  ) : null}
-                  {o.selected ? <CheckMark /> : null}
-                </View>
-              </Pressable>
+                    <View style={styles.sheetRight}>
+                      {o.value ? (
+                        <Text style={styles.sheetValue} numberOfLines={1}>
+                          {o.value}
+                        </Text>
+                      ) : null}
+                      {o.count != null ? (
+                        <Text style={styles.sheetCount}>
+                          {o.count}
+                          {o.partial ? '+' : ''}
+                        </Text>
+                      ) : null}
+                      {o.selected ? <CheckMark /> : null}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
             ))}
           </ScrollView>
           <Pressable style={styles.sheetDone} onPress={onClose}>
@@ -122,6 +178,18 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: spacing.sm,
   },
+  // Intertitre de groupe. Meme graisse et meme casse que `sheetTitle` mais un
+  // cran plus petit : le titre de la feuille doit rester le plus fort.
+  sectionTitle: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.hint,
+    marginBottom: 2,
+  },
+  /** Respiration au-dessus des groupes suivants — pas du premier. */
+  sectionTitleNext: { marginTop: spacing.lg },
   sheetRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -131,9 +199,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardline,
     gap: spacing.md,
   },
+  sheetRowOff: { opacity: 0.45 },
   sheetRowText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink2, flexShrink: 1 },
   sheetRowTextSel: { fontFamily: fonts.sansBold, color: colors.terracotta },
+  /** Une action se lit comme un bouton, pas comme un choix a cocher. */
+  sheetRowTextAction: { fontFamily: fonts.sansMedium, color: colors.terracotta },
   sheetRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sheetValue: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, maxWidth: 150 },
   sheetCount: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint },
   sheetDone: {
     marginTop: spacing.lg,
