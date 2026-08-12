@@ -205,7 +205,7 @@ function CorpsEnvoye({
           // empilées se voyaient une par une au lieu de fondre.
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(255,255,255,0)', colors.surface]}
+            colors={[colors.surfaceT, colors.surface]}
             style={styles.fondu}
           />
         ) : null}
@@ -585,7 +585,7 @@ export default function SentScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxl },
   content: { paddingBottom: spacing.xxl },
   listHeader: { marginBottom: 14 },

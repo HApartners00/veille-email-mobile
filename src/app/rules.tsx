@@ -149,8 +149,8 @@ export default function RulesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.fond },
   content: { paddingBottom: spacing.xxl },
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
   title: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.ink },

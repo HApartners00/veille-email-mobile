@@ -348,8 +348,8 @@ export default function Accueil() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.fond },
   content: { paddingBottom: spacing.xxl * 2 },
 
   // Bandeau charbon

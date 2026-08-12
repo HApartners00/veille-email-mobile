@@ -324,7 +324,7 @@ export default function DraftsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxl },
   content: { paddingBottom: spacing.xxl },
   listHeader: { marginBottom: 14 },

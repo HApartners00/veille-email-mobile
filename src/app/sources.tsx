@@ -193,7 +193,7 @@ export default function Sources() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
   content: { padding: spacing.xl, gap: spacing.md },
   card: {
     backgroundColor: colors.surface,

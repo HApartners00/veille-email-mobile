@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { colors } from '@/lib/theme';
+import { colors, radius } from '@/lib/theme';
 
 /**
  * Le corps d'un mail HTML, rendu POUR DE VRAI — jumeau mobile de
@@ -94,6 +94,20 @@ const MESURE = `
     return s;
   }
 
+  // ⚠️ ON NE MONTRE PAS LA PAGE DES QU'ELLE EST A L'ECHELLE.
+  // HA, 11/08 : "y a encore un flash au niveau du corps du mail, comme si la
+  // photo apparaissait une demi-seconde apres". C'est exactement ca : le texte
+  // se pose, puis l'image distante arrive et pousse tout. On attend donc
+  // "load" (images comprises), avec un plafond a 1,2 s pour qu'une image lente
+  // ou morte ne retienne pas le mail en otage. Cout assume : le mail apparait
+  // ~0,3 a 0,8 s plus tard, mais d'un seul bloc, sans rien qui saute.
+  var montre = false;
+  function revele() {
+    if (montre) return;
+    montre = true;
+    if (document.body) document.body.style.opacity = '1';
+  }
+
   function envoyer() {
     echelle = ajuster();
     var b = document.body, d = document.documentElement;
@@ -104,7 +118,11 @@ const MESURE = `
   }
 
   envoyer();
-  window.addEventListener('load', envoyer);
+  window.addEventListener('load', function () {
+    envoyer();
+    revele();
+  });
+  setTimeout(revele, 1200);
   if (window.ResizeObserver) { try { new ResizeObserver(envoyer).observe(document.body); } catch (e) {} }
   setTimeout(envoyer, 300);
   setTimeout(envoyer, 1200);
@@ -113,16 +131,34 @@ const MESURE = `
 `;
 
 export default function MailHtml({ html }: { html: string }) {
-  const [hauteur, setHauteur] = useState(1);
+  // 160 px et non 1 : a 1 px le bloc s'effondrait completement avant de sauter
+  // a sa vraie hauteur. Une reserve modeste rend l'arrivee du mail continue.
+  const [hauteur, setHauteur] = useState(160);
 
   const page = useMemo(
     () => `<!doctype html><html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  html, body { margin:0; padding:0; background:${colors.cream}; -webkit-text-size-adjust:100%; }
+  /* ⚠️ LE MAIL RESTE SUR FOND CLAIR, MEME EN THEME SOMBRE.
+     Un email est un document concu pour du blanc : son texte, ses tableaux et
+     ses images supposent un fond clair. Le poser sur du charbon rendrait
+     illisible la moitie des mails du monde. Tous les clients mail font pareil :
+     l'interface passe en sombre, le message reste une feuille claire. Ces deux
+     couleurs sont donc VOLONTAIREMENT ecrites en dur et ne suivent pas le
+     theme — c'est le seul endroit de l'app dans ce cas. */
+  html, body { margin:0; padding:0; background:#faf7f0; -webkit-text-size-adjust:100%; }
+  /* ⚠️ LA PAGE RESTE INVISIBLE JUSQU'A SA MISE A L'ECHELLE.
+     Sans ça, le mail s'affiche une fraction de seconde à sa largeur d'origine
+     (600 px sur un écran de 390) puis se réduit d'un coup : c'est le "flash"
+     signalé par HA le 11/08. On ne montre rien tant que ce n'est pas juste.
+     Le repli par animation est une SÉCURITÉ : si le script injecté ne
+     s'exécutait pas, la page apparaîtrait quand même au bout d'1,2 s, au lieu
+     de rester blanche pour toujours. */
+  body { opacity:0; transition: opacity .18s ease-out; animation: vmail-montrer 0s 2s forwards; }
+  @keyframes vmail-montrer { to { opacity:1; } }
   body { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         font-size:15px; line-height:1.6; color:${colors.ink2};
+         font-size:15px; line-height:1.6; color:#2a2a25;
          word-break:break-word; overflow-wrap:anywhere; }
   /* On ne force PLUS \`max-width:100%\` sur tout : ça écrasait la mise en page
      des mails en tables sans regler le debordement (une largeur posee en
@@ -159,7 +195,20 @@ export default function MailHtml({ html }: { html: string }) {
         Linking.openURL(req.url).catch(() => {});
         return false;
       }}
-      style={{ width: '100%', height: hauteur, backgroundColor: colors.cream }}
+      /* ⚠️ SUR iOS, UNE WEBVIEW PEINT DU BLANC AVANT SA PREMIERE IMAGE, quelle
+         que soit la couleur de fond du document. Le fond de l'app etant creme,
+         chaque ouverture donnait creme -> blanc -> mail : c'est le "flash"
+         signale par HA le 11/08, et c'est pour ca que retarder l'affichage n'y
+         changeait rien. `opaque={false}` + fond transparent laissent le creme du
+         parent traverser tant que la page n'a pas peint. */
+      opaque={false}
+      style={{
+        width: '100%',
+        height: hauteur,
+        backgroundColor: 'transparent',
+        borderRadius: radius.md,
+        overflow: 'hidden',
+      }}
     />
   );
 }

@@ -1303,7 +1303,7 @@ export function settingsSectionTitle(key: SettingsSection, locale: string): stri
 export default SettingsPanel;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
+  screen: { flex: 1, backgroundColor: colors.fond },
   content: { paddingBottom: spacing.xxl },
 
   // Bandeau charbon

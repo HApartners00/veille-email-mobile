@@ -7,12 +7,35 @@ export const colors = {
   charcoal: '#211e19',
   charcoalSoft: '#2a251e',
   charline: '#37322b',
+
+  // ==========================================================================
+  // FOND DE PAGE SOMBRE — 11/08/2026, demande de HA : « c'est QUE le fond en
+  // fonce. Les bandeaux des mails restent en clair, et les boutons dans
+  // Reglages aussi. »
+  //
+  // ⚠️ POURQUOI UN JETON DEDIE ET PAS `cream` FONCE : `cream` sert DEUX roles
+  // dans ce code. Fond de page, oui — mais aussi TEXTE CLAIR pose sur les
+  // boutons terracotta (`sendBtnText`, `saveText`, `dayTextOn`...) et fond des
+  // puces claires des Reglages. Le foncer basculait donc tout d'un coup :
+  // texte sombre sur bouton sombre, puces invisibles. Les deux roles sont
+  // desormais separes ; seul `fond` est sombre.
+  //
+  // Revenir en arriere = mettre `fond: '#faf7f0'`. Rien d'autre.
+  // ==========================================================================
+  /** Fond des ecrans, et LUI SEUL. */
+  fond: '#211e19', //  clair : '#faf7f0'
+  /** Version transparente de `fond` — pour les degrades de coupe. */
+  fondT: 'rgba(33,30,25,0)',
+
   cream: '#faf7f0',
   creamAlt: '#f3eee3',
   surface: '#ffffff',
   cardline: '#e4dcc9',
   line: '#e7e1d4',
   avatar: '#efe9da',
+
+  /** Version transparente de `surface`. */
+  surfaceT: 'rgba(255,255,255,0)',
 
   // Texte
   ink: '#1a1a17',

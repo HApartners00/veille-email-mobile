@@ -61,7 +61,7 @@ export default function SettingsSectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
+  root: { flex: 1, backgroundColor: colors.fond },
   safe: { backgroundColor: colors.charcoal },
   topbar: {
     backgroundColor: colors.charcoal,

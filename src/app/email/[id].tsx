@@ -1182,7 +1182,7 @@ export default function EmailDetail() {
                   // s'en priver, on ajoutait déjà react-native-webview.
                   <LinearGradient
                     pointerEvents="none"
-                    colors={['rgba(250,247,240,0)', colors.cream]}
+                    colors={[colors.fondT, colors.fond]}
                     style={styles.fondu}
                   />
                 ) : null}
@@ -1653,7 +1653,7 @@ export default function EmailDetail() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
+  root: { flex: 1, backgroundColor: colors.fond },
   safe: { backgroundColor: colors.charcoal },
   topbar: {
     backgroundColor: colors.charcoal,
@@ -1796,14 +1796,18 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.onDarkMuted,
     marginBottom: spacing.sm,
   },
-  content: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink2, lineHeight: 24 },
+  // ⚠️ CES TROIS STYLES SONT POSES DIRECTEMENT SUR LE FOND DE PAGE, pas dans une
+  // carte. Avec `fond` sombre, du texte en `ink2` / `muted` serait sombre sur
+  // sombre — donc invisible. Ils passent en clair. Ce sont les SEULS de l'ecran
+  // dans ce cas : tout le reste vit dans une carte claire.
+  content: { fontFamily: fonts.sans, fontSize: 15, color: colors.onDark, lineHeight: 24 },
   corpsNote: {
     fontFamily: fonts.sans,
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.onDarkMuted,
     lineHeight: 18,
     marginBottom: spacing.sm,
   },

@@ -522,7 +522,7 @@ export default function AttachmentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
+  root: { flex: 1, backgroundColor: colors.fond },
   safe: { backgroundColor: colors.charcoal },
   topbar: { backgroundColor: colors.charcoal, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   back: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 16 },
