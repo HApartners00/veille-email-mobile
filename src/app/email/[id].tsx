@@ -1991,7 +1991,12 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: colors.charcoalSoft,
     borderWidth: 1,
-    borderColor: colors.charline,
+    // ⚠️ LE CONTOUR REPREND LA COULEUR DE L'INTITULE — HA, 12/08 : « je veux que
+    // le contour de l'encadre du resume soit de la mm couleur que la police de
+    // "resume" pr le mettre un peu plus en evidence ». Le filet `charline`
+    // (#37322b) le fermait sans le designer ; `terracottaLight` en fait un bloc
+    // qui se voit, et le cadre parle la meme langue que son intitule.
+    borderColor: colors.terracottaLight,
     borderRadius: radius.md + 3,
     padding: spacing.lg,
     marginBottom: spacing.xl,
