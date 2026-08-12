@@ -1093,6 +1093,13 @@ export default function EmailDetail() {
     }
     defilerVersReponse.current = true;
     setRepondreOuvert(true);
+    // ⚠️ PLUS D'ETAPE INTERMEDIAIRE — HA, 12/08 : « l'etape intermediaire avec
+    // generer un brouillon elle sert a rien ». Ouvrir la reponse pour se voir
+    // proposer un second bouton qui n'a qu'une issue possible, c'est un clic
+    // qui ne decide de rien. « Repondre » lance la redaction.
+    // On ne relance pas si un brouillon existe deja (retour sur le mail) ni si
+    // une generation est en cours.
+    if (!draft && !genLoading) void generate(false);
   }
 
   const optionsPlus: { cle: string; libelle: string; danger?: boolean; faire: () => void }[] = [];
@@ -1428,7 +1435,11 @@ export default function EmailDetail() {
               </Pressable>
             </View>
 
-            {!draft && !genLoading ? (
+            {/* Ce bouton n'est plus une etape : c'est le RATTRAPAGE. Il n'apparait
+                que si la redaction a echoue — sans lui, un echec laisserait le
+                bloc ouvert sur un message d'erreur et aucun moyen de reessayer.
+                (`msg` est pose par `generate` dans son `catch`.) */}
+            {!draft && !genLoading && msg?.type === 'err' ? (
               <Pressable style={styles.cta} onPress={() => generate(false)}>
                 <Text style={styles.ctaText}>{t.email.generateDraft}</Text>
               </Pressable>
