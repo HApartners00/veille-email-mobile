@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Chantier E / C — 11/08/2026. Dictionnaire autonome (même patron que les autres
@@ -200,11 +201,13 @@ function CorpsEnvoye({
           <Text style={styles.corpsTexte}>{corps}</Text>
         </View>
         {deborde && !deplie ? (
-          <View pointerEvents="none" style={styles.fondu}>
-            {[0.06, 0.16, 0.3, 0.48, 0.68, 0.86, 1].map((o, i) => (
-              <View key={i} style={[styles.fonduBande, { opacity: o }]} />
-            ))}
-          </View>
+          // Vrai dégradé, comme l'écran d'un mail reçu : les sept bandes
+          // empilées se voyaient une par une au lieu de fondre.
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(255,255,255,0)', colors.surface]}
+            style={styles.fondu}
+          />
         ) : null}
       </View>
       {deborde ? (
@@ -631,7 +634,6 @@ const styles = StyleSheet.create({
   corpsTexte: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
   // 52 px, comme l'écran d'un mail reçu, pour le nouveau cadre à 32 %.
   fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
-  fonduBande: { flex: 1, backgroundColor: colors.surface },
   deplierBtn: {
     marginTop: spacing.sm,
     paddingVertical: 10,

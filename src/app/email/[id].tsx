@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
@@ -33,6 +34,8 @@ import {
 } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { MailActions } from '@/components/mail-actions';
+import MailHtml from '@/components/mail-html';
+import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import {
   IconChevronLeft,
@@ -119,6 +122,16 @@ function htmlToText(input: string): string {
     .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * Le contenu est-il du HTML structuré, et pas juste du texte contenant un
+ * chevron ? MÊME heuristique que `looksLikeHtml()` du web
+ * (apps/web/src/components/email-body.tsx) — si les deux divergent, les deux
+ * apps n'afficheront pas le même mail de la même façon.
+ */
+function ressembleAHtml(s: string): boolean {
+  return /<(html|body|table|div|p|a|img|br|span|td|h[1-6])[\s/>]/i.test(s);
 }
 
 // Texte avec URLs cliquables (le corps de l'email peut contenir des liens).
@@ -398,8 +411,12 @@ export default function EmailDetail() {
   const [loading, setLoading] = useState(true);
 
   // Résumé IA (généré à la demande, comme le digest)
-  const [summary, setSummary] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(true);
+  // ⚠️ On DÉMARRE sur ce qu'on sait déjà : sinon « L'IA résume… » clignote sur
+  // un résumé pourtant en mémoire.
+  const [summary, setSummary] = useState(() => resumeEnCache(String(id), locale) ?? '');
+  const [summaryLoading, setSummaryLoading] = useState(
+    () => resumeEnCache(String(id), locale) === null,
+  );
 
   // Résumé de la conversation (fil) — à la demande.
   const [threadSummary, setThreadSummary] = useState('');
@@ -407,17 +424,42 @@ export default function EmailDetail() {
   // Chantier F — le bouton « Résumer la conversation » ne s'affiche QUE s'il y a
   // vraiment un fil (arbitrage HA du 11/08). null = on ne sait pas encore, donc
   // on ne rend rien : pas de bouton qui apparaît puis s'efface.
-  const [estFil, setEstFil] = useState<boolean | null>(null);
+  const [estFil, setEstFil] = useState<boolean | null>(
+    () => corpsEnCache(String(id))?.estFil ?? null,
+  );
   const [tsMessages, setTsMessages] = useState(1);
   const [tsPartiel, setTsPartiel] = useState(false);
   // Chantier C — le corps COMPLET du mail. Mesure du 11/08 : items.content ne
   // contient que l'aperçu (1072 items sur 1139 à ~200 caractères). On va chercher
   // le vrai corps chez le fournisseur via /api/message-body.
-  const [corpsServeur, setCorpsServeur] = useState<string | null>(null);
-  const [corpsAbrege, setCorpsAbrege] = useState(true);
-  const [corpsCharge, setCorpsCharge] = useState(false);
+  // Même règle pour le corps : HA voyait « un bug d'un instant » en rouvrant un
+  // mail, c'était l'écran qui repassait par l'état « chargement » pour rien.
+  const [corpsServeur, setCorpsServeur] = useState<string | null>(
+    () => corpsEnCache(String(id))?.corps ?? null,
+  );
+  // Le bandeau « version abrégée » doit lui aussi partir du cache : l'afficher
+  // par défaut sur un mail déjà lu en entier serait un mensonge d'un instant.
+  const [corpsAbrege, setCorpsAbrege] = useState(() => {
+    const c = corpsEnCache(String(id));
+    if (!c) return true;
+    return !(c.source === 'fournisseur' || c.source === 'base_complet');
+  });
+  // ⚠️ RIEN EN SILENCE. La route renvoie TOUJOURS la raison d'un repli
+  // (`delai_depasse`, `messagerie_injoignable`, `boite_deconnectee`,
+  // `mail_absent_chez_le_fournisseur`, `corps_vide_cote_n8n`…). Le mobile la
+  // jetait : on voyait « version abrégée » sans jamais savoir pourquoi, et il a
+  // fallu une sonde pour diagnostiquer. Elle est affichée à côté du bandeau.
+  const [corpsRaison, setCorpsRaison] = useState<string | null>(null);
+  const [corpsCharge, setCorpsCharge] = useState(() => corpsEnCache(String(id)) !== null);
   const [deplie, setDeplie] = useState(false);
   const [hauteurCorps, setHauteurCorps] = useState(0);
+  // Position du bloc « Message » dans la page, et la page elle-même : replier un
+  // mail de 4 000 px depuis le bas laisserait l'écran au milieu de nulle part.
+  // HA : « quand je fais replier ça marche mais y a un petit bug, c'est pas
+  // fluide ». Le web fait déjà ce retour en haut du cadre (scrollIntoView) ;
+  // sur mobile il faut la référence de la ScrollView et l'ordonnée du bloc.
+  const pageRef = useRef<ScrollView | null>(null);
+  const yCorps = useRef(0);
   const { height: hauteurEcran } = useWindowDimensions();
 
   // Brouillon
@@ -485,10 +527,17 @@ export default function EmailDetail() {
 
   useEffect(() => {
     (async () => {
+      const connu = resumeEnCache(String(id), locale);
+      if (connu !== null) {
+        setSummary(connu);
+        setSummaryLoading(false);
+        return;
+      }
       setSummaryLoading(true);
       try {
-        const r = await apiPost<{ summary: string }>('/api/summary', { id, locale });
-        setSummary(r.summary);
+        // Mémorisé le temps que l'app tourne : revenir sur un mail n'attend plus
+        // (le serveur a aussi son cache, mais il reste un aller-retour réseau).
+        setSummary(await lireResume(String(id), locale));
       } catch {
         setSummary('');
       } finally {
@@ -527,34 +576,41 @@ export default function EmailDetail() {
   // l'écran affiche l'aperçu tout de suite et se complète ensuite.
   useEffect(() => {
     let vivant = true;
-    apiPost<{ corps?: string; source?: string }>('/api/message-body', { itemId: String(id) })
-      .then((j) => {
-        if (!vivant) return;
-        if (j?.corps) {
-          setCorpsServeur(j.corps);
-          setCorpsAbrege(j.source !== 'fournisseur' && j.source !== 'base_complet');
-        }
-      })
-      .catch(() => {
-        // RIEN EN SILENCE : on garde l'aperçu ET le bandeau « version abrégée »,
-        // qui reste affiché puisque corpsAbrege vaut true par défaut.
-      })
-      .finally(() => {
-        if (vivant) setCorpsCharge(true);
-      });
-    apiPost<{ ok?: boolean; estFil?: boolean; messages?: number; corpsComplet?: boolean }>(
-      '/api/thread-summary',
-      { id: String(id), mode: 'detect' },
-    )
+    // ⚠️ UN SEUL APPEL. Avant le 11/08 il y en avait deux : celui-ci, puis
+    // `/api/thread-summary` en `mode: 'detect'` qui RELISAIT le même mail chez le
+    // fournisseur juste pour compter les messages du fil. Ouvrir un mail coûtait
+    // donc deux exécutions n8n — visibles par paires à 0,3 s d'écart dans les
+    // journaux. Le 11/08 : 143 exécutions du workflow de lecture, quota mensuel
+    // de l'instance atteint, et l'ingestion des mails arrêtée avec. La route
+    // compte désormais le fil sur le corps qu'elle vient de rapporter.
+    lireCorps(String(id))
       .then((j) => {
         if (!vivant) return;
         setEstFil(!!j?.estFil);
         setTsMessages(Number(j?.messages) || 1);
+        if (j?.corps) {
+          const complet = j.source === 'fournisseur' || j.source === 'base_complet';
+          setCorpsAbrege(!complet);
+          setCorpsRaison(complet ? null : j.avertissement || 'raison_non_precisee');
+          // Le corps du serveur ne remplace l'aperçu QUE s'il est complet : un
+          // repli renvoie l'aperçu de la base, le garder ici ferait croire à
+          // MailHtml qu'il a du vrai HTML de fournisseur à rendre.
+          if (complet) setCorpsServeur(j.corps);
+        } else {
+          setCorpsAbrege(true);
+          setCorpsRaison('reponse_vide');
+        }
       })
-      .catch(() => {
-        // On ne sait pas : on ne propose pas. Mieux vaut un bouton absent qu'un
-        // bouton qui promet un résumé impossible.
-        if (vivant) setEstFil(false);
+      .catch((e: any) => {
+        if (!vivant) return;
+        // On ne sait pas s'il y a un fil : on ne propose pas. Mieux vaut un
+        // bouton absent qu'un bouton qui promet un résumé impossible.
+        setEstFil(false);
+        setCorpsAbrege(true);
+        setCorpsRaison(String(e?.message || 'reseau').slice(0, 80));
+      })
+      .finally(() => {
+        if (vivant) setCorpsCharge(true);
       });
     return () => {
       vivant = false;
@@ -1017,6 +1073,7 @@ export default function EmailDetail() {
         </View>
       ) : (
         <ScrollView
+          ref={pageRef}
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"
@@ -1057,11 +1114,21 @@ export default function EmailDetail() {
               « version abrégée ». */}
           {body || !corpsCharge ? (
             <>
-              <Text style={styles.sectionLabel}>{BODY_STR[locale] ?? BODY_STR.en}</Text>
+              <Text
+                style={styles.sectionLabel}
+                onLayout={(e) => {
+                  yCorps.current = e.nativeEvent.layout.y;
+                }}
+              >
+                {BODY_STR[locale] ?? BODY_STR.en}
+              </Text>
               {!corpsCharge ? (
                 <Text style={styles.corpsNote}>{lireStr.chargement}</Text>
               ) : corpsAbrege ? (
-                <Text style={styles.corpsNote}>{lireStr.abrege}</Text>
+                <Text style={styles.corpsNote} selectable>
+                  {lireStr.abrege}
+                  {corpsRaison ? ` (${corpsRaison})` : ''}
+                </Text>
               ) : null}
               {corpsCharge ? (
                 <>
@@ -1095,23 +1162,48 @@ export default function EmailDetail() {
                     setHauteurCorps((h) => Math.max(h, hauteurMesuree));
                   }}
                 >
-                  <LinkifiedText text={body} style={styles.content} />
+                  {/* Le VRAI mail quand c'est du HTML — arbitrage HA du 11/08 :
+                      « c'est correct en soi, mais toujours pas le mail original ».
+                      On ne retombe sur le texte que si le corps n'est pas du HTML
+                      (mails en texte brut), ou si la lecture chez le fournisseur a
+                      échoué et qu'on n'a que l'aperçu de la base. */}
+                  {corpsServeur && ressembleAHtml(corpsServeur) ? (
+                    <MailHtml html={corpsServeur} />
+                  ) : (
+                    <LinkifiedText text={body} style={styles.content} />
+                  )}
                 </View>
                 {corpsDeborde && !deplie ? (
-                  // Fondu sans dépendance : `expo-linear-gradient` n'est pas installé
-                  // (vérifié dans package.json), et l'ajouter pour un dégradé
-                  // imposerait un build EAS de plus. Sept bandes suffisent à l'œil.
-                  <View pointerEvents="none" style={styles.fondu}>
-                    {[0.06, 0.16, 0.3, 0.48, 0.68, 0.86, 1].map((o, i) => (
-                      <View key={i} style={[styles.fonduBande, { opacity: o }]} />
-                    ))}
-                  </View>
+                  // ⚠️ VRAI DÉGRADÉ. Les sept bandes empilées d'avant se voyaient
+                  // une par une — HA : « l'effet flou avant le "Afficher tout" est
+                  // raté, y a juste trois lignes grises ». Sept paliers sur 52 px
+                  // font des marches de 7 px, pas un fondu. `expo-linear-gradient`
+                  // est inclus dans Expo Go et dans le build : plus de raison de
+                  // s'en priver, on ajoutait déjà react-native-webview.
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={['rgba(250,247,240,0)', colors.cream]}
+                    style={styles.fondu}
+                  />
                 ) : null}
               </View>
               {corpsDeborde ? (
                 <Pressable
                   style={styles.deplierBtn}
-                  onPress={() => setDeplie((v) => !v)}
+                  onPress={() => {
+                    const onReplie = deplie;
+                    setDeplie(!onReplie);
+                    // On ne remonte QU'EN repliant : au dépliage, l'utilisateur
+                    // veut lire la suite là où il est, pas être renvoyé en haut.
+                    if (onReplie) {
+                      requestAnimationFrame(() => {
+                        pageRef.current?.scrollTo({
+                          y: Math.max(0, yCorps.current - 12),
+                          animated: true,
+                        });
+                      });
+                    }
+                  }}
                   accessibilityRole="button"
                 >
                   <Text style={styles.deplierBtnText}>
@@ -1718,7 +1810,6 @@ const styles = StyleSheet.create({
   // 52 px et non 76 : sur un cadre de 270 pt, l'ancien fondu rendait illisible
   // près d'un tiers de ce qu'on donne à lire. Même proportion que le web.
   fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
-  fonduBande: { flex: 1, backgroundColor: colors.cream },
   deplierBtn: {
     marginTop: spacing.md,
     paddingVertical: 11,
