@@ -54,6 +54,23 @@ type Envoi = {
   sent_at: string;
 };
 
+/**
+ * Intitule de la section du corps. Meme dictionnaire local que `BODY_STR` dans
+ * `app/email/[id].tsx` — 8 chaines ne justifient pas de toucher au dictionnaire
+ * global. ⚠️ C'etait `tx.title` : le titre de l'ONGLET (« Emails envoyés »)
+ * s'affichait au-dessus du corps du mail. Signale par HA sur capture.
+ */
+const CORPS_STR: Record<string, string> = {
+  fr: 'Message',
+  en: 'Message',
+  es: 'Mensaje',
+  de: 'Nachricht',
+  pt: 'Mensagem',
+  it: 'Messaggio',
+  ar: 'الرسالة',
+  ru: 'Сообщение',
+};
+
 const SELECT =
   'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at';
 
@@ -188,7 +205,7 @@ export default function PageEnvoi() {
       ) : (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            <Text style={styles.sectionLabel}>{tx.title}</Text>
+            <Text style={styles.sectionLabel}>{CORPS_STR[locale] ?? CORPS_STR.en}</Text>
             <CorpsEnvoye
               sentId={envoi.id}
               apercu={cleanText(envoi.preview) || ''}
