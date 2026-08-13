@@ -35,6 +35,7 @@ import {
 import { prioLabel } from '@/lib/i18n';
 import { useMailActions } from '@/components/mail-actions';
 import MailHtml from '@/components/mail-html';
+import { ressembleAHtml } from '@/lib/mail-format';
 import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import {
@@ -127,15 +128,11 @@ function htmlToText(input: string): string {
     .trim();
 }
 
-/**
- * Le contenu est-il du HTML structuré, et pas juste du texte contenant un
- * chevron ? MÊME heuristique que `looksLikeHtml()` du web
- * (apps/web/src/components/email-body.tsx) — si les deux divergent, les deux
- * apps n'afficheront pas le même mail de la même façon.
- */
-function ressembleAHtml(s: string): boolean {
-  return /<(html|body|table|div|p|a|img|br|span|td|h[1-6])[\s/>]/i.test(s);
-}
+// `ressembleAHtml` VIVAIT ICI (13/08/2026). Il est monte dans
+// `lib/mail-format.ts` le jour ou l'ecran des envoyes en a eu besoin lui aussi :
+// deux copies d'une regle de decision finissent toujours par diverger, et la
+// divergence se verrait a l'ecran — le mail rendu d'un cote, depouille de
+// l'autre. Meme heuristique, meme fichier, pour les deux ecrans.
 
 // Texte avec URLs cliquables (le corps de l'email peut contenir des liens).
 const URL_RE = /(https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;

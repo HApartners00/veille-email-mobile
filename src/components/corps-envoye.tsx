@@ -1,24 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { apiPost } from '@/lib/api';
+import { ressembleAHtml } from '@/lib/mail-format';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
+import MailHtml from '@/components/mail-html';
 
-// Chantier E / C — 11/08/2026. Dictionnaire autonome (même patron que les autres
-// écrans) : 4 chaînes ne justifient pas de toucher au gros dictionnaire.
+/**
+ * Chantier E / C — 11/08/2026. Dictionnaire autonome (même patron que les autres
+ * écrans) : quelques chaînes ne justifient pas de toucher au gros dictionnaire.
+ *
+ * ⚠️ `absent` AJOUTÉ LE 13/08/2026, ET CE N'EST PAS UN LIBELLÉ DE PLUS.
+ *
+ * L'écran ne connaissait que deux états : « on a le mail » et « version abrégée
+ * — le message complet n'a pas pu être récupéré ». Il en manquait un troisième,
+ * et c'est celui qui s'est présenté : LE MAIL N'A PAS DE TEXTE DU TOUT.
+ *
+ * Mesuré sur l'envoi du 13/08 04:32 signalé par HA (exécution n8n 27153) :
+ *
+ *     ok: true   corps: "\r\n"   longueur: 2   snippet: ""
+ *
+ * La chaîne a parfaitement fonctionné — l'API a bien interrogé Gmail, et Gmail a
+ * répondu que ce mail ne contient qu'une pièce jointe. Faute de ce troisième
+ * état, l'écran affichait « n'a pas pu être récupéré » : une phrase FAUSSE, qui
+ * envoie chercher une panne là où il n'y en a pas. L'API disait pourtant la
+ * vérité (`avertissement: 'contenu_absent'`) ; personne ne la lisait.
+ */
 const LIRE_STR: Record<
   string,
-  { chargement: string; tout: string; replier: string; abrege: string }
+  { chargement: string; tout: string; replier: string; abrege: string; absent: string }
 > = {
-  fr: { chargement: 'Chargement du message…', tout: 'Afficher tout', replier: 'Replier', abrege: 'Version abrégée — le message complet n’a pas pu être récupéré.' },
-  en: { chargement: 'Loading the message…', tout: 'Show all', replier: 'Collapse', abrege: 'Shortened version — the full message could not be retrieved.' },
-  es: { chargement: 'Cargando el mensaje…', tout: 'Mostrar todo', replier: 'Contraer', abrege: 'Versión abreviada: no se ha podido recuperar el mensaje completo.' },
-  de: { chargement: 'Nachricht wird geladen…', tout: 'Alles anzeigen', replier: 'Einklappen', abrege: 'Gekürzte Fassung – die vollständige Nachricht konnte nicht geladen werden.' },
-  pt: { chargement: 'A carregar a mensagem…', tout: 'Mostrar tudo', replier: 'Recolher', abrege: 'Versão abreviada — não foi possível obter a mensagem completa.' },
-  it: { chargement: 'Caricamento del messaggio…', tout: 'Mostra tutto', replier: 'Comprimi', abrege: 'Versione abbreviata — non è stato possibile recuperare il messaggio completo.' },
-  ar: { chargement: 'جارٍ تحميل الرسالة…', tout: 'عرض الكل', replier: 'طيّ', abrege: 'نسخة مختصرة — تعذّر استرجاع الرسالة كاملة.' },
-  ru: { chargement: 'Загрузка сообщения…', tout: 'Показать полностью', replier: 'Свернуть', abrege: 'Сокращённая версия — не удалось получить письмо целиком.' },
+  fr: { chargement: 'Chargement du message…', tout: 'Afficher tout', replier: 'Replier', abrege: 'Version abrégée — le message complet n’a pas pu être récupéré.', absent: 'Ce message ne contient pas de texte.' },
+  en: { chargement: 'Loading the message…', tout: 'Show all', replier: 'Collapse', abrege: 'Shortened version — the full message could not be retrieved.', absent: 'This message contains no text.' },
+  es: { chargement: 'Cargando el mensaje…', tout: 'Mostrar todo', replier: 'Contraer', abrege: 'Versión abreviada: no se ha podido recuperar el mensaje completo.', absent: 'Este mensaje no contiene texto.' },
+  de: { chargement: 'Nachricht wird geladen…', tout: 'Alles anzeigen', replier: 'Einklappen', abrege: 'Gekürzte Fassung – die vollständige Nachricht konnte nicht geladen werden.', absent: 'Diese Nachricht enthält keinen Text.' },
+  pt: { chargement: 'A carregar a mensagem…', tout: 'Mostrar tudo', replier: 'Recolher', abrege: 'Versão abreviada — não foi possível obter a mensagem completa.', absent: 'Esta mensagem não contém texto.' },
+  it: { chargement: 'Caricamento del messaggio…', tout: 'Mostra tutto', replier: 'Comprimi', abrege: 'Versione abbreviata — non è stato possibile recuperare il messaggio completo.', absent: 'Questo messaggio non contiene testo.' },
+  ar: { chargement: 'جارٍ تحميل الرسالة…', tout: 'عرض الكل', replier: 'طيّ', abrege: 'نسخة مختصرة — تعذّر استرجاع الرسالة كاملة.', absent: 'لا تحتوي هذه الرسالة على نص.' },
+  ru: { chargement: 'Загрузка сообщения…', tout: 'Показать полностью', replier: 'Свернуть', abrege: 'Сокращённая версия — не удалось получить письмо целиком.', absent: 'В этом письме нет текста.' },
 };
 
 
@@ -95,25 +115,63 @@ export function CorpsEnvoye({
   const { height: hauteurEcran } = useWindowDimensions();
   // Vide au depart : pendant le chargement on n'affiche AUCUN texte (meme regle
   // que l'ecran d'un mail recu et que le web). L'apercu ne sort qu'en cas d'echec.
+  /**
+   * ⚠️ LE CORPS EST GARDE BRUT — 13/08/2026.
+   *
+   * Il etait reduit en texte des l'arrivee (`htmlToTexte`), ce qui rendait
+   * impossible de l'afficher tel qu'il est. HA, sur un digest envoye : « ca me
+   * sort le texte en brut ». Un digest est un mail en tables : le depouiller de
+   * ses balises n'en laisse qu'un mur de texte.
+   *
+   * La page d'un mail RECU rendait deja le vrai HTML dans une WebView depuis le
+   * 11/08 ; l'ecran des envoyes etait reste au texte. La reduction n'est plus
+   * qu'un REPLI, pour les mails qui ne sont pas en HTML.
+   */
   const [corps, setCorps] = useState('');
   const [charge, setCharge] = useState(false);
-  const [abrege, setAbrege] = useState(true);
+  /**
+   * CE QU'ON A LE DROIT DE DIRE SUR CE QUI EST AFFICHÉ.
+   *
+   *   null      le mail est là, en entier — aucun bandeau
+   *   'abrege'  on n'a qu'une version partielle, ou rien, PARCE QU'ON A ÉCHOUÉ
+   *   'absent'  le serveur a répondu, et il dit qu'il n'y a pas de texte
+   *
+   * ⚠️ CET ÉTAT NE SE DÉDUIT PAS DE `corps` VIDE. Un corps vide peut venir d'un
+   * mail sans texte comme d'un réseau coupé, et ce sont deux choses opposées :
+   * l'une est normale, l'autre est une panne. On le tient donc explicitement,
+   * posé par la branche qui SAIT. Défaut prudent à 'abrege' : tant que rien n'a
+   * répondu, on ne prétend pas montrer le mail entier.
+   */
+  const [raison, setRaison] = useState<null | 'abrege' | 'absent'>('abrege');
   const [deplie, setDeplie] = useState(false);
   const [hauteur, setHauteur] = useState(0);
 
   useEffect(() => {
     let vivant = true;
-    apiPost<{ corps?: string; source?: string }>('/api/message-body', { sentId })
+    apiPost<{ corps?: string; source?: string; avertissement?: string }>('/api/message-body', {
+      sentId,
+    })
       .then((j) => {
         if (!vivant) return;
-        if (j?.corps) {
-          setCorps(htmlToTexte(j.corps));
-          setAbrege(j.source !== 'fournisseur' && j.source !== 'base_complet');
+        const recu = j?.corps || '';
+        setCorps(recu);
+        if (recu) {
+          setRaison(j.source !== 'fournisseur' && j.source !== 'base_complet' ? 'abrege' : null);
+          return;
         }
+        // Réponse SANS corps. `contenu_absent` est le verdict de la route quand
+        // ni la base ni le fournisseur n'ont de texte : ce n'est pas un échec, et
+        // le dire comme tel serait envoyer chercher une panne inexistante.
+        // Toute autre réponse vide reste un échec, et garde son bandeau.
+        setRaison(j?.avertissement === 'contenu_absent' ? 'absent' : 'abrege');
       })
       .catch(() => {
         // RIEN EN SILENCE : on sort l'aperçu ET le bandeau « version abrégée ».
-        if (vivant) setCorps(apercu);
+        // Un réseau coupé n'est JAMAIS 'absent', même si l'aperçu est vide.
+        if (vivant) {
+          setCorps(apercu);
+          setRaison('abrege');
+        }
       })
       .finally(() => {
         if (vivant) setCharge(true);
@@ -128,11 +186,24 @@ export function CorpsEnvoye({
   const hauteurRepliee = Math.max(200, Math.round(hauteurEcran * 0.32));
   const deborde = hauteur > hauteurRepliee + 48;
 
+  const estHtml = ressembleAHtml(corps);
+  /**
+   * Le texte n'est calcule QUE si on va s'en servir. `htmlToTexte` passe une
+   * douzaine d'expressions regulieres sur le corps entier — un digest fait
+   * 18 000 caracteres, et le refaire a chaque rendu (deplier, mesurer la
+   * hauteur, tourner l'ecran) se paierait a l'usage.
+   */
+  const texte = useMemo(() => (estHtml ? '' : htmlToTexte(corps)), [corps, estHtml]);
+
   return (
     <View style={styles.corpsWrap}>
+      {/* Trois états, trois phrases distinctes — et plus deux phrases pour trois
+          situations. Voir le commentaire de LIRE_STR. */}
       {!charge ? (
         <Text style={styles.corpsNote}>{lire.chargement}</Text>
-      ) : abrege ? (
+      ) : raison === 'absent' ? (
+        <Text style={styles.corpsNote}>{lire.absent}</Text>
+      ) : raison === 'abrege' ? (
         <Text style={styles.corpsNote}>{lire.abrege}</Text>
       ) : null}
       {charge ? (
@@ -149,7 +220,20 @@ export function CorpsEnvoye({
             setHauteur((h) => Math.max(h, hauteurMesuree));
           }}
         >
-          <Text style={styles.corpsTexte}>{corps}</Text>
+          {/* LE VRAI MAIL quand c'est du HTML, exactement comme la page d'un
+              mail recu (app/email/[id].tsx). On ne retombe sur le texte que si
+              le corps n'est pas du HTML — mails en texte brut — ou si la lecture
+              a echoue et qu'on n'a que l'apercu de la base.
+
+              ⚠️ LA WEBVIEW PEINT SON PROPRE FOND, creme (#faf7f0). Sur cette
+              page au fond sombre, le mail apparait donc comme une feuille claire
+              posee dessus. C'est voulu : c'est le mail tel qu'il est parti, pas
+              une transposition aux couleurs de l'app. */}
+          {estHtml ? (
+            <MailHtml html={corps} />
+          ) : (
+            <Text style={styles.corpsTexte}>{texte}</Text>
+          )}
         </View>
         {deborde && !deplie ? (
           // Vrai dégradé, comme l'écran d'un mail reçu : les sept bandes

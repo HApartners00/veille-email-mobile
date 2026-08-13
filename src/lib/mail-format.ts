@@ -135,3 +135,20 @@ export function recipientsEmails(raw: unknown): string[] {
     .map((r) => (r.email || '').toLowerCase())
     .filter(Boolean);
 }
+
+/**
+ * Le contenu ressemble-t-il à du HTML structuré ?
+ *
+ * MÊME HEURISTIQUE QUE `/api/message-body` ET `components/email-body.tsx` côté
+ * web — la lettre près. Elle vivait en local dans `app/email/[id].tsx` (mobile),
+ * et l'écran des envoyés allait en faire une deuxième copie : deux copies d'une
+ * règle de décision finissent toujours par diverger, et ici la divergence se
+ * verrait à l'écran (le mail rendu d'un côté, dépouillé de l'autre).
+ *
+ * ⚠️ Ce fichier est le JUMEAU de `Veille Email/apps/web/src/lib/mail-format.ts`.
+ * La fonction y est ajoutée à l'identique dans le même commit, même si le web ne
+ * l'appelle pas encore : les deux fichiers doivent rester interchangeables.
+ */
+export function ressembleAHtml(s: string): boolean {
+  return /<(html|body|table|div|p|a|img|br|span|td|h[1-6])[\s/>]/i.test(s);
+}
