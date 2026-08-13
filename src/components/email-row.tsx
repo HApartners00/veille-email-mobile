@@ -40,11 +40,21 @@ export function EmailRow({
 }: Props) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
+      {/* ⚠️ ECHANGE DU 13/08/2026, demande de HA : « je veux que la position de la
+          date, heure soit echangee avec l'envoyeur et que ce dernier soit en plus
+          fonce, comme le titre du mail ».
+          L'EXPEDITEUR prend donc la place de l'heure, ici, en haut a droite ; et
+          l'heure descend a la place de l'expediteur, sous le sujet.
+          Mesure faite avant d'ecrire : l'ecran Accueil monte cette meme carte SANS
+          `prioLabel` et SANS `date` — il n'y a donc rien a echanger la-bas, seule
+          la couleur de l'expediteur change. L'echange ne touche que l'onglet Emails. */}
       {prioLabel ? (
         <View style={styles.catRow}>
           <View style={[styles.catDot, { backgroundColor: prioColor }]} />
           <Text style={[styles.catLabel, { color: prioColor }]}>{prioLabel}</Text>
-          {date ? <Text style={styles.catTime}>{date}</Text> : null}
+          <Text style={styles.catSender} numberOfLines={1}>
+            {sender}
+          </Text>
         </View>
       ) : null}
 
@@ -55,17 +65,28 @@ export function EmailRow({
         {draft ? <Text style={styles.draft}>{draftLabel ?? 'Brouillon'}</Text> : null}
       </View>
 
-      <View style={styles.meta}>
-        <View style={styles.senderWrap}>
-          {showDot ? (
-            <View style={[styles.dot, { backgroundColor: prioColor, opacity: unread ? 1 : 0.5 }]} />
-          ) : null}
-          <Text style={styles.sender} numberOfLines={1}>
-            {sender}
-          </Text>
+      {/* Avec une pastille de categorie, cette ligne porte l'HEURE (l'expediteur est
+          monte au-dessus). Sans pastille — l'Accueil — elle garde l'expediteur, avec
+          son point colore. On ne rend rien du tout s'il n'y a ni l'un ni l'autre. */}
+      {prioLabel ? (
+        date ? (
+          <View style={styles.meta}>
+            <Text style={styles.time}>{date}</Text>
+          </View>
+        ) : null
+      ) : (
+        <View style={styles.meta}>
+          <View style={styles.senderWrap}>
+            {showDot ? (
+              <View style={[styles.dot, { backgroundColor: prioColor, opacity: unread ? 1 : 0.5 }]} />
+            ) : null}
+            <Text style={styles.sender} numberOfLines={1}>
+              {sender}
+            </Text>
+          </View>
+          {date ? <Text style={styles.time}>{date}</Text> : null}
         </View>
-        {!prioLabel && date ? <Text style={styles.time}>{date}</Text> : null}
-      </View>
+      )}
 
       {preview ? (
         <Text style={styles.preview} numberOfLines={1}>
@@ -87,9 +108,29 @@ const styles = StyleSheet.create({
     marginBottom: 9,
   },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 7 },
-  catDot: { width: 6, height: 6, borderRadius: 3 },
-  catLabel: { fontFamily: fonts.sansBold, fontSize: 10.5, letterSpacing: 1, textTransform: 'uppercase' },
-  catTime: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint },
+  catDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  catLabel: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    // La categorie ne se laisse PAS ecraser par un expediteur long : c'est elle
+    // qui porte l'information de tri, elle doit rester entiere.
+    flexShrink: 0,
+  },
+  /**
+   * L'expediteur, a la place qu'occupait l'heure. `ink` — la couleur du sujet,
+   * comme demande. Il se coupe s'il est long (`flexShrink`), et il est pousse a
+   * droite par `marginLeft: 'auto'`, exactement ou etait l'heure.
+   */
+  catSender: {
+    fontFamily: fonts.sansMedium,
+    marginLeft: 'auto',
+    flexShrink: 1,
+    fontSize: 12.5,
+    color: colors.ink,
+    textAlign: 'right',
+  },
   subjRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   subject: { fontFamily: fonts.sansSemibold, flex: 1, fontSize: 15, color: colors.ink, letterSpacing: -0.2 },
   subjectUnread: { fontFamily: fonts.sansBold },
@@ -114,7 +155,9 @@ const styles = StyleSheet.create({
   },
   senderWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  sender: { fontFamily: fonts.sans, flexShrink: 1, fontSize: 12.5, color: colors.muted },
+  // Ecran Accueil. Meme assombrissement que `catSender` : HA veut l'expediteur
+  // « en plus fonce, comme le titre du mail », et les deux cartes sont la meme.
+  sender: { fontFamily: fonts.sansMedium, flexShrink: 1, fontSize: 12.5, color: colors.ink },
   time: { fontFamily: fonts.sans, fontSize: 11, color: colors.hint },
   preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 3 },
 });

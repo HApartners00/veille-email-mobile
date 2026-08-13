@@ -7,74 +7,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Chantier E / C — 11/08/2026. Dictionnaire autonome (même patron que les autres
-// écrans) : 4 chaînes ne justifient pas de toucher au gros dictionnaire.
-const LIRE_STR: Record<
-  string,
-  { chargement: string; tout: string; replier: string; abrege: string }
-> = {
-  fr: { chargement: 'Chargement du message…', tout: 'Afficher tout', replier: 'Replier', abrege: 'Version abrégée — le message complet n’a pas pu être récupéré.' },
-  en: { chargement: 'Loading the message…', tout: 'Show all', replier: 'Collapse', abrege: 'Shortened version — the full message could not be retrieved.' },
-  es: { chargement: 'Cargando el mensaje…', tout: 'Mostrar todo', replier: 'Contraer', abrege: 'Versión abreviada: no se ha podido recuperar el mensaje completo.' },
-  de: { chargement: 'Nachricht wird geladen…', tout: 'Alles anzeigen', replier: 'Einklappen', abrege: 'Gekürzte Fassung – die vollständige Nachricht konnte nicht geladen werden.' },
-  pt: { chargement: 'A carregar a mensagem…', tout: 'Mostrar tudo', replier: 'Recolher', abrege: 'Versão abreviada — não foi possível obter a mensagem completa.' },
-  it: { chargement: 'Caricamento del messaggio…', tout: 'Mostra tutto', replier: 'Comprimi', abrege: 'Versione abbreviata — non è stato possibile recuperare il messaggio completo.' },
-  ar: { chargement: 'جارٍ تحميل الرسالة…', tout: 'عرض الكل', replier: 'طيّ', abrege: 'نسخة مختصرة — تعذّر استرجاع الرسالة كاملة.' },
-  ru: { chargement: 'Загрузка сообщения…', tout: 'Показать полностью', replier: 'Свернуть', abrege: 'Сокращённая версия — не удалось получить письмо целиком.' },
-};
-
 /** HTML -> texte lisible. Même traitement que l'écran de lecture d'un mail reçu. */
-function htmlToTexte(input: string): string {
-  let t = String(input || '');
-  t = t.replace(/<!--[\s\S]*?-->/g, '');
-  t = t.replace(/<head[\s\S]*?<\/head>/gi, '');
-  t = t.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '');
-  t = t.replace(/<\/(p|div|tr|li|h[1-6]|blockquote)>/gi, '\n');
-  t = t.replace(/<br\s*\/?>/gi, '\n');
-  t = t.replace(/<[^>]+>/g, ' ');
-  t = t
-    .replace(/&#(\d+);/g, (_m, n: string) => String.fromCharCode(parseInt(n, 10)))
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-  // ⚠️ « BLANC » NE VEUT PAS DIRE « ESPACE ».
-  //
-  // Les lignes « vides » d'un mail en tables ne sont pas vides. Deux mesures :
-  //   - sur le gabarit du mail « code de connexion » lu depuis le disque (LF) :
-  //     14 lignes, tout va bien ;
-  //   - sur l'APPAREIL, via une sonde posée dans l'écran le 11/08 :
-  //     `lignes=58  vides=49  codes_vides=[U+000D]`.
-  // Gmail renvoie le corps en CRLF : chaque ligne vide contient un retour
-  // chariot. `[ \t]` ne le voit pas, donc `\n{3,}` ne voyait jamais trois
-  // retours d'affilée et rien n'était regroupé. C'est le grand vide qu'a vu HA.
-  //
-  // `[^\S\n]` = tout caractère d'espacement SAUF le retour à la ligne : \r, \t,
-  // l'espace insécable U+00A0, toutes les espaces Unicode. Les caractères de
-  // largeur nulle ne sont pas des espaces pour `\s` : on les retire à part.
-  //
-  // Reproduction du 11/08, même gabarit converti en CRLF :
-  //   avant : 58 lignes / 49 vides   ·   après : 14 lignes / 5 vides
-  // (les chiffres de la sonde au caractère près).
-  return t
-    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
-    .replace(/[^\S\n]+/g, ' ')
-    .replace(/ ?\n ?/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
 
 import { MailboxHeader } from '@/components/mailbox-header';
 import { useI18n } from '@/context/i18n';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
 import {
   cleanText,
@@ -111,9 +53,6 @@ const PAGE = 100;
 const SELECT =
   'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at';
 
-function newIdempotencyKey(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
 
 function sanitize(q: string): string {
   return (q || '')
@@ -122,107 +61,10 @@ function sanitize(q: string): string {
     .trim();
 }
 
-/**
- * Corps d'un mail ENVOYÉ, replié. Jumeau mobile de `components/mail-body-panel.tsx`
- * côté web — arbitrage HA du 11/08 : replié à 32 % d'écran, fondu de coupe,
- * « Afficher tout », pas d'ascenseur imbriqué.
- *
- * `sent_items.content` porte déjà le corps complet (mesuré le 11/08 : 107 lignes
- * sur 117, moyenne 16 977 caractères, maximum 57 302). `/api/message-body` le rend
- * donc SANS appeler le fournisseur : ouvrir un envoi ne coûte qu'une lecture en base.
- */
-function CorpsEnvoye({
-  sentId,
-  apercu,
-  locale,
-}: {
-  sentId: string;
-  apercu: string;
-  locale: string;
-}) {
-  const lire = LIRE_STR[locale] ?? LIRE_STR.en;
-  const { height: hauteurEcran } = useWindowDimensions();
-  // Vide au depart : pendant le chargement on n'affiche AUCUN texte (meme regle
-  // que l'ecran d'un mail recu et que le web). L'apercu ne sort qu'en cas d'echec.
-  const [corps, setCorps] = useState('');
-  const [charge, setCharge] = useState(false);
-  const [abrege, setAbrege] = useState(true);
-  const [deplie, setDeplie] = useState(false);
-  const [hauteur, setHauteur] = useState(0);
-
-  useEffect(() => {
-    let vivant = true;
-    apiPost<{ corps?: string; source?: string }>('/api/message-body', { sentId })
-      .then((j) => {
-        if (!vivant) return;
-        if (j?.corps) {
-          setCorps(htmlToTexte(j.corps));
-          setAbrege(j.source !== 'fournisseur' && j.source !== 'base_complet');
-        }
-      })
-      .catch(() => {
-        // RIEN EN SILENCE : on sort l'aperçu ET le bandeau « version abrégée ».
-        if (vivant) setCorps(apercu);
-      })
-      .finally(() => {
-        if (vivant) setCharge(true);
-      });
-    return () => {
-      vivant = false;
-    };
-  }, [sentId]);
-
-  // 32 % de l'écran, plancher à 200 px — mêmes valeurs que l'écran d'un mail
-  // reçu et que le web. Voir app/email/[id].tsx pour le détail du plancher.
-  const hauteurRepliee = Math.max(200, Math.round(hauteurEcran * 0.32));
-  const deborde = hauteur > hauteurRepliee + 48;
-
-  return (
-    <View style={styles.corpsWrap}>
-      {!charge ? (
-        <Text style={styles.corpsNote}>{lire.chargement}</Text>
-      ) : abrege ? (
-        <Text style={styles.corpsNote}>{lire.abrege}</Text>
-      ) : null}
-      {charge ? (
-        <>
-      <View style={deplie || !deborde ? undefined : { maxHeight: hauteurRepliee, overflow: 'hidden' }}>
-        {/* On ne garde QUE la plus grande hauteur vue : sinon le clipping ferait
-            retomber `deborde` a faux et l'encadre oscillerait indefiniment. */}
-        <View
-          onLayout={(e) => {
-            // ⚠️ Même correction que app/email/[id].tsx : lire l'événement AVANT que
-            // React Native ne le recycle. L'updater de setState arrive trop tard et
-            // recevait `e.nativeEvent === null` — l'app se fermait au clic.
-            const hauteurMesuree = e.nativeEvent.layout.height;
-            setHauteur((h) => Math.max(h, hauteurMesuree));
-          }}
-        >
-          <Text style={styles.corpsTexte}>{corps}</Text>
-        </View>
-        {deborde && !deplie ? (
-          // Vrai dégradé, comme l'écran d'un mail reçu : les sept bandes
-          // empilées se voyaient une par une au lieu de fondre.
-          <LinearGradient
-            pointerEvents="none"
-            colors={[colors.surfaceT, colors.surface]}
-            style={styles.fondu}
-          />
-        ) : null}
-      </View>
-      {deborde ? (
-        <Pressable style={styles.deplierBtn} onPress={() => setDeplie((v) => !v)}>
-          <Text style={styles.deplierBtnText}>{deplie ? lire.replier : lire.tout}</Text>
-        </Pressable>
-      ) : null}
-        </>
-      ) : null}
-    </View>
-  );
-}
 
 export default function SentScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { t, locale } = useI18n();
   const intl = bcp47[locale];
   const tx = t.sent;
@@ -233,7 +75,6 @@ export default function SentScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
@@ -246,12 +87,6 @@ export default function SentScreen() {
    * Mesuré sur la boîte Outlook de HA : 141 mails reçus sur 30 jours, 0 envoi.
    */
   const [mailboxes, setMailboxes] = useState<{ email: string; sentCount: number }[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  // Chantier E — 11/08/2026 : la liste n'etait pas cliquable. On ouvre sur place,
-  // sans navigation, pour ne pas perdre le filtre ni la position de defilement.
-  const [ouvertId, setOuvertId] = useState<string | null>(null);
-  const [forwardFor, setForwardFor] = useState<string | null>(null);
-  const [forwardTo, setForwardTo] = useState('');
 
   const load = useCallback(async (q: string, offset: number, replace: boolean) => {
     if (replace) setLoading(true);
@@ -376,40 +211,6 @@ export default function SentScreen() {
     });
   }, [items, selectedBoxes, debouncedQuery]);
 
-  async function act(item: SentItem, op: 'resend' | 'forward', to?: string[]) {
-    if (busyId) return;
-    setBusyId(item.id);
-    setError(null);
-    setNotice(null);
-    try {
-      await apiPost('/api/sent/resend', {
-        id: item.id,
-        op,
-        to,
-        idempotencyKey: newIdempotencyKey(),
-      });
-      setNotice(op === 'resend' ? tx.doneResent : tx.doneForwarded);
-      setForwardFor(null);
-      setForwardTo('');
-    } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : tx.errGeneric);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  function submitForward(item: SentItem) {
-    const list = forwardTo
-      .split(/[,;]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length === 0) {
-      setError(tx.errAddress);
-      return;
-    }
-    void act(item, 'forward', list);
-  }
-
   const header = (
     <MailboxHeader
       title={tx.title}
@@ -457,11 +258,6 @@ export default function SentScreen() {
                 <Text style={styles.error}>{error}</Text>
               </View>
             ) : null}
-            {notice ? (
-              <View style={styles.rowWrap}>
-                <Text style={styles.notice}>{notice}</Text>
-              </View>
-            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -488,15 +284,20 @@ export default function SentScreen() {
         }
         renderItem={({ item }) => {
           const to = recipientsLabel(item.recipients, tx.noRecipient);
-          const busy = busyId === item.id;
           return (
             <View style={styles.rowWrap}>
-              <View style={styles.card}>
-                <Pressable
-                  onPress={() => setOuvertId((v) => (v === item.id ? null : item.id))}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.subject || t.common.noSubject}
-                >
+              {/* ⚠️ LA CARTE OUVRE UNE PAGE, elle ne se deplie plus sur place, et
+                  elle ne porte plus « Renvoyer » ni « Transferer » — HA, 13/08 :
+                  « qd ds envoyés on puisse vrmt cliquer sur un mail et qu'il
+                  s'ouvre vraiment ». Ces deux boutons FONT PARTIR UN MAIL : les
+                  laisser sur chaque carte d'une liste dense etait la meme faute
+                  que celle corrigee le 08/08 pour Archiver et Corbeille. */}
+              <Pressable
+                style={styles.card}
+                onPress={() => router.push({ pathname: '/envoi/[id]', params: { id: item.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={item.subject || t.common.noSubject}
+              >
                 <View style={styles.metaRow}>
                   <Text style={styles.toLabel}>{tx.to}</Text>
                   <Text style={styles.to} numberOfLines={1}>
@@ -510,72 +311,18 @@ export default function SentScreen() {
                   {item.subject || t.common.noSubject}
                 </Text>
 
-                {cleanText(item.preview) && ouvertId !== item.id ? (
+                {cleanText(item.preview) ? (
                   <Text style={styles.preview} numberOfLines={2}>
                     {cleanText(item.preview)}
                   </Text>
                 ) : null}
-                </Pressable>
 
-                {ouvertId === item.id ? (
-                  <CorpsEnvoye
-                    sentId={item.id}
-                    apercu={cleanText(item.preview) || ''}
-                    locale={locale}
-                  />
+                {accounts.length > 1 ? (
+                  <Text style={styles.account} numberOfLines={1}>
+                    {item.account_email}
+                  </Text>
                 ) : null}
-
-                <View style={styles.actions}>
-                  <Pressable onPress={() => void act(item, 'resend')} disabled={busy}>
-                    <Text style={[styles.action, busy && styles.actionBusy]}>
-                      {busy ? tx.working : tx.resend}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      setForwardFor(forwardFor === item.id ? null : item.id);
-                      setForwardTo('');
-                      setError(null);
-                    }}
-                    disabled={busy}
-                  >
-                    <Text style={[styles.actionAlt, busy && styles.actionBusy]}>{tx.forward}</Text>
-                  </Pressable>
-                  {accounts.length > 1 ? (
-                    <Text style={styles.account} numberOfLines={1}>
-                      {item.account_email}
-                    </Text>
-                  ) : null}
-                </View>
-
-                {forwardFor === item.id ? (
-                  <View style={styles.forwardWrap}>
-                    <Text style={styles.forwardPrompt}>{tx.forwardPrompt}</Text>
-                    <TextInput
-                      style={styles.forwardInput}
-                      value={forwardTo}
-                      onChangeText={setForwardTo}
-                      placeholder={tx.forwardPlaceholder}
-                      placeholderTextColor={colors.hint}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                    />
-                    <View style={styles.forwardBtns}>
-                      <Pressable
-                        style={[styles.primaryBtn, busy && styles.actionBusy]}
-                        onPress={() => submitForward(item)}
-                        disabled={busy}
-                      >
-                        <Text style={styles.primaryBtnText}>{busy ? tx.working : tx.confirm}</Text>
-                      </Pressable>
-                      <Pressable onPress={() => setForwardFor(null)}>
-                        <Text style={styles.actionAlt}>{t.common.cancel}</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : null}
-              </View>
+              </Pressable>
             </View>
           );
         }}
@@ -629,54 +376,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 3 },
-  corpsWrap: { marginTop: spacing.sm },
-  corpsNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: 6 },
-  corpsTexte: { fontFamily: fonts.sans, fontSize: 14.5, color: colors.ink2, lineHeight: 23 },
   // 52 px, comme l'écran d'un mail reçu, pour le nouveau cadre à 32 %.
-  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
-  deplierBtn: {
-    marginTop: spacing.sm,
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.cardline,
-    alignItems: 'center',
-  },
-  deplierBtnText: { fontFamily: fonts.sansSemibold, fontSize: 13.5, color: colors.ink },
 
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.md },
-  action: { fontFamily: fonts.sansSemibold, fontSize: 12.5, color: colors.terracotta },
-  actionAlt: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.muted },
-  actionBusy: { opacity: 0.5 },
   account: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint, flexShrink: 1 },
 
-  forwardWrap: { marginTop: spacing.md },
-  forwardPrompt: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.ink2 },
-  forwardInput: {
-    fontFamily: fonts.sans,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: colors.cardline,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    fontSize: 13.5,
-    color: colors.ink,
-  },
-  forwardBtns: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.sm },
-  primaryBtn: {
-    backgroundColor: colors.terracotta,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 7,
-  },
-  primaryBtnText: { fontFamily: fonts.sansSemibold, fontSize: 12.5, color: colors.onDark },
 
   // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
   // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
   empty: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.onDarkMuted, textAlign: 'center', marginTop: spacing.xl },
   emptyHint: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.hint, textAlign: 'center', marginTop: 6 },
   error: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.danger, marginBottom: spacing.sm },
-  notice: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.terracotta, marginBottom: spacing.sm },
   more: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracotta, textAlign: 'center', paddingVertical: spacing.md },
 });
