@@ -21,7 +21,7 @@ import { cleanText, formatDate, senderName } from '@/lib/mail-format';
 import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconCheck, IconMore, IconSearch } from '@/components/icons';
+import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
@@ -658,6 +658,19 @@ export default function Feed() {
                   >
                     <Text style={styles.pjBtnText}>{t.feed.attachments}</Text>
                   </Pressable>
+                  {/* ÉCRIRE UN MAIL — 13/08/2026, demande de HA. Le seul bouton
+                      de cet écran qui CRÉE quelque chose plutôt que de filtrer ce
+                      qui est déjà là : il est donc plein, pas en contour, et posé
+                      avant la loupe et le ⋯ qui, eux, agissent sur la liste. */}
+                  <Pressable
+                    style={styles.composeBtn}
+                    onPress={() => router.push('/nouveau')}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.feed.compose}
+                  >
+                    <IconPlus size={16} color={colors.onDark} />
+                  </Pressable>
                   <Pressable
                     style={[styles.iconBtn, rechercheOuverte && styles.iconBtnOn]}
                     onPress={basculerRecherche}
@@ -876,6 +889,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.charline,
+  },
+  // Bouton PLEIN, contrairement a `iconBtn` qui est en contour : c'est le seul
+  // de la rangee qui cree un mail au lieu d'agir sur la liste affichee.
+  composeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.terracottaVivid,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconBtnOn: { backgroundColor: colors.onDark, borderColor: colors.onDark },
   trashNote: {
