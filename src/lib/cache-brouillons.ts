@@ -30,6 +30,16 @@ export type Brouillon = {
   recipients: { name?: string | null; email?: string | null; kind?: string | null }[];
   updatedAt: string | null;
   byVmail?: boolean;
+  /**
+   * Pieces jointes DEJA chez le fournisseur (15/08/2026). Remontees par
+   * `list-drafts` cote n8n et laissees passer par `/api/drafts`.
+   *
+   * `null` ou absent = JE NE SAIS PAS (lecture en echec, ou workflow anterieur).
+   * `[]` = ce brouillon n'en a aucune. La page distingue les deux.
+   */
+  attachments?:
+    | { filename: string; mimeType?: string | null; size?: number | null; attachmentId?: string }[]
+    | null;
 };
 
 const parId = new Map<string, Brouillon>();

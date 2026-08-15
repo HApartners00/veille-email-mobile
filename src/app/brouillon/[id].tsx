@@ -66,6 +66,36 @@ const PJ_LABEL: Record<string, { de: string; pj: string; ajouter: string; fichie
   ru: { de: 'От', pj: 'Вложения', ajouter: 'Прикрепить файл', fichiers: 'Файлы', photos: 'Медиатека', heritees: 'Эти вложения остались от незаконченного письма. Они уйдут вместе с этим.', avertNeuf: 'Письмо уйдёт как новое: вложения, уже находящиеся в черновике, не последуют. Прикрепите их здесь заново, если они нужны.' },
 };
 
+/**
+ * PIECES JOINTES DEJA CHEZ LE FOURNISSEUR — 15/08/2026. Jumeau du bloc web
+ * (`apps/web/src/app/drafts/[id]/draft-editor.tsx`), meme journee.
+ *
+ * Bloc EN LECTURE SEULE, separe de celui des fichiers qu'on ajoute (arbitrage
+ * HA du 15/08). La raison n'est pas esthetique : il n'existe aucune operation
+ * « modifier le brouillon » chez le fournisseur, donc l'app NE SAIT PAS
+ * retirer ces fichiers-la. Les melanger avec les autres donnerait des croix
+ * sur les uns et pas sur les autres — une absence de bouton se lit comme une
+ * panne.
+ */
+const PJ_FOURNISSEUR_STR: Record<string, { titre: string; note: string; illisible: string }> = {
+  fr: { titre: 'Déjà dans le brouillon', note: 'Ces fichiers sont déjà dans votre messagerie. Ils partiront avec le message.', illisible: 'Impossible de lire les pièces jointes de ce brouillon.' },
+  en: { titre: 'Already in the draft', note: 'These files are already in your mailbox. They will be sent with the message.', illisible: 'Could not read this draft’s attachments.' },
+  es: { titre: 'Ya en el borrador', note: 'Estos archivos ya están en tu buzón. Se enviarán con el mensaje.', illisible: 'No se han podido leer los adjuntos de este borrador.' },
+  de: { titre: 'Bereits im Entwurf', note: 'Diese Dateien sind schon in deinem Postfach. Sie werden mit der Nachricht gesendet.', illisible: 'Die Anhänge dieses Entwurfs konnten nicht gelesen werden.' },
+  pt: { titre: 'Já no rascunho', note: 'Estes ficheiros já estão na sua caixa. Serão enviados com a mensagem.', illisible: 'Não foi possível ler os anexos deste rascunho.' },
+  it: { titre: 'Già nella bozza', note: 'Questi file sono già nella tua casella. Verranno inviati con il messaggio.', illisible: 'Impossibile leggere gli allegati di questa bozza.' },
+  ar: { titre: 'موجودة بالفعل في المسودة', note: 'هذه الملفات موجودة بالفعل في صندوق بريدك. ستُرسل مع الرسالة.', illisible: 'تعذّرت قراءة مرفقات هذه المسودة.' },
+  ru: { titre: 'Уже в черновике', note: 'Эти файлы уже в вашем ящике. Они уйдут вместе с письмом.', illisible: 'Не удалось прочитать вложения этого черновика.' },
+};
+
+/** Taille lisible. Jumeau de celui de la page brouillon du web. */
+function tailleLisible(o: number | null | undefined): string | null {
+  if (typeof o !== 'number' || !isFinite(o) || o <= 0) return null;
+  if (o < 1024) return o + ' o';
+  if (o < 1024 * 1024) return Math.round(o / 1024) + ' Ko';
+  return (o / (1024 * 1024)).toFixed(1).replace('.', ',') + ' Mo';
+}
+
 const NOTE_STR: Record<string, string> = {
   fr: 'Les modifications s’appliquent à l’envoi. Le brouillon chez votre messagerie n’est pas réécrit.',
   en: 'Changes apply when you send. The draft in your mailbox is not rewritten.',
@@ -125,6 +155,10 @@ export default function PageBrouillon() {
   const [feuille, setFeuille] = useState<null | 'boites'>(null);
   const pjl = PJ_LABEL[locale] ?? PJ_LABEL.en;
   const attStr = pjStr(locale);
+  const sPjF = PJ_FOURNISSEUR_STR[locale] ?? PJ_FOURNISSEUR_STR.en;
+  // `undefined` (vieux cache memoire, ecrit avant que le champ n'existe) est
+  // traite comme `null` : « je ne sais pas », pas « aucune piece jointe ».
+  const pjFournisseur = brouillon && brouillon.attachments !== undefined ? brouillon.attachments : null;
 
   useEffect(() => {
     let vivant = true;
@@ -552,6 +586,29 @@ export default function PageBrouillon() {
               </>
             )}
 
+            {/* PJ DEJA CHEZ LE FOURNISSEUR — lecture seule, pas de croix.
+                `null`/absent = n8n n'a pas pu les lire : on le DIT. `[]` = ce
+                brouillon n'en a aucune : on n'affiche rien, c'est une reponse
+                et pas un silence. */}
+            {pjFournisseur === null ? (
+              <Text style={styles.pjIllisible}>{sPjF.illisible}</Text>
+            ) : pjFournisseur.length > 0 ? (
+              <>
+                <Text style={styles.sectionLabel}>{sPjF.titre}</Text>
+                {pjFournisseur.map((f, i) => (
+                  <View key={(f.attachmentId || f.filename) + '-' + i} style={styles.pjLigne}>
+                    <Text style={styles.pjNom} numberOfLines={1}>
+                      {f.filename}
+                    </Text>
+                    {tailleLisible(f.size) ? (
+                      <Text style={styles.pjTaille}>{tailleLisible(f.size)}</Text>
+                    ) : null}
+                  </View>
+                ))}
+                <Text style={styles.note}>{sPjF.note}</Text>
+              </>
+            ) : null}
+
             <Text style={styles.sectionLabel}>{pjl.pj}</Text>
             {pjHeritees ? <Text style={styles.note}>{pjl.heritees}</Text> : null}
             {/* ⚠️ DIT AVANT, PAS APRES. Changer de boite ou ajouter un fichier
@@ -795,6 +852,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.charline,
   },
   pjNom: { flex: 1, fontFamily: fonts.sans, fontSize: 13.5, color: colors.onDark },
+  pjTaille: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted, marginLeft: spacing.sm },
+  pjIllisible: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.danger, marginTop: spacing.sm },
   pjBtns: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.md },
   pjBtn: {
     flexDirection: 'row',
