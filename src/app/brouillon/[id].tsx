@@ -22,6 +22,7 @@ import {
   type Brouillon,
 } from '@/lib/cache-brouillons';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
+import ChampDestinataires from '@/components/champ-destinataires';
 import { IconChevronLeft, IconClose, IconDraft, IconPlus } from '@/components/icons';
 import {
   MAX_ATT_BYTES,
@@ -486,15 +487,18 @@ export default function PageBrouillon() {
             </Pressable>
 
             <Text style={styles.sectionLabel}>{tx.to}</Text>
-            <TextInput
-              style={styles.champ}
+            {/* Memoire des destinataires — 14/08/2026. La boite passee est celle
+                REELLEMENT choisie : sur cet ecran elle est modifiable depuis le
+                14/08, et `boite` prime sur celle d'origine du brouillon. Quand
+                on en change, le composant vide sa liste et son cache — c'est la
+                le garde-fou du chantier. */}
+            <ChampDestinataires
               value={destinataires}
-              onChangeText={setDestinataires}
+              onChange={setDestinataires}
+              boite={boite || brouillon.accountEmail}
               placeholder={tx.noRecipient}
-              placeholderTextColor={colors.hint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
+              locale={locale}
+              style={styles.champ}
             />
             {/* La limite est DITE, pas cachee : sans operation « enregistrer »
                 cote fournisseur, ce qu'on modifie ici ne vaut qu'a l'envoi. */}

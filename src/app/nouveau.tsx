@@ -25,6 +25,7 @@ import {
   pjStr,
   typeRetenu,
 } from '@/lib/pieces-jointes';
+import ChampDestinataires from '@/components/champ-destinataires';
 import { IconChevronLeft, IconClose, IconPlus } from '@/components/icons';
 
 /**
@@ -399,15 +400,16 @@ export default function NouveauMessage() {
         </Pressable>
 
         <Text style={styles.label}>{s.a}</Text>
-        <TextInput
-          style={styles.champ}
+        {/* Memoire des destinataires — 14/08/2026. Le champ reste une saisie
+            libre separee par des virgules ; le composant n'ajoute que la liste
+            de propositions, et il la vide des que `boite` change. */}
+        <ChampDestinataires
           value={destinataires}
-          onChangeText={setDestinataires}
+          onChange={setDestinataires}
+          boite={boite}
           placeholder={s.aPlaceholder}
-          placeholderTextColor={colors.hint}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
+          locale={locale}
+          style={styles.champ}
         />
 
         <Text style={styles.label}>{s.objet}</Text>
