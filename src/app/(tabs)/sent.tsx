@@ -62,13 +62,66 @@ function sanitize(q: string): string {
 }
 
 
+/**
+ * « EN PAUSE » — dictionnaire LOCAL, meme convention que le reste des ecrans.
+ * Jumeau de PAUSE_STR dans `apps/web/src/app/sent/sent-list.tsx`.
+ */
+type DictPause = { paused: string; pausedHint: string };
+const PAUSE_STR: Record<string, DictPause> = {
+  fr: { paused: 'La relève de vos envois est en pause.', pausedHint: 'Votre essai gratuit est terminé : vos nouveaux envois ne sont plus remontés ici. Ceux d’avant restent visibles.' },
+  en: { paused: 'Sent-mail pickup is paused.', pausedHint: 'Your free trial has ended: new sent emails are no longer collected here. Earlier ones stay visible.' },
+  es: { paused: 'La recogida de tus envíos está en pausa.', pausedHint: 'Tu prueba gratuita ha terminado: los nuevos envíos ya no se recogen aquí. Los anteriores siguen visibles.' },
+  de: { paused: 'Das Abrufen deiner gesendeten E-Mails ist pausiert.', pausedHint: 'Deine kostenlose Testphase ist beendet: neue gesendete E-Mails werden nicht mehr abgeholt. Frühere bleiben sichtbar.' },
+  pt: { paused: 'A recolha dos seus envios está em pausa.', pausedHint: 'O seu período gratuito terminou: os novos envios já não são recolhidos aqui. Os anteriores continuam visíveis.' },
+  it: { paused: 'Il recupero dei messaggi inviati è in pausa.', pausedHint: 'La tua prova gratuita è terminata: i nuovi invii non vengono più raccolti qui. Quelli precedenti restano visibili.' },
+  ar: { paused: 'تم إيقاف جلب رسائلك المُرسَلة مؤقتًا.', pausedHint: 'انتهت فترتك التجريبية المجانية: لم تعد الرسائل المُرسَلة الجديدة تُجلب هنا. تبقى الرسائل السابقة ظاهرة.' },
+  ru: { paused: 'Сбор отправленных писем приостановлен.', pausedHint: 'Ваш бесплатный период закончился: новые отправленные письма больше не собираются. Прежние остаются видимыми.' },
+};
+
 export default function SentScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t, locale } = useI18n();
   const intl = bcp47[locale];
+  const sp = PAUSE_STR[locale] ?? PAUSE_STR.en;
   const tx = t.sent;
 
+  /**
+   * ============================================================================
+   * QUATRIEME ETAT : « EN PAUSE » — 17/08/2026. Jumeau du web, meme journee.
+   * ============================================================================
+   * Constat de HA : l'onglet Envoyes affichait « Aucun email envoye pour le
+   * moment / la synchronisation remonte vos envois une fois par jour », alors
+   * qu'il venait d'envoyer un message ET que la releve de son compte etait
+   * arretee. L'ecran disait « il n'y en a pas, patiente » ; la verite etait
+   * « ton compte n'est plus releve, rien ne viendra ».
+   *
+   * MESURE (17/08) : le job n8n `Vmail — App Sent Sync` appelle
+   * /api/accounts?entitled=1, qui ne renvoie que les comptes avec abonnement
+   * actif ou essai en cours. Execution 28542 : `boites: 1`, zero ligne dans
+   * sent_items pour ce compte.
+   *
+   * ⚠️ TROIS ETATS NE SUFFISENT PAS ICI. Vide, echec, « je ne sais pas encore »
+   * — il en manquait un QUATRIEME : en pause.
+   */
+  const [enPause, setEnPause] = useState<boolean | null>(null);
+
+  // Meme source que le bandeau d'essai : deux endroits qui affirmeraient des
+  // choses contraires seraient pires que le silence. `null` tant qu'on n'a pas
+  // lu — on n'annonce jamais une pause qu'on n'a pas constatee.
+  useEffect(() => {
+    let vivant = true;
+    apiGet<{ entitled?: boolean }>('/api/billing/status')
+      .then((j) => {
+        if (vivant) setEnPause(j?.entitled === false);
+      })
+      .catch(() => {
+        if (vivant) setEnPause(null);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, []);
   const [items, setItems] = useState<SentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -262,11 +315,21 @@ export default function SentScreen() {
         }
         ListEmptyComponent={
           <View style={styles.rowWrap}>
+            {/* ⚠️ NE PAS DIRE « AUCUN EMAIL ENVOYE » QUAND LA RELEVE EST EN
+                PAUSE. L'utilisateur a peut-etre envoye dix messages : ils ne
+                remonteront jamais. Annoncer un vide serait un mensonge, et
+                annoncer « une fois par jour » une promesse fausse. */}
             <Text style={styles.empty}>
-              {debouncedQuery ? tx.noMatch : boiteVideSelectionnee ? tx.emptyBox : tx.empty}
+              {debouncedQuery
+                ? tx.noMatch
+                : boiteVideSelectionnee
+                  ? tx.emptyBox
+                  : enPause
+                    ? sp.paused
+                    : tx.empty}
             </Text>
             {!debouncedQuery && !boiteVideSelectionnee ? (
-              <Text style={styles.emptyHint}>{tx.emptyHint}</Text>
+              <Text style={styles.emptyHint}>{enPause ? sp.pausedHint : tx.emptyHint}</Text>
             ) : null}
           </View>
         }
