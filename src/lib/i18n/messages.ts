@@ -41,7 +41,7 @@ const fr = {
     codeLabel: 'Code reçu par email',
     signIn: 'Se connecter',
     changeEmail: 'Changer d’email',
-    codeSentTo: 'Code envoyé à {email}.',
+    codeSentTo: 'Code envoyé à {email}. Pensez au dossier spam.',
     errSend: 'Erreur d’envoi',
   },
   home: {
@@ -305,7 +305,7 @@ const en: Dict = {
     codeLabel: 'Code received by email',
     signIn: 'Sign in',
     changeEmail: 'Change email',
-    codeSentTo: 'Code sent to {email}.',
+    codeSentTo: 'Code sent to {email}. Check your spam folder.',
     errSend: 'Sending failed',
   },
   home: {
@@ -567,7 +567,7 @@ const es: Dict = {
     codeLabel: 'Código recibido por correo',
     signIn: 'Iniciar sesión',
     changeEmail: 'Cambiar correo',
-    codeSentTo: 'Código enviado a {email}.',
+    codeSentTo: 'Código enviado a {email}. Mira también en spam.',
     errSend: 'Error al enviar',
   },
   home: {
@@ -829,7 +829,7 @@ const de: Dict = {
     codeLabel: 'Per E-Mail erhaltener Code',
     signIn: 'Anmelden',
     changeEmail: 'E-Mail ändern',
-    codeSentTo: 'Code gesendet an {email}.',
+    codeSentTo: 'Code gesendet an {email}. Schau auch im Spam-Ordner nach.',
     errSend: 'Senden fehlgeschlagen',
   },
   home: {
@@ -1091,7 +1091,7 @@ const pt: Dict = {
     codeLabel: 'Código recebido por email',
     signIn: 'Iniciar sessão',
     changeEmail: 'Mudar de email',
-    codeSentTo: 'Código enviado para {email}.',
+    codeSentTo: 'Código enviado para {email}. Veja também no spam.',
     errSend: 'Erro ao enviar',
   },
   home: {
@@ -1353,7 +1353,7 @@ const it: Dict = {
     codeLabel: 'Codice ricevuto via email',
     signIn: 'Accedi',
     changeEmail: 'Cambia email',
-    codeSentTo: 'Codice inviato a {email}.',
+    codeSentTo: 'Codice inviato a {email}. Controlla anche lo spam.',
     errSend: 'Errore di invio',
   },
   home: {
@@ -1615,7 +1615,7 @@ const ar: Dict = {
     codeLabel: 'الرمز المُستلَم عبر البريد',
     signIn: 'تسجيل الدخول',
     changeEmail: 'تغيير البريد',
-    codeSentTo: 'تم إرسال الرمز إلى {email}.',
+    codeSentTo: 'تم إرسال الرمز إلى {email}. تحقّق من مجلد البريد غير المرغوب فيه.',
     errSend: 'فشل الإرسال',
   },
   home: {
@@ -1877,7 +1877,7 @@ const ru: Dict = {
     codeLabel: 'Код, полученный по почте',
     signIn: 'Войти',
     changeEmail: 'Изменить почту',
-    codeSentTo: 'Код отправлен на {email}.',
+    codeSentTo: 'Код отправлен на {email}. Проверьте папку «Спам».',
     errSend: 'Ошибка отправки',
   },
   home: {
