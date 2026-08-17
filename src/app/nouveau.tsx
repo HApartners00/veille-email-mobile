@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -81,16 +81,19 @@ const STR: Record<
     quitterOui: string;
     quitterNon: string;
     pjOrphelines: string;
+    enregistre: string;
+    brouillonIntrouvable: string;
+    brouillonIllisible: string;
   }
 > = {
-  fr: { titre: 'Nouveau message', de: 'De', a: 'À', aPlaceholder: 'nom@exemple.com, autre@exemple.com', objet: 'Objet', objetPlaceholder: 'Laissez vide pour que l’IA le propose', message: 'Message', messagePlaceholder: 'Écrivez ici, ou demandez à l’IA d’écrire le premier jet.', consigne: 'Dites à l’IA quoi écrire', ecrire: 'Écrire avec l’IA', pj: 'Pièces jointes', ajouterPj: 'Joindre un fichier', fichiers: 'Fichiers', photos: 'Photothèque', photo: 'Prendre une photo', envoyer: 'Envoyer', brouillon: 'Enregistrer le brouillon', envoi: 'Envoi…', enregistrement: 'Enregistrement…', aucuneBoite: 'Aucune boîte connectée.', sansDestinataire: 'Indiquez au moins un destinataire.', sansTexte: 'Le message est vide.', quitter: 'Abandonner ce message ?', quitterOui: 'Abandonner', quitterNon: 'Continuer à écrire', pjOrphelines: 'Ces pièces jointes viennent d’un message que vous n’avez pas terminé. Elles partiront avec celui-ci.' },
-  en: { titre: 'New message', de: 'From', a: 'To', aPlaceholder: 'name@example.com, other@example.com', objet: 'Subject', objetPlaceholder: 'Leave empty and the AI will suggest one', message: 'Message', messagePlaceholder: 'Write here, or ask the AI for a first draft.', consigne: 'Tell the AI what to write', ecrire: 'Write with AI', pj: 'Attachments', ajouterPj: 'Attach a file', fichiers: 'Files', photos: 'Photo library', photo: 'Take a photo', envoyer: 'Send', brouillon: 'Save draft', envoi: 'Sending…', enregistrement: 'Saving…', aucuneBoite: 'No mailbox connected.', sansDestinataire: 'Add at least one recipient.', sansTexte: 'The message is empty.', quitter: 'Discard this message?', quitterOui: 'Discard', quitterNon: 'Keep writing', pjOrphelines: 'These attachments come from a message you did not finish. They will be sent with this one.' },
-  es: { titre: 'Mensaje nuevo', de: 'De', a: 'Para', aPlaceholder: 'nombre@ejemplo.com, otro@ejemplo.com', objet: 'Asunto', objetPlaceholder: 'Déjalo vacío y la IA lo propondrá', message: 'Mensaje', messagePlaceholder: 'Escribe aquí, o pide a la IA un primer borrador.', consigne: 'Dile a la IA qué escribir', ecrire: 'Escribir con IA', pj: 'Adjuntos', ajouterPj: 'Adjuntar un archivo', fichiers: 'Archivos', photos: 'Fototeca', photo: 'Hacer una foto', envoyer: 'Enviar', brouillon: 'Guardar el borrador', envoi: 'Enviando…', enregistrement: 'Guardando…', aucuneBoite: 'Ningún buzón conectado.', sansDestinataire: 'Indica al menos un destinatario.', sansTexte: 'El mensaje está vacío.', quitter: '¿Descartar este mensaje?', quitterOui: 'Descartar', quitterNon: 'Seguir escribiendo', pjOrphelines: 'Estos adjuntos vienen de un mensaje que no terminaste. Se enviarán con este.' },
-  de: { titre: 'Neue Nachricht', de: 'Von', a: 'An', aPlaceholder: 'name@beispiel.de, andere@beispiel.de', objet: 'Betreff', objetPlaceholder: 'Leer lassen — die KI schlägt einen vor', message: 'Nachricht', messagePlaceholder: 'Schreib hier, oder lass die KI einen ersten Entwurf schreiben.', consigne: 'Sag der KI, was sie schreiben soll', ecrire: 'Mit KI schreiben', pj: 'Anhänge', ajouterPj: 'Datei anhängen', fichiers: 'Dateien', photos: 'Fotomediathek', photo: 'Foto aufnehmen', envoyer: 'Senden', brouillon: 'Entwurf speichern', envoi: 'Senden…', enregistrement: 'Wird gespeichert…', aucuneBoite: 'Kein Postfach verbunden.', sansDestinataire: 'Gib mindestens einen Empfänger an.', sansTexte: 'Die Nachricht ist leer.', quitter: 'Diese Nachricht verwerfen?', quitterOui: 'Verwerfen', quitterNon: 'Weiterschreiben', pjOrphelines: 'Diese Anhänge stammen aus einer nicht beendeten Nachricht. Sie werden mit dieser gesendet.' },
-  pt: { titre: 'Nova mensagem', de: 'De', a: 'Para', aPlaceholder: 'nome@exemplo.com, outro@exemplo.com', objet: 'Assunto', objetPlaceholder: 'Deixa vazio e a IA propõe um', message: 'Mensagem', messagePlaceholder: 'Escreve aqui, ou pede à IA um primeiro rascunho.', consigne: 'Diz à IA o que escrever', ecrire: 'Escrever com IA', pj: 'Anexos', ajouterPj: 'Anexar um ficheiro', fichiers: 'Ficheiros', photos: 'Fototeca', photo: 'Tirar uma foto', envoyer: 'Enviar', brouillon: 'Guardar rascunho', envoi: 'A enviar…', enregistrement: 'A guardar…', aucuneBoite: 'Nenhuma caixa ligada.', sansDestinataire: 'Indica pelo menos um destinatário.', sansTexte: 'A mensagem está vazia.', quitter: 'Descartar esta mensagem?', quitterOui: 'Descartar', quitterNon: 'Continuar a escrever', pjOrphelines: 'Estes anexos vêm de uma mensagem que não terminaste. Serão enviados com esta.' },
-  it: { titre: 'Nuovo messaggio', de: 'Da', a: 'A', aPlaceholder: 'nome@esempio.com, altro@esempio.com', objet: 'Oggetto', objetPlaceholder: 'Lascia vuoto e l’IA lo propone', message: 'Messaggio', messagePlaceholder: 'Scrivi qui, oppure chiedi all’IA una prima bozza.', consigne: 'Di’ all’IA cosa scrivere', ecrire: 'Scrivi con l’IA', pj: 'Allegati', ajouterPj: 'Allega un file', fichiers: 'File', photos: 'Libreria foto', photo: 'Scatta una foto', envoyer: 'Invia', brouillon: 'Salva la bozza', envoi: 'Invio…', enregistrement: 'Salvataggio…', aucuneBoite: 'Nessuna casella collegata.', sansDestinataire: 'Indica almeno un destinatario.', sansTexte: 'Il messaggio è vuoto.', quitter: 'Vuoi eliminare questo messaggio?', quitterOui: 'Elimina', quitterNon: 'Continua a scrivere', pjOrphelines: 'Questi allegati provengono da un messaggio non terminato. Saranno inviati con questo.' },
-  ar: { titre: 'رسالة جديدة', de: 'من', a: 'إلى', aPlaceholder: 'name@example.com، other@example.com', objet: 'الموضوع', objetPlaceholder: 'اتركه فارغًا ليقترحه الذكاء الاصطناعي', message: 'الرسالة', messagePlaceholder: 'اكتب هنا، أو اطلب من الذكاء الاصطناعي مسودة أولى.', consigne: 'أخبر الذكاء الاصطناعي بما يكتب', ecrire: 'اكتب بالذكاء الاصطناعي', pj: 'المرفقات', ajouterPj: 'إرفاق ملف', fichiers: 'الملفات', photos: 'مكتبة الصور', photo: 'التقاط صورة', envoyer: 'إرسال', brouillon: 'حفظ المسودة', envoi: 'جارٍ الإرسال…', enregistrement: 'جارٍ الحفظ…', aucuneBoite: 'لا يوجد صندوق متصل.', sansDestinataire: 'أضف مستلمًا واحدًا على الأقل.', sansTexte: 'الرسالة فارغة.', quitter: 'هل تريد تجاهل هذه الرسالة؟', quitterOui: 'تجاهل', quitterNon: 'متابعة الكتابة', pjOrphelines: 'هذه المرفقات من رسالة لم تُكملها. ستُرسل مع هذه الرسالة.' },
-  ru: { titre: 'Новое письмо', de: 'От', a: 'Кому', aPlaceholder: 'name@example.com, other@example.com', objet: 'Тема', objetPlaceholder: 'Оставьте пустым — ИИ предложит тему', message: 'Сообщение', messagePlaceholder: 'Пишите здесь или попросите ИИ написать первый вариант.', consigne: 'Скажите ИИ, что написать', ecrire: 'Написать с ИИ', pj: 'Вложения', ajouterPj: 'Прикрепить файл', fichiers: 'Файлы', photos: 'Медиатека', photo: 'Сделать фото', envoyer: 'Отправить', brouillon: 'Сохранить черновик', envoi: 'Отправка…', enregistrement: 'Сохранение…', aucuneBoite: 'Нет подключённых ящиков.', sansDestinataire: 'Укажите хотя бы одного получателя.', sansTexte: 'Сообщение пустое.', quitter: 'Отменить это письмо?', quitterOui: 'Отменить', quitterNon: 'Продолжить писать', pjOrphelines: 'Эти вложения остались от незаконченного письма. Они уйдут вместе с этим.' },
+  fr: { titre: 'Nouveau message', de: 'De', a: 'À', aPlaceholder: 'nom@exemple.com, autre@exemple.com', objet: 'Objet', objetPlaceholder: 'Laissez vide pour que l’IA le propose', message: 'Message', messagePlaceholder: 'Écrivez ici, ou demandez à l’IA d’écrire le premier jet.', consigne: 'Dites à l’IA quoi écrire', ecrire: 'Écrire avec l’IA', pj: 'Pièces jointes', ajouterPj: 'Joindre un fichier', fichiers: 'Fichiers', photos: 'Photothèque', photo: 'Prendre une photo', envoyer: 'Envoyer', brouillon: 'Enregistrer le brouillon', envoi: 'Envoi…', enregistrement: 'Enregistrement…', aucuneBoite: 'Aucune boîte connectée.', sansDestinataire: 'Indiquez au moins un destinataire.', sansTexte: 'Le message est vide.', quitter: 'Abandonner ce message ?', quitterOui: 'Abandonner', quitterNon: 'Continuer à écrire', pjOrphelines: 'Ces pièces jointes viennent d’un message que vous n’avez pas terminé. Elles partiront avec celui-ci.', enregistre: 'Brouillon enregistré ✓', brouillonIntrouvable: 'Ce brouillon n’existe plus.', brouillonIllisible: 'Impossible de lire ce brouillon.' },
+  en: { titre: 'New message', de: 'From', a: 'To', aPlaceholder: 'name@example.com, other@example.com', objet: 'Subject', objetPlaceholder: 'Leave empty and the AI will suggest one', message: 'Message', messagePlaceholder: 'Write here, or ask the AI for a first draft.', consigne: 'Tell the AI what to write', ecrire: 'Write with AI', pj: 'Attachments', ajouterPj: 'Attach a file', fichiers: 'Files', photos: 'Photo library', photo: 'Take a photo', envoyer: 'Send', brouillon: 'Save draft', envoi: 'Sending…', enregistrement: 'Saving…', aucuneBoite: 'No mailbox connected.', sansDestinataire: 'Add at least one recipient.', sansTexte: 'The message is empty.', quitter: 'Discard this message?', quitterOui: 'Discard', quitterNon: 'Keep writing', pjOrphelines: 'These attachments come from a message you did not finish. They will be sent with this one.', enregistre: 'Draft saved ✓', brouillonIntrouvable: 'This draft no longer exists.', brouillonIllisible: 'Could not read this draft.' },
+  es: { titre: 'Mensaje nuevo', de: 'De', a: 'Para', aPlaceholder: 'nombre@ejemplo.com, otro@ejemplo.com', objet: 'Asunto', objetPlaceholder: 'Déjalo vacío y la IA lo propondrá', message: 'Mensaje', messagePlaceholder: 'Escribe aquí, o pide a la IA un primer borrador.', consigne: 'Dile a la IA qué escribir', ecrire: 'Escribir con IA', pj: 'Adjuntos', ajouterPj: 'Adjuntar un archivo', fichiers: 'Archivos', photos: 'Fototeca', photo: 'Hacer una foto', envoyer: 'Enviar', brouillon: 'Guardar el borrador', envoi: 'Enviando…', enregistrement: 'Guardando…', aucuneBoite: 'Ningún buzón conectado.', sansDestinataire: 'Indica al menos un destinatario.', sansTexte: 'El mensaje está vacío.', quitter: '¿Descartar este mensaje?', quitterOui: 'Descartar', quitterNon: 'Seguir escribiendo', pjOrphelines: 'Estos adjuntos vienen de un mensaje que no terminaste. Se enviarán con este.', enregistre: 'Borrador guardado ✓', brouillonIntrouvable: 'Este borrador ya no existe.', brouillonIllisible: 'No se ha podido leer este borrador.' },
+  de: { titre: 'Neue Nachricht', de: 'Von', a: 'An', aPlaceholder: 'name@beispiel.de, andere@beispiel.de', objet: 'Betreff', objetPlaceholder: 'Leer lassen — die KI schlägt einen vor', message: 'Nachricht', messagePlaceholder: 'Schreib hier, oder lass die KI einen ersten Entwurf schreiben.', consigne: 'Sag der KI, was sie schreiben soll', ecrire: 'Mit KI schreiben', pj: 'Anhänge', ajouterPj: 'Datei anhängen', fichiers: 'Dateien', photos: 'Fotomediathek', photo: 'Foto aufnehmen', envoyer: 'Senden', brouillon: 'Entwurf speichern', envoi: 'Senden…', enregistrement: 'Wird gespeichert…', aucuneBoite: 'Kein Postfach verbunden.', sansDestinataire: 'Gib mindestens einen Empfänger an.', sansTexte: 'Die Nachricht ist leer.', quitter: 'Diese Nachricht verwerfen?', quitterOui: 'Verwerfen', quitterNon: 'Weiterschreiben', pjOrphelines: 'Diese Anhänge stammen aus einer nicht beendeten Nachricht. Sie werden mit dieser gesendet.', enregistre: 'Entwurf gespeichert ✓', brouillonIntrouvable: 'Dieser Entwurf existiert nicht mehr.', brouillonIllisible: 'Dieser Entwurf konnte nicht gelesen werden.' },
+  pt: { titre: 'Nova mensagem', de: 'De', a: 'Para', aPlaceholder: 'nome@exemplo.com, outro@exemplo.com', objet: 'Assunto', objetPlaceholder: 'Deixa vazio e a IA propõe um', message: 'Mensagem', messagePlaceholder: 'Escreve aqui, ou pede à IA um primeiro rascunho.', consigne: 'Diz à IA o que escrever', ecrire: 'Escrever com IA', pj: 'Anexos', ajouterPj: 'Anexar um ficheiro', fichiers: 'Ficheiros', photos: 'Fototeca', photo: 'Tirar uma foto', envoyer: 'Enviar', brouillon: 'Guardar rascunho', envoi: 'A enviar…', enregistrement: 'A guardar…', aucuneBoite: 'Nenhuma caixa ligada.', sansDestinataire: 'Indica pelo menos um destinatário.', sansTexte: 'A mensagem está vazia.', quitter: 'Descartar esta mensagem?', quitterOui: 'Descartar', quitterNon: 'Continuar a escrever', pjOrphelines: 'Estes anexos vêm de uma mensagem que não terminaste. Serão enviados com esta.', enregistre: 'Rascunho guardado ✓', brouillonIntrouvable: 'Este rascunho já não existe.', brouillonIllisible: 'Não foi possível ler este rascunho.' },
+  it: { titre: 'Nuovo messaggio', de: 'Da', a: 'A', aPlaceholder: 'nome@esempio.com, altro@esempio.com', objet: 'Oggetto', objetPlaceholder: 'Lascia vuoto e l’IA lo propone', message: 'Messaggio', messagePlaceholder: 'Scrivi qui, oppure chiedi all’IA una prima bozza.', consigne: 'Di’ all’IA cosa scrivere', ecrire: 'Scrivi con l’IA', pj: 'Allegati', ajouterPj: 'Allega un file', fichiers: 'File', photos: 'Libreria foto', photo: 'Scatta una foto', envoyer: 'Invia', brouillon: 'Salva la bozza', envoi: 'Invio…', enregistrement: 'Salvataggio…', aucuneBoite: 'Nessuna casella collegata.', sansDestinataire: 'Indica almeno un destinatario.', sansTexte: 'Il messaggio è vuoto.', quitter: 'Vuoi eliminare questo messaggio?', quitterOui: 'Elimina', quitterNon: 'Continua a scrivere', pjOrphelines: 'Questi allegati provengono da un messaggio non terminato. Saranno inviati con questo.', enregistre: 'Bozza salvata ✓', brouillonIntrouvable: 'Questa bozza non esiste più.', brouillonIllisible: 'Impossibile leggere questa bozza.' },
+  ar: { titre: 'رسالة جديدة', de: 'من', a: 'إلى', aPlaceholder: 'name@example.com، other@example.com', objet: 'الموضوع', objetPlaceholder: 'اتركه فارغًا ليقترحه الذكاء الاصطناعي', message: 'الرسالة', messagePlaceholder: 'اكتب هنا، أو اطلب من الذكاء الاصطناعي مسودة أولى.', consigne: 'أخبر الذكاء الاصطناعي بما يكتب', ecrire: 'اكتب بالذكاء الاصطناعي', pj: 'المرفقات', ajouterPj: 'إرفاق ملف', fichiers: 'الملفات', photos: 'مكتبة الصور', photo: 'التقاط صورة', envoyer: 'إرسال', brouillon: 'حفظ المسودة', envoi: 'جارٍ الإرسال…', enregistrement: 'جارٍ الحفظ…', aucuneBoite: 'لا يوجد صندوق متصل.', sansDestinataire: 'أضف مستلمًا واحدًا على الأقل.', sansTexte: 'الرسالة فارغة.', quitter: 'هل تريد تجاهل هذه الرسالة؟', quitterOui: 'تجاهل', quitterNon: 'متابعة الكتابة', pjOrphelines: 'هذه المرفقات من رسالة لم تُكملها. ستُرسل مع هذه الرسالة.', enregistre: 'تم حفظ المسودة ✓', brouillonIntrouvable: 'لم تعد هذه المسودة موجودة.', brouillonIllisible: 'تعذّرت قراءة هذه المسودة.' },
+  ru: { titre: 'Новое письмо', de: 'От', a: 'Кому', aPlaceholder: 'name@example.com, other@example.com', objet: 'Тема', objetPlaceholder: 'Оставьте пустым — ИИ предложит тему', message: 'Сообщение', messagePlaceholder: 'Пишите здесь или попросите ИИ написать первый вариант.', consigne: 'Скажите ИИ, что написать', ecrire: 'Написать с ИИ', pj: 'Вложения', ajouterPj: 'Прикрепить файл', fichiers: 'Файлы', photos: 'Медиатека', photo: 'Сделать фото', envoyer: 'Отправить', brouillon: 'Сохранить черновик', envoi: 'Отправка…', enregistrement: 'Сохранение…', aucuneBoite: 'Нет подключённых ящиков.', sansDestinataire: 'Укажите хотя бы одного получателя.', sansTexte: 'Сообщение пустое.', quitter: 'Отменить это письмо?', quitterOui: 'Отменить', quitterNon: 'Продолжить писать', pjOrphelines: 'Эти вложения остались от незаконченного письма. Они уйдут вместе с этим.', enregistre: 'Черновик сохранён ✓', brouillonIntrouvable: 'Этот черновик больше не существует.', brouillonIllisible: 'Не удалось прочитать этот черновик.' },
 };
 
 type Boite = { email: string; provider: string };
@@ -98,6 +101,22 @@ type PJ = { id: string; filename: string };
 
 export default function NouveauMessage() {
   const router = useRouter();
+  /**
+   * ============================================================================
+   * CET ECRAN EST AUSSI L'EDITEUR DES BROUILLONS VMAIL — 17/08/2026.
+   * ============================================================================
+   * Arbitrage de HA : « je veux que le brouillon soit malleable de a a z, tant
+   * pis si il apparait meme pas cote fournisseur. » Jumeau exact de
+   * `Veille Email/apps/web/src/app/nouveau/compose-form.tsx`, meme journee.
+   *
+   * `/nouveau?draft=<uuid>` rouvre un brouillon possede par Vmail. Tout est
+   * modifiable, et « Enregistrer » ecrit vraiment, autant de fois qu'on veut.
+   *
+   * ⚠️ CES BROUILLONS-LA NE REMONTENT PAS CHEZ GMAIL NI OUTLOOK. Choix
+   * explicite. Si tu lis ceci en cherchant pourquoi un brouillon Vmail est
+   * absent de Gmail : ce n'est pas une panne.
+   */
+  const parametres = useLocalSearchParams<{ draft?: string }>();
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
   const s = STR[locale] ?? STR.en;
@@ -129,6 +148,18 @@ export default function NouveauMessage() {
   const [televersement, setTeleversement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [feuille, setFeuille] = useState<null | 'boites' | 'quitter'>(null);
+  const [draftId, setDraftId] = useState<string>(
+    typeof parametres.draft === 'string' ? parametres.draft.trim() : '',
+  );
+  /**
+   * ⚠️ QUI DECIDE DE LA BOITE. Deux effets la posent : celui des boites
+   * connectees (memorisee, ou la premiere) et celui du brouillon. Sans arbitre,
+   * le dernier arrive gagne — parfois la memorisee ecrase celle du brouillon
+   * qu'on vient d'ouvrir. Ce drapeau tranche : le brouillon prime, toujours.
+   */
+  const boiteImposee = useRef(false);
+  /** Avis discret apres un enregistrement reussi. On RESTE sur l'ecran. */
+  const [avis, setAvis] = useState<string | null>(null);
 
   // --- Boîtes connectées, et la dernière utilisée ---------------------------
   useEffect(() => {
@@ -142,7 +173,10 @@ export default function NouveauMessage() {
         setBoites(liste);
         // La mémorisée ne gagne QUE si elle est encore connectée : une boîte
         // déconnectée entre-temps enverrait vers un 403 sans rien expliquer.
-        const retenue = liste.find((m) => m.email === memorisee)?.email || liste[0]?.email || '';
+        // Et elle ne gagne JAMAIS contre celle d'un brouillon qu'on rouvre.
+        const retenue = boiteImposee.current
+          ? ''
+          : liste.find((m) => m.email === memorisee)?.email || liste[0]?.email || '';
         setBoite(retenue);
         setBoitesLues(true);
         if (liste.length === 0) setErreur(s.aucuneBoite);
@@ -172,15 +206,57 @@ export default function NouveauMessage() {
    * rien ne l'ait montré. On les lit, on les affiche, et on dit d'où elles
    * viennent — pour qu'on puisse les retirer en connaissance de cause.
    */
-  useEffect(() => {
-    apiGet<{ attachments: PJ[] }>('/api/reply-attachments?item_id=none')
+  const rechargerPJ = useCallback(() => {
+    // Les fichiers DU brouillon quand on en edite un ; ceux du message neuf
+    // sinon. Depuis le 17/08 les deux paniers sont distincts en base.
+    const chemin = draftId
+      ? `/api/reply-attachments?draft_id=${encodeURIComponent(draftId)}`
+      : '/api/reply-attachments?item_id=none';
+    return apiGet<{ attachments: PJ[] }>(chemin)
       .then((j) => {
         const liste = (j.attachments || []).map((a) => ({ id: a.id, filename: a.filename }));
         setPieces(liste);
         setPjHeritees(liste.length > 0);
       })
       .catch(() => {});
-  }, []);
+  }, [draftId]);
+
+  useEffect(() => {
+    void rechargerPJ();
+  }, [rechargerPJ]);
+
+  /**
+   * OUVERTURE D'UN BROUILLON VMAIL.
+   *
+   * ⚠️ ON NE VIDE RIEN TANT QU'ON N'A PAS LU. Si la lecture echoue, on le DIT
+   * et on laisse l'ecran tel quel : un formulaire vide ferait croire a un
+   * brouillon perdu alors qu'il est intact en base.
+   */
+  useEffect(() => {
+    if (!draftId) return;
+    let vivant = true;
+    apiGet<{ ok?: boolean; draft?: { accountEmail: string; to: string[]; subject: string; body: string } }>(
+      `/api/vmail-drafts?id=${encodeURIComponent(draftId)}`,
+    )
+      .then((j) => {
+        if (!vivant) return;
+        if (!j?.draft) {
+          setErreur(s.brouillonIntrouvable);
+          return;
+        }
+        boiteImposee.current = true;
+        setBoite(j.draft.accountEmail);
+        setDestinataires((j.draft.to || []).join(', '));
+        setObjet(j.draft.subject || '');
+        setTexte(j.draft.body || '');
+      })
+      .catch(() => {
+        if (vivant) setErreur(s.brouillonIllisible);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, [draftId, s.brouillonIntrouvable, s.brouillonIllisible]);
 
   // --- IA -------------------------------------------------------------------
   const RETOUCHES = useMemo(
@@ -238,6 +314,9 @@ export default function NouveauMessage() {
     // La route accepte son absence depuis toujours (dossier `unsorted`), elle
     // n'avait simplement jamais eu d'appelant.
     form.append('file', { uri, name: nom, type: typeRetenu(nom, type) } as unknown as Blob);
+    // `draft_id` quand on edite un brouillon : le fichier lui appartient, et ne
+    // partira pas avec un autre message.
+    if (draftId) form.append('draft_id', draftId);
     try {
       const j = await apiUpload<{ attachment: { id: string; filename: string } }>(
         '/api/reply-attachments',
@@ -335,6 +414,48 @@ export default function NouveauMessage() {
       }
       setOccupe(op);
       setErreur(null);
+      setAvis(null);
+
+      /**
+       * ENREGISTRER N'EST PLUS UN ENVOI DEGUISE — 17/08/2026.
+       *
+       * Avant, « Enregistrer le brouillon » appelait /api/compose op='draft',
+       * qui creait un brouillon CHEZ LE FOURNISSEUR et quittait l'ecran. On ne
+       * pouvait plus y revenir : ce brouillon-la n'etait pas modifiable, il
+       * n'existait aucune operation « enregistrer » dans notre workflow n8n.
+       *
+       * Desormais il ecrit dans `vmail_drafts`. On RESTE sur l'ecran, l'`id` est
+       * conserve, et chaque appui met a jour le meme brouillon.
+       */
+      if (op === 'draft') {
+        try {
+          const j = await apiPost<{ ok?: boolean; draft?: { id: string } }>('/api/vmail-drafts', {
+            id: draftId || undefined,
+            accountEmail: boite,
+            provider: boites.find((m) => m.email === boite)?.provider ?? null,
+            to: listeDestinataires,
+            subject: objet,
+            body: texte,
+          });
+          if (!j?.draft?.id) {
+            setErreur(t.email.genFail);
+            setOccupe(null);
+            return;
+          }
+          const neuf = !draftId;
+          setDraftId(j.draft.id);
+          setAvis(s.enregistre);
+          setOccupe(null);
+          // Le serveur vient d'adopter les fichiers deposes avant l'existence du
+          // brouillon : on relit pour afficher ce qui lui appartient.
+          if (neuf) void rechargerPJ();
+        } catch (e) {
+          setErreur(e instanceof Error && e.message ? e.message : t.email.genFail);
+          setOccupe(null);
+        }
+        return;
+      }
+
       try {
         await apiPost('/api/compose', {
           op,
@@ -342,6 +463,9 @@ export default function NouveauMessage() {
           to: listeDestinataires,
           subject: objet,
           body: texte,
+          // Le message part avec les fichiers DU brouillon, et le brouillon est
+          // supprime une fois parti. Vide = message neuf.
+          draftId: draftId || undefined,
           idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         });
         router.back();
@@ -350,7 +474,19 @@ export default function NouveauMessage() {
         setOccupe(null);
       }
     },
-    [occupe, boite, listeDestinataires, texte, objet, router, s, t.email.genFail],
+    [
+      occupe,
+      boite,
+      boites,
+      draftId,
+      listeDestinataires,
+      texte,
+      objet,
+      router,
+      rechargerPJ,
+      s,
+      t.email.genFail,
+    ],
   );
 
   /** Quelque chose a-t-il été écrit ? Sert au garde-fou du retour. */
@@ -516,6 +652,9 @@ export default function NouveauMessage() {
         )}
 
         {erreur ? <Text style={styles.erreur}>{erreur}</Text> : null}
+        {/* On RESTE sur l'ecran apres un enregistrement : sans cette ligne,
+            appuyer sur « Enregistrer » ne produirait aucun signe visible. */}
+        {avis && !erreur ? <Text style={styles.avis}>{avis}</Text> : null}
       </ScrollView>
 
       <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
@@ -697,6 +836,14 @@ const styles = StyleSheet.create({
   },
   pjBtnText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.onDark },
 
+  avis: {
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.terracottaLight,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.charcoalSoft,
+  },
   erreur: {
     fontFamily: fonts.sans,
     fontSize: 12.5,

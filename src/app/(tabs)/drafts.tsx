@@ -16,7 +16,7 @@ import { memoriserBrouillons, type Brouillon } from '@/lib/cache-brouillons';
 import { useI18n } from '@/context/i18n';
 import { apiGet } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
-import { cleanText, formatDate, recipientsEmails, recipientsLabel } from '@/lib/mail-format';
+import { cleanText, formatDate, recipientsLabel } from '@/lib/mail-format';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 /**
@@ -29,14 +29,65 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
  */
 
 
+/**
+ * BROUILLONS VMAIL — 17/08/2026. Dictionnaire LOCAL, meme convention que
+ * `NOTE_STR` dans `app/brouillon/[id].tsx` : deux chaines ne justifient pas
+ * d'elargir le dictionnaire global, qui obligerait a toucher les huit tables.
+ */
+type DictVmail = { modifiable: string; chezVous: string };
+const VMAIL_STR: Record<string, DictVmail> = {
+  fr: { modifiable: 'Modifiable', chezVous: 'Vos brouillons Vmail ne sont pas visibles dans Gmail ni dans Outlook.' },
+  en: { modifiable: 'Editable', chezVous: 'Your Vmail drafts are not visible in Gmail or Outlook.' },
+  es: { modifiable: 'Editable', chezVous: 'Tus borradores de Vmail no se ven en Gmail ni en Outlook.' },
+  de: { modifiable: 'Bearbeitbar', chezVous: 'Deine Vmail-Entwürfe sind in Gmail und Outlook nicht sichtbar.' },
+  pt: { modifiable: 'Editável', chezVous: 'Os seus rascunhos Vmail não aparecem no Gmail nem no Outlook.' },
+  it: { modifiable: 'Modificabile', chezVous: 'Le tue bozze Vmail non sono visibili in Gmail né in Outlook.' },
+  ar: { modifiable: 'قابلة للتعديل', chezVous: 'مسوداتك في Vmail غير ظاهرة في Gmail أو Outlook.' },
+  ru: { modifiable: 'Редактируемый', chezVous: 'Ваши черновики Vmail не видны в Gmail и Outlook.' },
+};
+
+type BrouillonVmail = {
+  id: string;
+  accountEmail: string;
+  to: string[];
+  subject: string;
+  body: string;
+  updatedAt: string;
+};
+
+/** Une ligne de la liste, quelle que soit sa provenance. */
+type Ligne = {
+  cle: string;
+  id: string;
+  /** Brouillon possede par Vmail : modifiable, ouvre l'editeur. */
+  vmail: boolean;
+  accountEmail: string;
+  subject: string;
+  preview: string;
+  to: string;
+  updatedAt: string | null;
+  byVmail: boolean;
+};
+
 export default function DraftsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t, locale } = useI18n();
   const intl = bcp47[locale];
   const tx = t.drafts;
+  const sv = VMAIL_STR[locale] ?? VMAIL_STR.en;
 
   const [drafts, setDrafts] = useState<Brouillon[]>([]);
+  /**
+   * ⚠️ DEUX SOURCES, DEUX ETATS D'ECHEC SEPARES — 17/08/2026.
+   *
+   * Les brouillons Vmail sont en base, ceux de la messagerie sont lus en direct
+   * chez le fournisseur. L'un peut tomber sans l'autre. Melanger les deux ferait
+   * disparaitre des brouillons parfaitement lisibles a cause d'une panne qui ne
+   * les concerne pas — et l'inverse : une liste vide masquerait le fait qu'on
+   * n'a PAS PU regarder la messagerie.
+   */
+  const [vmailDrafts, setVmailDrafts] = useState<BrouillonVmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   /** Panne de lecture — distincte de « aucun brouillon ». */
@@ -49,6 +100,12 @@ export default function DraftsScreen() {
     setLoading(true);
     setFailure(null);
     setError(null);
+    // Les brouillons Vmail, en base : rapides, et independants de la messagerie.
+    // Un echec ici n'efface pas ceux du fournisseur, et reciproquement.
+    void apiGet<{ ok?: boolean; drafts?: BrouillonVmail[] }>('/api/vmail-drafts')
+      .then((j) => setVmailDrafts(Array.isArray(j?.drafts) ? j.drafts : []))
+      .catch(() => setVmailDrafts([]));
+
     try {
       const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] }>('/api/drafts');
       const liste = Array.isArray(j?.drafts) ? j.drafts : [];
@@ -76,8 +133,9 @@ export default function DraftsScreen() {
   const accounts = useMemo(() => {
     const s = new Set<string>();
     drafts.forEach((d) => d.accountEmail && s.add(d.accountEmail.toLowerCase()));
+    vmailDrafts.forEach((d) => d.accountEmail && s.add(d.accountEmail.toLowerCase()));
     return Array.from(s).sort();
-  }, [drafts]);
+  }, [drafts, vmailDrafts]);
 
   const toggleBox = useCallback((email: string) => {
     const e = email.toLowerCase();
@@ -86,14 +144,44 @@ export default function DraftsScreen() {
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return drafts.filter((d) => {
-      if (selectedBoxes.length > 0 && !selectedBoxes.includes((d.accountEmail || '').toLowerCase()))
-        return false;
-      if (!term) return true;
-      const hay = `${d.subject ?? ''} ${d.preview ?? ''} ${recipientsEmails(d.recipients).join(' ')}`;
-      return hay.toLowerCase().includes(term);
-    });
-  }, [drafts, selectedBoxes, query]);
+
+    // Les brouillons Vmail ouvrent l'editeur de redaction, ou tout est
+    // modifiable. Ceux de la messagerie gardent leur page.
+    const aVmail: Ligne[] = vmailDrafts.map((d) => ({
+      cle: `vmail-${d.id}`,
+      id: d.id,
+      vmail: true,
+      accountEmail: d.accountEmail || '',
+      subject: d.subject || '',
+      preview: d.body || '',
+      to: (d.to || []).join(', ') || tx.noRecipient,
+      updatedAt: d.updatedAt || null,
+      byVmail: true,
+    }));
+
+    const aFournisseur: Ligne[] = drafts.map((d) => ({
+      cle: `fournisseur-${d.id}`,
+      id: d.id,
+      vmail: false,
+      accountEmail: d.accountEmail || '',
+      subject: d.subject || '',
+      preview: d.preview || '',
+      to: recipientsLabel(d.recipients, tx.noRecipient),
+      updatedAt: d.updatedAt,
+      byVmail: Boolean(d.byVmail),
+    }));
+
+    // Un seul tri, sur la date : on cherche « ce que j'ai touche en dernier »,
+    // pas « d'ou ca vient ». La provenance se lit sur la pastille.
+    return [...aVmail, ...aFournisseur]
+      .filter((d) => {
+        if (selectedBoxes.length > 0 && !selectedBoxes.includes(d.accountEmail.toLowerCase()))
+          return false;
+        if (!term) return true;
+        return `${d.subject} ${d.preview} ${d.to}`.toLowerCase().includes(term);
+      })
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  }, [drafts, vmailDrafts, selectedBoxes, query, tx.noRecipient]);
 
   const header = (
     <MailboxHeader
@@ -129,7 +217,7 @@ export default function DraftsScreen() {
     <View style={styles.screen}>
       <FlatList
         data={failure ? [] : visible}
-        keyExtractor={(d) => d.id}
+        keyExtractor={(d) => d.cle}
         style={styles.screen}
         contentContainerStyle={styles.content}
         refreshControl={
@@ -145,6 +233,12 @@ export default function DraftsScreen() {
               </View>
             ) : null}
           </View>
+        }
+        /* DIT UNE FOIS, LA OU CA SE CONSTATE. Un brouillon Vmail absent de
+           Gmail n'est pas une panne : c'est le choix du 17/08. Sans cette
+           ligne, la premiere reaction serait « il a disparu ». */
+        ListFooterComponent={
+          vmailDrafts.length > 0 ? <Text style={styles.noteVmail}>{sv.chezVous}</Text> : null
         }
         ListEmptyComponent={
           failure ? (
@@ -162,7 +256,7 @@ export default function DraftsScreen() {
           )
         }
         renderItem={({ item: d }) => {
-          const to = recipientsLabel(d.recipients, tx.noRecipient);
+          const to = d.to;
           return (
             <View style={styles.rowWrap}>
               {/* ⚠️ LA CARTE OUVRE UNE PAGE — HA, 13/08 : « meme logique pour les
@@ -172,7 +266,11 @@ export default function DraftsScreen() {
                   qui n'ont rien a faire sur chaque carte d'une liste dense. */}
               <Pressable
                 style={styles.card}
-                onPress={() => router.push({ pathname: '/brouillon/[id]', params: { id: d.id } })}
+                onPress={() =>
+                  d.vmail
+                    ? router.push({ pathname: '/nouveau', params: { draft: d.id } })
+                    : router.push({ pathname: '/brouillon/[id]', params: { id: d.id } })
+                }
                 accessibilityRole="button"
                 accessibilityLabel={d.subject || t.common.noSubject}
               >
@@ -181,7 +279,14 @@ export default function DraftsScreen() {
                   <Text style={styles.to} numberOfLines={1}>
                     {to}
                   </Text>
-                  {d.byVmail ? <Text style={styles.badge}>{tx.byVmail}</Text> : null}
+                  {/* La pastille dit ce qu'on peut FAIRE, pas d'ou ca vient :
+                      « Modifiable » a un sens pour l'utilisateur, « brouillon
+                      Vmail » n'en a aucun. */}
+                  {d.vmail ? (
+                    <Text style={styles.badge}>{sv.modifiable}</Text>
+                  ) : d.byVmail ? (
+                    <Text style={styles.badge}>{tx.byVmail}</Text>
+                  ) : null}
                   {d.updatedAt ? (
                     <Text style={styles.date}>{formatDate(d.updatedAt, intl)}</Text>
                   ) : null}
@@ -212,6 +317,16 @@ export default function DraftsScreen() {
 }
 
 const styles = StyleSheet.create({
+  noteVmail: {
+    fontFamily: fonts.sans,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.onDarkMuted,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    textAlign: 'center',
+  },
   screen: { flex: 1, backgroundColor: colors.fond },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxl },
   content: { paddingBottom: spacing.xxl },
