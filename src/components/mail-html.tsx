@@ -148,6 +148,12 @@ export default function MailHtml({ html }: { html: string }) {
      couleurs sont donc VOLONTAIREMENT ecrites en dur et ne suivent pas le
      theme — c'est le seul endroit de l'app dans ce cas. */
   html, body { margin:0; padding:0; background:#faf7f0; -webkit-text-size-adjust:100%; }
+  /* Le texte du mail ne colle pas aux bords de la feuille — signale par HA
+     le 18/08/2026 : « le mail et son encadre, c'est pas joli, ca colle les
+     bords ». La marge est posee sur le body et non sur un conteneur React :
+     c'est la feuille elle-meme qui doit respirer, y compris pour les mails
+     en tableaux qui ignorent tout ce qui les entoure. */
+  body { padding:12px 14px; }
   /* ⚠️ LA PAGE RESTE INVISIBLE JUSQU'A SA MISE A L'ECHELLE.
      Sans ça, le mail s'affiche une fraction de seconde à sa largeur d'origine
      (600 px sur un écran de 390) puis se réduit d'un coup : c'est le "flash"
