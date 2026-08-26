@@ -11,7 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,13 +26,13 @@ import { SignatureSection, signatureTitle } from '@/components/signature-section
 // Jours dans l'ordre Lun→Dim ; le libellé vient du dictionnaire (daysShort, indexé 0=Dim).
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
-// Libellés de prix — surchageables par env. Défauts = tarifs actuels.
 // « Essentiel » / « Premium » = noms de produit, invariables (8 langues).
-const PRICE_ESSENTIAL = process.env.EXPO_PUBLIC_PLAN_PRICE_LABEL_ESSENTIAL || '5,99 €';
-const PRICE_PREMIUM =
-  process.env.EXPO_PUBLIC_PLAN_PRICE_LABEL_PREMIUM ||
-  process.env.EXPO_PUBLIC_PLAN_PRICE_LABEL ||
-  '9,99 €';
+// Aucun prix n'est affiché dans l'app : App Store, règle 3.1.3(f).
+
+// Mot de confirmation de la suppression de compte.
+// 🔴 NE PAS TRADUIRE ni modifier : /api/account/delete attend exactement 'SUPPRIMER'.
+// Il est affiché à l'écran, donc recopiable quelle que soit la langue de l'interface.
+const CONFIRM_WORD = 'SUPPRIMER';
 const PLAN_NAMES: Record<string, string> = { essential: 'Essentiel', premium: 'Premium' };
 
 type BillingStatus = {
@@ -72,7 +71,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/mois',
     planLabel: 'Votre formule : {plan}',
     upgradeHint:
-      'La personnalisation du style est réservée à Premium — changez de formule depuis le portail de facturation.',
+      'La personnalisation du style est incluse dans la formule Premium.',
     trialPremiumNote:
       'Votre essai gratuit donne accès à tout, personnalisation du style incluse (formule Premium).',
     lockBadge: 'Premium',
@@ -89,7 +88,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/month',
     planLabel: 'Your plan: {plan}',
     upgradeHint:
-      'Style personalization is Premium-only — switch plans from the billing portal.',
+      'Style personalization is included in the Premium plan.',
     trialPremiumNote:
       'Your free trial gives access to everything, style personalization included (Premium plan).',
     lockBadge: 'Premium',
@@ -105,7 +104,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/mes',
     planLabel: 'Tu plan: {plan}',
     upgradeHint:
-      'La personalización del estilo es exclusiva de Premium — cambia de plan desde el portal de facturación.',
+      'La personalización del estilo está incluida en el plan Premium.',
     trialPremiumNote:
       'Tu prueba gratuita da acceso a todo, personalización del estilo incluida (plan Premium).',
     lockBadge: 'Premium',
@@ -122,7 +121,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/Monat',
     planLabel: 'Dein Tarif: {plan}',
     upgradeHint:
-      'Die Stil-Personalisierung gibt es nur in Premium — wechsle den Tarif im Abrechnungsportal.',
+      'Die Stil-Personalisierung ist im Premium-Tarif enthalten.',
     trialPremiumNote:
       'Deine kostenlose Testphase umfasst alles, inklusive Stil-Personalisierung (Premium-Tarif).',
     lockBadge: 'Premium',
@@ -139,7 +138,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/mês',
     planLabel: 'O teu plano: {plan}',
     upgradeHint:
-      'A personalização do estilo é exclusiva do Premium — muda de plano no portal de faturação.',
+      'A personalização do estilo está incluída no plano Premium.',
     trialPremiumNote:
       'O teu teste gratuito dá acesso a tudo, personalização do estilo incluída (plano Premium).',
     lockBadge: 'Premium',
@@ -156,7 +155,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/mese',
     planLabel: 'Il tuo piano: {plan}',
     upgradeHint:
-      'La personalizzazione dello stile è riservata a Premium — cambia piano dal portale di fatturazione.',
+      'La personalizzazione dello stile è inclusa nel piano Premium.',
     trialPremiumNote:
       'La tua prova gratuita dà accesso a tutto, personalizzazione dello stile inclusa (piano Premium).',
     lockBadge: 'Premium',
@@ -172,7 +171,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     chooseBtn: 'اختيار {plan}',
     perMonth: '{price}/شهر',
     planLabel: 'باقتك: {plan}',
-    upgradeHint: 'تخصيص الأسلوب حصري لباقة Premium — غيّر الباقة من بوابة الفوترة.',
+    upgradeHint: 'تخصيص الأسلوب مُضمَّن في باقة Premium.',
     trialPremiumNote:
       'تجربتك المجانية تمنحك الوصول إلى كل شيء، بما في ذلك تخصيص الأسلوب (باقة Premium).',
     lockBadge: 'Premium',
@@ -188,7 +187,7 @@ const PLAN_STR: Record<string, PlanStrings> = {
     perMonth: '{price}/мес',
     planLabel: 'Ваш тариф: {plan}',
     upgradeHint:
-      'Персонализация стиля доступна только в Premium — смените тариф в портале оплаты.',
+      'Персонализация стиля включена в тариф Premium.',
     trialPremiumNote:
       'Бесплатный пробный период открывает доступ ко всему, включая персонализацию стиля (тариф Premium).',
     lockBadge: 'Premium',
@@ -639,9 +638,15 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     }
   }
 
+  // Suppression de compte (RGPD + App Store 5.1.1(v))
+  const [delOpen, setDelOpen] = useState(false);
+  const [delText, setDelText] = useState('');
+  const [delBusy, setDelBusy] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
+
   // Abonnement (Stripe)
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const [billingUi, setBillingUi] = useState<'loading' | 'ready' | 'redirecting' | 'error'>('loading');
+  const [billingUi, setBillingUi] = useState<'loading' | 'ready' | 'error'>('loading');
   const [billingMsg, setBillingMsg] = useState<string | null>(null);
 
   // Personnalisation
@@ -781,24 +786,24 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     })();
   }, []);
 
-  async function goBilling(
-    endpoint: '/api/billing/checkout' | '/api/billing/portal',
-    plan?: 'essential' | 'premium',
-  ) {
-    setBillingUi('redirecting');
-    setBillingMsg(null);
+  /** Supprime le compte, puis déconnecte. L'API purge Supabase en cascade,
+   *  révoque les jetons OAuth des boîtes connectées et les retire du backend. */
+  async function handleDelete() {
+    if (delText.trim().toUpperCase() !== CONFIRM_WORD || delBusy) return;
+    setDelBusy(true);
+    setDelErr(null);
     try {
-      const r = await apiPost<{ url?: string }>(endpoint, plan ? { plan } : {});
-      if (r?.url) {
-        await WebBrowser.openBrowserAsync(r.url);
-        setBillingUi('ready');
-      } else {
-        setBillingUi('error');
-        setBillingMsg(t.settings.actionImpossible);
+      await apiPost('/api/account/delete', { confirm: CONFIRM_WORD });
+      // Le compte n'existe plus : la session est morte de toute façon, mais on
+      // nettoie l'état local pour repartir sur l'écran de connexion.
+      try {
+        await signOut();
+      } catch {
+        /* la session est déjà invalide côté serveur, sans conséquence */
       }
     } catch (e: any) {
-      setBillingUi('error');
-      setBillingMsg(e?.message || t.settings.actionImpossible);
+      setDelErr(e?.message || t.settings.delErr);
+      setDelBusy(false);
     }
   }
 
@@ -885,6 +890,8 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <NavRow label={ps.viewStyle} onPress={() => router.push('/style')} />
               <View style={styles.hubSep} />
               <NavRow label={signatureTitle(locale)} onPress={() => router.push('/settings/signature')} />
+              <View style={styles.hubSep} />
+              <NavRow label={t.settings.account} onPress={() => router.push('/settings/compte')} />
               {referral?.code ? (
                 <>
                   <View style={styles.hubSep} />
@@ -900,6 +907,75 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
             <View style={styles.card}>
               <Text style={styles.label}>{t.settings.connectedAs}</Text>
               <Text style={styles.value}>{email}</Text>
+            </View>
+
+            <Pressable style={styles.signout} onPress={signOut}>
+              <Text style={styles.signoutText}>{t.settings.signOut}</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {show('compte') ? (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.label}>{t.settings.connectedAs}</Text>
+              <Text style={styles.value}>{email}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.subLabel}>{t.settings.delTitle}</Text>
+              <Text style={styles.hint}>{t.settings.delIntro}</Text>
+
+              {!delOpen ? (
+                <Pressable style={styles.delBtn} onPress={() => setDelOpen(true)}>
+                  <Text style={styles.delBtnText}>{t.settings.delBtn}</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.dangerBox}>
+                  <Text style={styles.dangerText}>
+                    {f(t.settings.delConfirmInstr, { word: CONFIRM_WORD })}
+                  </Text>
+                  <TextInput
+                    style={styles.dangerInput}
+                    value={delText}
+                    onChangeText={setDelText}
+                    placeholder={CONFIRM_WORD}
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    editable={!delBusy}
+                  />
+                  {delErr ? <Text style={[styles.msg, styles.msgErr]}>{delErr}</Text> : null}
+                  <View style={styles.dangerRow}>
+                    <Pressable
+                      style={[
+                        styles.dangerBtn,
+                        (delText.trim().toUpperCase() !== CONFIRM_WORD || delBusy) &&
+                          styles.btnDisabled,
+                      ]}
+                      onPress={handleDelete}
+                      disabled={delText.trim().toUpperCase() !== CONFIRM_WORD || delBusy}
+                    >
+                      {delBusy ? (
+                        <ActivityIndicator color={colors.onDark} />
+                      ) : (
+                        <Text style={styles.dangerBtnText}>{t.settings.delConfirmBtn}</Text>
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[styles.manageBtn, delBusy && styles.btnDisabled]}
+                      onPress={() => {
+                        setDelOpen(false);
+                        setDelText('');
+                        setDelErr(null);
+                      }}
+                      disabled={delBusy}
+                    >
+                      <Text style={styles.manageBtnText}>{t.common.cancel}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </View>
 
             <Pressable style={styles.signout} onPress={signOut}>
@@ -1055,55 +1131,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                 </>
               ) : null}
 
-              {/* Choix de la formule quand il n'y a pas d'accès. */}
-              {!billing?.entitled ? (
-                <View style={styles.planChooser}>
-                  <Text style={styles.subLabel}>{pl.choose}</Text>
-                  {(
-                    [
-                      { id: 'essential', price: PRICE_ESSENTIAL, desc: pl.essentialDesc },
-                      { id: 'premium', price: PRICE_PREMIUM, desc: pl.premiumDesc },
-                    ] as const
-                  ).map((p) => (
-                    <View key={p.id} style={styles.planCard}>
-                      <View style={styles.planHead}>
-                        <Text style={styles.planName}>{PLAN_NAMES[p.id]}</Text>
-                        <Text style={styles.planPrice}>{f(pl.perMonth, { price: p.price })}</Text>
-                      </View>
-                      <Text style={styles.hint}>{p.desc}</Text>
-                      <Pressable
-                        style={[
-                          styles.saveBtn,
-                          p.id === 'premium' ? styles.subscribeBtn : styles.planBtnAlt,
-                          billingUi === 'redirecting' && styles.btnDisabled,
-                        ]}
-                        onPress={() => goBilling('/api/billing/checkout', p.id)}
-                        disabled={billingUi === 'redirecting'}
-                      >
-                        <Text style={p.id === 'premium' ? styles.saveBtnText : styles.planBtnAltText}>
-                          {billingUi === 'redirecting'
-                            ? t.settings.redirecting
-                            : f(pl.chooseBtn, { plan: PLAN_NAMES[p.id] })}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              <View style={styles.billingBtns}>
-                {billing?.hasCustomer ? (
-                  <Pressable
-                    style={[styles.manageBtn, billingUi === 'redirecting' && styles.btnDisabled]}
-                    onPress={() => goBilling('/api/billing/portal')}
-                    disabled={billingUi === 'redirecting'}
-                  >
-                    <Text style={styles.manageBtnText}>
-                      {billingUi === 'redirecting' ? t.settings.opening : t.settings.manage}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
               {billingMsg ? (
                 <Text style={[styles.msg, billingUi === 'error' ? styles.msgErr : styles.msgOk]}>
                   {billingMsg}
@@ -1187,17 +1214,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
           {persoLocked ? (
             <View style={styles.persoLock}>
               <Text style={styles.hint}>{pl.lockBody}</Text>
-              <Pressable
-                style={[styles.saveBtn, styles.subscribeBtn, billingUi === 'redirecting' && styles.btnDisabled]}
-                onPress={() =>
-                  billing?.hasCustomer
-                    ? goBilling('/api/billing/portal')
-                    : goBilling('/api/billing/checkout', 'premium')
-                }
-                disabled={billingUi === 'redirecting'}
-              >
-                <Text style={styles.saveBtnText}>{pl.lockCta}</Text>
-              </Pressable>
             </View>
           ) : null}
 
@@ -1539,6 +1555,44 @@ const styles = StyleSheet.create({
   persoResetText: { fontFamily: fonts.sansSemibold, color: colors.ink, fontSize: 14 },
   persoLink: { marginTop: spacing.md },
   persoLinkText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
+  delBtn: {
+    marginTop: spacing.md,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  delBtnText: { fontFamily: fonts.sansSemibold, color: colors.danger, fontSize: 15 },
+  dangerBox: {
+    marginTop: spacing.md,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  dangerText: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.danger },
+  dangerInput: {
+    fontFamily: fonts.sansSemibold,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  dangerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  dangerBtn: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    borderRadius: radius.sm,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dangerBtnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   signout: {
     marginTop: spacing.md,
     borderColor: colors.danger,

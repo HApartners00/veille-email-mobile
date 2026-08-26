@@ -1,5 +1,5 @@
 /**
- * Dictionnaire i18n de l'app mobile — 7 langues (fr, en, es, de, pt, it, ar).
+ * Dictionnaire i18n de l'app mobile — 8 langues (fr, en, es, de, pt, it, ar, ru).
  * Aligné sur les dictionnaires du web (apps/web/src/lib/i18n).
  *
  * Convention : chaînes pures avec jetons `{x}` interpolés via `fmt()` (voir ./index).
@@ -144,8 +144,8 @@ const fr = {
     trialOngoingNoDate: 'Essai gratuit en cours.',
     activeRenew: 'Abonnement actif — prochain renouvellement le {date}.',
     activeCancel: 'Abonnement actif — se termine le {date} (résiliation programmée).',
-    pastDue: 'Paiement en échec. Mettez à jour votre moyen de paiement pour conserver le service.',
-    canceled: 'Abonnement résilié. Réabonnez-vous pour relancer votre veille quotidienne.',
+    pastDue: 'Paiement en échec. Le rapport quotidien peut être suspendu.',
+    canceled: 'Abonnement résilié. Le rapport quotidien est suspendu.',
     noneWithPrice:
       'Démarrez votre essai gratuit de 14 jours, puis {price}. Sans abonnement actif, le rapport quotidien est suspendu.',
     noneNoPrice:
@@ -157,6 +157,14 @@ const fr = {
     actionImpossible: 'Action impossible.',
     readImpossible: 'Lecture impossible.',
     signOut: 'Se déconnecter',
+    account: 'Mon compte',
+    delTitle: 'Supprimer mon compte',
+    delIntro:
+      'La suppression est immédiate et définitive : votre compte, vos emails traités et vos réglages sont effacés de nos serveurs, les autorisations d’accès à vos boîtes sont révoquées, et le traitement quotidien s’arrête. Rien n’est conservé, et cette action ne peut pas être annulée.',
+    delBtn: 'Supprimer mon compte',
+    delConfirmInstr: 'Pour confirmer, tapez {word} ci-dessous.',
+    delConfirmBtn: 'Supprimer définitivement',
+    delErr: 'Suppression impossible. Réessayez ou écrivez-nous.',
     groupApp: 'Application',
     groupAccount: 'Compte',
     language: 'Langue',
@@ -408,8 +416,8 @@ const en: Dict = {
     trialOngoingNoDate: 'Free trial in progress.',
     activeRenew: 'Subscription active — next renewal on {date}.',
     activeCancel: 'Subscription active — ends on {date} (cancellation scheduled).',
-    pastDue: 'Payment failed. Update your payment method to keep the service.',
-    canceled: 'Subscription canceled. Resubscribe to restart your daily digest.',
+    pastDue: 'Payment failed. The daily digest may be suspended.',
+    canceled: 'Subscription canceled. The daily digest is suspended.',
     noneWithPrice:
       'Start your 14-day free trial, then {price}. Without an active subscription, the daily report is paused.',
     noneNoPrice:
@@ -421,6 +429,14 @@ const en: Dict = {
     actionImpossible: 'Action not possible.',
     readImpossible: 'Could not load.',
     signOut: 'Sign out',
+    account: 'My account',
+    delTitle: 'Delete my account',
+    delIntro:
+      'Deletion is immediate and permanent: your account, your processed email and your settings are erased from our servers, access to your mailboxes is revoked, and daily processing stops. Nothing is kept, and this cannot be undone.',
+    delBtn: 'Delete my account',
+    delConfirmInstr: 'To confirm, type {word} below.',
+    delConfirmBtn: 'Delete permanently',
+    delErr: 'Deletion failed. Try again or contact us.',
     groupApp: 'App',
     groupAccount: 'Account',
     language: 'Language',
@@ -670,8 +686,8 @@ const es: Dict = {
     trialOngoingNoDate: 'Prueba gratuita en curso.',
     activeRenew: 'Suscripción activa — próxima renovación el {date}.',
     activeCancel: 'Suscripción activa — termina el {date} (cancelación programada).',
-    pastDue: 'Pago fallido. Actualiza tu método de pago para conservar el servicio.',
-    canceled: 'Suscripción cancelada. Vuelve a suscribirte para reanudar tu resumen diario.',
+    pastDue: 'Pago fallido. El resumen diario puede quedar suspendido.',
+    canceled: 'Suscripción cancelada. El resumen diario está suspendido.',
     noneWithPrice:
       'Empieza tu prueba gratuita de 14 días y luego {price}. Sin suscripción activa, el informe diario queda en pausa.',
     noneNoPrice:
@@ -683,6 +699,14 @@ const es: Dict = {
     actionImpossible: 'Acción no posible.',
     readImpossible: 'No se pudo cargar.',
     signOut: 'Cerrar sesión',
+    account: 'Mi cuenta',
+    delTitle: 'Eliminar mi cuenta',
+    delIntro:
+      'La eliminación es inmediata y definitiva: tu cuenta, tus correos procesados y tus ajustes se borran de nuestros servidores, se revoca el acceso a tus buzones y el procesamiento diario se detiene. No se conserva nada y esta acción no se puede deshacer.',
+    delBtn: 'Eliminar mi cuenta',
+    delConfirmInstr: 'Para confirmar, escribe {word} abajo.',
+    delConfirmBtn: 'Eliminar definitivamente',
+    delErr: 'No se pudo eliminar. Inténtalo de nuevo o escríbenos.',
     groupApp: 'Aplicación',
     groupAccount: 'Cuenta',
     language: 'Idioma',
@@ -932,8 +956,8 @@ const de: Dict = {
     trialOngoingNoDate: 'Kostenlose Testphase läuft.',
     activeRenew: 'Abonnement aktiv — nächste Verlängerung am {date}.',
     activeCancel: 'Abonnement aktiv — endet am {date} (Kündigung geplant).',
-    pastDue: 'Zahlung fehlgeschlagen. Aktualisiere deine Zahlungsmethode, um den Dienst zu behalten.',
-    canceled: 'Abonnement gekündigt. Abonniere erneut, um deinen täglichen Bericht fortzusetzen.',
+    pastDue: 'Zahlung fehlgeschlagen. Der tägliche Bericht kann ausgesetzt werden.',
+    canceled: 'Abonnement gekündigt. Der tägliche Bericht ist ausgesetzt.',
     noneWithPrice:
       'Starte deine 14-tägige kostenlose Testphase, danach {price}. Ohne aktives Abonnement pausiert der tägliche Bericht.',
     noneNoPrice:
@@ -945,6 +969,14 @@ const de: Dict = {
     actionImpossible: 'Aktion nicht möglich.',
     readImpossible: 'Laden nicht möglich.',
     signOut: 'Abmelden',
+    account: 'Mein Konto',
+    delTitle: 'Mein Konto löschen',
+    delIntro:
+      'Die Löschung erfolgt sofort und endgültig: dein Konto, deine verarbeiteten E-Mails und deine Einstellungen werden von unseren Servern entfernt, der Zugriff auf deine Postfächer wird widerrufen und die tägliche Verarbeitung stoppt. Es wird nichts aufbewahrt, und dieser Schritt lässt sich nicht rückgängig machen.',
+    delBtn: 'Mein Konto löschen',
+    delConfirmInstr: 'Tippe zur Bestätigung {word} ein.',
+    delConfirmBtn: 'Endgültig löschen',
+    delErr: 'Löschen fehlgeschlagen. Versuche es erneut oder schreib uns.',
     groupApp: 'App',
     groupAccount: 'Konto',
     language: 'Sprache',
@@ -1194,8 +1226,8 @@ const pt: Dict = {
     trialOngoingNoDate: 'Período gratuito em curso.',
     activeRenew: 'Subscrição ativa — próxima renovação a {date}.',
     activeCancel: 'Subscrição ativa — termina a {date} (cancelamento agendado).',
-    pastDue: 'Pagamento falhou. Atualize o seu método de pagamento para manter o serviço.',
-    canceled: 'Subscrição cancelada. Volte a subscrever para retomar o seu resumo diário.',
+    pastDue: 'Pagamento falhou. O resumo diário pode ficar suspenso.',
+    canceled: 'Subscrição cancelada. O resumo diário está suspenso.',
     noneWithPrice:
       'Comece o seu período gratuito de 14 dias e depois {price}. Sem subscrição ativa, o relatório diário fica suspenso.',
     noneNoPrice:
@@ -1207,6 +1239,14 @@ const pt: Dict = {
     actionImpossible: 'Ação não possível.',
     readImpossible: 'Não foi possível carregar.',
     signOut: 'Terminar sessão',
+    account: 'A minha conta',
+    delTitle: 'Eliminar a minha conta',
+    delIntro:
+      'A eliminação é imediata e definitiva: a sua conta, os seus emails tratados e as suas definições são apagados dos nossos servidores, o acesso às suas caixas de correio é revogado e o tratamento diário para. Nada é conservado e esta ação não pode ser anulada.',
+    delBtn: 'Eliminar a minha conta',
+    delConfirmInstr: 'Para confirmar, escreva {word} abaixo.',
+    delConfirmBtn: 'Eliminar definitivamente',
+    delErr: 'Não foi possível eliminar. Tente de novo ou contacte-nos.',
     groupApp: 'Aplicação',
     groupAccount: 'Conta',
     language: 'Idioma',
@@ -1456,8 +1496,8 @@ const it: Dict = {
     trialOngoingNoDate: 'Prova gratuita in corso.',
     activeRenew: 'Abbonamento attivo — prossimo rinnovo il {date}.',
     activeCancel: 'Abbonamento attivo — termina il {date} (disdetta programmata).',
-    pastDue: 'Pagamento non riuscito. Aggiorna il metodo di pagamento per mantenere il servizio.',
-    canceled: 'Abbonamento annullato. Riabbonati per riprendere il tuo report quotidiano.',
+    pastDue: 'Pagamento non riuscito. Il report quotidiano può essere sospeso.',
+    canceled: 'Abbonamento annullato. Il report quotidiano è sospeso.',
     noneWithPrice:
       'Inizia la prova gratuita di 14 giorni, poi {price}. Senza abbonamento attivo, il report quotidiano è sospeso.',
     noneNoPrice:
@@ -1469,6 +1509,14 @@ const it: Dict = {
     actionImpossible: 'Azione non possibile.',
     readImpossible: 'Impossibile caricare.',
     signOut: 'Esci',
+    account: 'Il mio account',
+    delTitle: 'Elimina il mio account',
+    delIntro:
+      'L’eliminazione è immediata e definitiva: il tuo account, le tue email elaborate e le tue impostazioni vengono cancellati dai nostri server, l’accesso alle tue caselle viene revocato e l’elaborazione quotidiana si interrompe. Non viene conservato nulla e l’operazione non è reversibile.',
+    delBtn: 'Elimina il mio account',
+    delConfirmInstr: 'Per confermare, digita {word} qui sotto.',
+    delConfirmBtn: 'Elimina definitivamente',
+    delErr: 'Eliminazione non riuscita. Riprova o scrivici.',
     groupApp: 'App',
     groupAccount: 'Account',
     language: 'Lingua',
@@ -1718,8 +1766,8 @@ const ar: Dict = {
     trialOngoingNoDate: 'تجربة مجانية جارية.',
     activeRenew: 'الاشتراك نشط — التجديد التالي في {date}.',
     activeCancel: 'الاشتراك نشط — ينتهي في {date} (إلغاء مُجدوَل).',
-    pastDue: 'فشل الدفع. حدِّث طريقة الدفع للحفاظ على الخدمة.',
-    canceled: 'تم إلغاء الاشتراك. أعد الاشتراك لاستئناف تقريرك اليومي.',
+    pastDue: 'فشل الدفع. قد يتوقف التقرير اليومي.',
+    canceled: 'تم إلغاء الاشتراك. التقرير اليومي متوقف.',
     noneWithPrice:
       'ابدأ تجربتك المجانية لمدة 14 يومًا، ثم {price}. بدون اشتراك نشط، يتوقف التقرير اليومي.',
     noneNoPrice:
@@ -1731,6 +1779,14 @@ const ar: Dict = {
     actionImpossible: 'الإجراء غير ممكن.',
     readImpossible: 'تعذّر التحميل.',
     signOut: 'تسجيل الخروج',
+    account: 'حسابي',
+    delTitle: 'حذف حسابي',
+    delIntro:
+      'الحذف فوري ونهائي: يُمحى حسابك ورسائلك المعالَجة وإعداداتك من خوادمنا، ويُلغى الوصول إلى صناديق بريدك، وتتوقف المعالجة اليومية. لا يُحتفظ بأي شيء، ولا يمكن التراجع عن هذا الإجراء.',
+    delBtn: 'حذف حسابي',
+    delConfirmInstr: 'للتأكيد، اكتب {word} أدناه.',
+    delConfirmBtn: 'حذف نهائي',
+    delErr: 'تعذّر الحذف. أعد المحاولة أو راسلنا.',
     groupApp: 'التطبيق',
     groupAccount: 'الحساب',
     language: 'اللغة',
@@ -1980,8 +2036,8 @@ const ru: Dict = {
     trialOngoingNoDate: 'Бесплатный пробный период активен.',
     activeRenew: 'Подписка активна — следующее продление {date}.',
     activeCancel: 'Подписка активна — заканчивается {date} (отмена запланирована).',
-    pastDue: 'Платёж не прошёл. Обновите способ оплаты, чтобы сохранить услугу.',
-    canceled: 'Подписка отменена. Оформите её снова, чтобы возобновить ежедневную сводку.',
+    pastDue: 'Платёж не прошёл. Ежедневная сводка может быть приостановлена.',
+    canceled: 'Подписка отменена. Ежедневная сводка приостановлена.',
     noneWithPrice:
       'Начните бесплатный пробный период на 14 дней, затем {price}. Без активной подписки ежедневный отчёт приостановлен.',
     noneNoPrice:
@@ -1993,6 +2049,14 @@ const ru: Dict = {
     actionImpossible: 'Действие невозможно.',
     readImpossible: 'Не удалось загрузить.',
     signOut: 'Выйти',
+    account: 'Мой аккаунт',
+    delTitle: 'Удалить мой аккаунт',
+    delIntro:
+      'Удаление происходит сразу и окончательно: ваш аккаунт, обработанные письма и настройки стираются с наших серверов, доступ к вашим почтовым ящикам отзывается, ежедневная обработка прекращается. Ничего не сохраняется, и отменить это действие нельзя.',
+    delBtn: 'Удалить мой аккаунт',
+    delConfirmInstr: 'Для подтверждения введите {word} ниже.',
+    delConfirmBtn: 'Удалить навсегда',
+    delErr: 'Не удалось удалить. Попробуйте снова или напишите нам.',
     groupApp: 'Приложение',
     groupAccount: 'Аккаунт',
     language: 'Язык',

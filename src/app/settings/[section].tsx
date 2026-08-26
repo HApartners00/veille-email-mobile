@@ -17,6 +17,7 @@ const KNOWN: SettingsSection[] = [
   'parrainage',
   'personnalisation',
   'signature',
+  'compte',
 ];
 
 /**
@@ -37,6 +38,7 @@ export default function SettingsSectionScreen() {
     parrainage: settingsSectionTitle('parrainage', locale) ?? t.settings.groupAccount,
     personnalisation: settingsSectionTitle('personnalisation', locale) ?? t.settings.groupAccount,
     signature: signatureTitle(locale),
+    compte: t.settings.account,
   };
 
   return (
