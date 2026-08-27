@@ -26,184 +26,29 @@ import { SignatureSection, signatureTitle } from '@/components/signature-section
 // Jours dans l'ordre Lun→Dim ; le libellé vient du dictionnaire (daysShort, indexé 0=Dim).
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
-// « Essentiel » / « Premium » = noms de produit, invariables (8 langues).
-// Aucun prix n'est affiché dans l'app : App Store, règle 3.1.3(f).
-
 // Mot de confirmation de la suppression de compte.
 // 🔴 NE PAS TRADUIRE ni modifier : /api/account/delete attend exactement 'SUPPRIMER'.
 // Il est affiché à l'écran, donc recopiable quelle que soit la langue de l'interface.
 const CONFIRM_WORD = 'SUPPRIMER';
-const PLAN_NAMES: Record<string, string> = { essential: 'Essentiel', premium: 'Premium' };
 
-type BillingStatus = {
-  status: string;
-  entitled: boolean;
-  source?: 'subscription' | 'trial' | null;
-  plan?: 'essential' | 'premium' | null;
-  hasCustomer: boolean;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  trial_end: string | null;
-  free_trial_ends_at?: string | null;
-};
 
-// Libellés « deux formules » + verrou Premium (autonomes, repli anglais).
-type PlanStrings = {
-  choose: string;
-  essentialDesc: string;
-  premiumDesc: string;
-  chooseBtn: string; // {plan}
-  perMonth: string; // {price}
-  planLabel: string; // {plan}
-  upgradeHint: string;
-  trialPremiumNote: string;
-  lockBadge: string;
-  lockBody: string;
-  lockCta: string;
-};
+// Verrou d'option, formulation NEUTRE — 27/08/2026.
+// Avant : ce bloc portait les noms de formules, un « Choisissez votre formule »,
+// « {price}/mois » et « Passer a Premium ». Retire apres le refus App Store du
+// 27/08 (regles 3.1.1 et 3.1.3(c)) : l'app iOS ne doit rien dire d'un service
+// payant qu'elle ne permet pas d'acheter. Le verrou reste applique COTE SERVEUR ;
+// ici on se contente d'expliquer que l'option n'est pas active.
+type PlanStrings = { lockBody: string };
 const PLAN_STR: Record<string, PlanStrings> = {
-  fr: {
-    choose: 'Choisissez votre formule :',
-    essentialDesc: 'Tout Vmail : tri quotidien, brouillons IA, pièces jointes, 8 langues.',
-    premiumDesc:
-      'Tout Essentiel + l’outil parle comme vous : brouillons dans votre ton, apprentissage de vos réponses, écran « Votre style ».',
-    chooseBtn: 'Choisir {plan}',
-    perMonth: '{price}/mois',
-    planLabel: 'Votre formule : {plan}',
-    upgradeHint:
-      'La personnalisation du style est incluse dans la formule Premium.',
-    trialPremiumNote:
-      'Votre essai gratuit donne accès à tout, personnalisation du style incluse (formule Premium).',
-    lockBadge: 'Premium',
-    lockBody:
-      'La personnalisation du style — l’outil parle comme vous — est incluse dans la formule Premium.',
-    lockCta: 'Passer à Premium',
-  },
-  en: {
-    choose: 'Choose your plan:',
-    essentialDesc: 'All of Vmail: daily sorting, AI drafts, attachments, 8 languages.',
-    premiumDesc:
-      'Everything in Essentiel + the tool writes like you: drafts in your tone, learning from your replies, “Your style” screen.',
-    chooseBtn: 'Choose {plan}',
-    perMonth: '{price}/month',
-    planLabel: 'Your plan: {plan}',
-    upgradeHint:
-      'Style personalization is included in the Premium plan.',
-    trialPremiumNote:
-      'Your free trial gives access to everything, style personalization included (Premium plan).',
-    lockBadge: 'Premium',
-    lockBody: 'Style personalization — the tool writes like you — is included in the Premium plan.',
-    lockCta: 'Upgrade to Premium',
-  },
-  es: {
-    choose: 'Elige tu plan:',
-    essentialDesc: 'Todo Vmail: clasificación diaria, borradores IA, adjuntos, 8 idiomas.',
-    premiumDesc:
-      'Todo Essentiel + la herramienta escribe como tú: borradores con tu tono, aprendizaje de tus respuestas, pantalla «Tu estilo».',
-    chooseBtn: 'Elegir {plan}',
-    perMonth: '{price}/mes',
-    planLabel: 'Tu plan: {plan}',
-    upgradeHint:
-      'La personalización del estilo está incluida en el plan Premium.',
-    trialPremiumNote:
-      'Tu prueba gratuita da acceso a todo, personalización del estilo incluida (plan Premium).',
-    lockBadge: 'Premium',
-    lockBody:
-      'La personalización del estilo — la herramienta escribe como tú — está incluida en el plan Premium.',
-    lockCta: 'Pasar a Premium',
-  },
-  de: {
-    choose: 'Wähle deinen Tarif:',
-    essentialDesc: 'Das ganze Vmail: tägliche Sortierung, KI-Entwürfe, Anhänge, 8 Sprachen.',
-    premiumDesc:
-      'Alles aus Essentiel + das Tool schreibt wie du: Entwürfe in deinem Ton, Lernen aus deinen Antworten, Bildschirm „Dein Stil“.',
-    chooseBtn: '{plan} wählen',
-    perMonth: '{price}/Monat',
-    planLabel: 'Dein Tarif: {plan}',
-    upgradeHint:
-      'Die Stil-Personalisierung ist im Premium-Tarif enthalten.',
-    trialPremiumNote:
-      'Deine kostenlose Testphase umfasst alles, inklusive Stil-Personalisierung (Premium-Tarif).',
-    lockBadge: 'Premium',
-    lockBody:
-      'Die Stil-Personalisierung — das Tool schreibt wie du — ist im Premium-Tarif enthalten.',
-    lockCta: 'Auf Premium upgraden',
-  },
-  pt: {
-    choose: 'Escolhe o teu plano:',
-    essentialDesc: 'Todo o Vmail: triagem diária, rascunhos IA, anexos, 8 línguas.',
-    premiumDesc:
-      'Tudo do Essentiel + a ferramenta escreve como tu: rascunhos no teu tom, aprendizagem das tuas respostas, ecrã «O teu estilo».',
-    chooseBtn: 'Escolher {plan}',
-    perMonth: '{price}/mês',
-    planLabel: 'O teu plano: {plan}',
-    upgradeHint:
-      'A personalização do estilo está incluída no plano Premium.',
-    trialPremiumNote:
-      'O teu teste gratuito dá acesso a tudo, personalização do estilo incluída (plano Premium).',
-    lockBadge: 'Premium',
-    lockBody:
-      'A personalização do estilo — a ferramenta escreve como você — está incluída no plano Premium.',
-    lockCta: 'Passar a Premium',
-  },
-  it: {
-    choose: 'Scegli il tuo piano:',
-    essentialDesc: 'Tutto Vmail: classificazione quotidiana, bozze IA, allegati, 8 lingue.',
-    premiumDesc:
-      'Tutto Essentiel + lo strumento scrive come te: bozze nel tuo tono, apprendimento dalle tue risposte, schermata «Il tuo stile».',
-    chooseBtn: 'Scegli {plan}',
-    perMonth: '{price}/mese',
-    planLabel: 'Il tuo piano: {plan}',
-    upgradeHint:
-      'La personalizzazione dello stile è inclusa nel piano Premium.',
-    trialPremiumNote:
-      'La tua prova gratuita dà accesso a tutto, personalizzazione dello stile inclusa (piano Premium).',
-    lockBadge: 'Premium',
-    lockBody:
-      'La personalizzazione dello stile — lo strumento scrive come te — è inclusa nel piano Premium.',
-    lockCta: 'Passa a Premium',
-  },
-  ar: {
-    choose: 'اختر باقتك:',
-    essentialDesc: 'كل Vmail: الفرز اليومي، مسودات الذكاء الاصطناعي، المرفقات، 8 لغات.',
-    premiumDesc:
-      'كل ما في Essentiel + الأداة تكتب بأسلوبك: مسودات بنبرتك، تعلّم من ردودك، شاشة «أسلوبك».',
-    chooseBtn: 'اختيار {plan}',
-    perMonth: '{price}/شهر',
-    planLabel: 'باقتك: {plan}',
-    upgradeHint: 'تخصيص الأسلوب مُضمَّن في باقة Premium.',
-    trialPremiumNote:
-      'تجربتك المجانية تمنحك الوصول إلى كل شيء، بما في ذلك تخصيص الأسلوب (باقة Premium).',
-    lockBadge: 'Premium',
-    lockBody: 'تخصيص الأسلوب — الأداة تكتب بأسلوبك — مُضمَّن في باقة Premium.',
-    lockCta: 'الترقية إلى Premium',
-  },
-  ru: {
-    choose: 'Выберите тариф:',
-    essentialDesc: 'Весь Vmail: ежедневная сортировка, черновики с ИИ, вложения, 8 языков.',
-    premiumDesc:
-      'Всё из Essentiel + инструмент пишет как вы: черновики в вашем тоне, обучение на ваших ответах, экран «Ваш стиль».',
-    chooseBtn: 'Выбрать {plan}',
-    perMonth: '{price}/мес',
-    planLabel: 'Ваш тариф: {plan}',
-    upgradeHint:
-      'Персонализация стиля включена в тариф Premium.',
-    trialPremiumNote:
-      'Бесплатный пробный период открывает доступ ко всему, включая персонализацию стиля (тариф Premium).',
-    lockBadge: 'Premium',
-    lockBody: 'Персонализация стиля — инструмент пишет как вы — входит в тариф Premium.',
-    lockCta: 'Перейти на Premium',
-  },
+  fr: { lockBody: 'Cette option n’est pas activée sur votre compte.' },
+  en: { lockBody: 'This option is not enabled on your account.' },
+  es: { lockBody: 'Esta opción no está activada en tu cuenta.' },
+  de: { lockBody: 'Diese Option ist für dein Konto nicht aktiviert.' },
+  pt: { lockBody: 'Esta opção não está ativada na sua conta.' },
+  it: { lockBody: 'Questa opzione non è attiva sul tuo account.' },
+  ar: { lockBody: 'هذا الخيار غير مُفعَّل في حسابك.' },
+  ru: { lockBody: 'Эта опция не включена в вашем аккаунте.' },
 };
-
-function formatDate(value: string | null, intl: string): string {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleDateString(intl, { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch {
-    return '—';
-  }
-}
 
 // Libellés de la carte « Personnalisation » (autonomes, repli anglais).
 type PersoStrings = {
@@ -352,11 +197,8 @@ const PERSO: Record<string, PersoStrings> = {
 // Libellés « Parrainage » (autonomes, repli anglais).
 type RefStrings = {
   title: string;
-  intro: string;
   yourCode: string;
   share: string;
-  activeCount: string; // {n}
-  discount: string; // {pct}
   none: string;
   haveCode: string;
   codePlaceholder: string;
@@ -367,12 +209,8 @@ type RefStrings = {
 const REF_STR: Record<string, RefStrings> = {
   fr: {
     title: 'Parrainage',
-    intro:
-      'Chaque filleul abonné vous rapporte une remise permanente : -10 % (Essentiel) ou -20 % (Premium), cumulable jusqu’à -100 %, tant qu’il reste abonné.',
     yourCode: 'Votre code',
     share: 'Partager mon lien',
-    activeCount: 'Filleuls abonnés : {n}',
-    discount: 'Votre remise actuelle : -{pct} %',
     none: 'Aucun filleul pour le moment — partagez votre lien !',
     haveCode: 'Vous avez un code de parrainage ?',
     codePlaceholder: 'Code (ex. ABCD1234)',
@@ -382,12 +220,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   en: {
     title: 'Referral program',
-    intro:
-      'Every subscribed referral earns you a standing discount: -10% (Essentiel) or -20% (Premium), stacking up to -100%, for as long as they stay subscribed.',
     yourCode: 'Your code',
     share: 'Share my link',
-    activeCount: 'Subscribed referrals: {n}',
-    discount: 'Your current discount: -{pct}%',
     none: 'No referrals yet — share your link!',
     haveCode: 'Have a referral code?',
     codePlaceholder: 'Code (e.g. ABCD1234)',
@@ -397,12 +231,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   es: {
     title: 'Programa de recomendación',
-    intro:
-      'Cada recomendado suscrito te da un descuento permanente: -10% (Essentiel) o -20% (Premium), acumulable hasta -100%, mientras siga suscrito.',
     yourCode: 'Tu código',
     share: 'Compartir mi enlace',
-    activeCount: 'Recomendados suscritos: {n}',
-    discount: 'Tu descuento actual: -{pct}%',
     none: 'Aún no hay recomendados — ¡comparte tu enlace!',
     haveCode: '¿Tienes un código de recomendación?',
     codePlaceholder: 'Código (ej. ABCD1234)',
@@ -412,12 +242,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   de: {
     title: 'Empfehlungsprogramm',
-    intro:
-      'Jede abonnierte Empfehlung bringt dir einen dauerhaften Rabatt: -10 % (Essentiel) oder -20 % (Premium), kumulierbar bis -100 %, solange sie abonniert bleibt.',
     yourCode: 'Dein Code',
     share: 'Meinen Link teilen',
-    activeCount: 'Abonnierte Empfehlungen: {n}',
-    discount: 'Dein aktueller Rabatt: -{pct} %',
     none: 'Noch keine Empfehlungen — teile deinen Link!',
     haveCode: 'Hast du einen Empfehlungscode?',
     codePlaceholder: 'Code (z. B. ABCD1234)',
@@ -427,12 +253,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   pt: {
     title: 'Programa de indicação',
-    intro:
-      'Cada indicado subscrito dá-te um desconto permanente: -10% (Essentiel) ou -20% (Premium), acumulável até -100%, enquanto continuar subscrito.',
     yourCode: 'O teu código',
     share: 'Partilhar a minha ligação',
-    activeCount: 'Indicados subscritos: {n}',
-    discount: 'O teu desconto atual: -{pct}%',
     none: 'Ainda sem indicados — partilha a tua ligação!',
     haveCode: 'Tens um código de indicação?',
     codePlaceholder: 'Código (ex. ABCD1234)',
@@ -442,12 +264,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   it: {
     title: 'Programma di referral',
-    intro:
-      'Ogni invitato abbonato ti dà uno sconto permanente: -10% (Essentiel) o -20% (Premium), cumulabile fino a -100%, finché resta abbonato.',
     yourCode: 'Il tuo codice',
     share: 'Condividi il mio link',
-    activeCount: 'Invitati abbonati: {n}',
-    discount: 'Il tuo sconto attuale: -{pct}%',
     none: 'Ancora nessun invitato — condividi il tuo link!',
     haveCode: 'Hai un codice di referral?',
     codePlaceholder: 'Codice (es. ABCD1234)',
@@ -457,12 +275,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   ar: {
     title: 'برنامج الإحالة',
-    intro:
-      'كل مُحال مشترك يمنحك خصمًا دائمًا: ‎-10%‎ (Essentiel) أو ‎-20%‎ (Premium)، قابلًا للتراكم حتى ‎-100%‎، ما دام مشتركًا.',
     yourCode: 'رمزك',
     share: 'مشاركة رابطي',
-    activeCount: 'المُحالون المشتركون: {n}',
-    discount: 'خصمك الحالي: -{pct}%',
     none: 'لا مُحالين بعد — شارك رابطك!',
     haveCode: 'لديك رمز إحالة؟',
     codePlaceholder: 'الرمز (مثال ABCD1234)',
@@ -472,12 +286,8 @@ const REF_STR: Record<string, RefStrings> = {
   },
   ru: {
     title: 'Реферальная программа',
-    intro:
-      'Каждый подписавшийся приглашённый даёт вам постоянную скидку: -10% (Essentiel) или -20% (Premium), суммируется до -100%, пока он остаётся подписанным.',
     yourCode: 'Ваш код',
     share: 'Поделиться ссылкой',
-    activeCount: 'Подписавшиеся приглашённые: {n}',
-    discount: 'Ваша текущая скидка: -{pct}%',
     none: 'Пока нет приглашённых — поделитесь ссылкой!',
     haveCode: 'Есть реферальный код?',
     codePlaceholder: 'Код (напр. ABCD1234)',
@@ -521,7 +331,6 @@ export type SettingsSection =
   | 'langue'
   | 'notifications'
   | 'rapport'
-  | 'abonnement'
   | 'parrainage'
   | 'personnalisation'
   | 'signature'
@@ -645,9 +454,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
   const [delErr, setDelErr] = useState<string | null>(null);
 
   // Abonnement (Stripe)
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const [billingUi, setBillingUi] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [billingMsg, setBillingMsg] = useState<string | null>(null);
 
   // Personnalisation
   const ps = PERSO[locale] ?? PERSO.en;
@@ -773,18 +579,10 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     }
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await apiGet<BillingStatus>('/api/billing/status');
-        setBilling(r);
-        setBillingUi('ready');
-      } catch (e: any) {
-        setBillingUi('error');
-        setBillingMsg(e?.message || t.settings.readImpossible);
-      }
-    })();
-  }, []);
+  // 27/08/2026 — l'appel a /api/billing/status est RETIRE de l'app iOS.
+  // Refus App Store du 27/08 (regles 3.1.1 et 3.1.3(c)) : l'app ne doit ni parler
+  // d'abonnement, ni lire un etat d'abonnement, tant qu'elle ne permet pas d'acheter.
+  // Le controle d'acces reste entier COTE SERVEUR. Le web garde son ecran Abonnement.
 
   /** Supprime le compte, puis déconnecte. L'API purge Supabase en cascade,
    *  révoque les jetons OAuth des boîtes connectées et les retire du backend. */
@@ -807,34 +605,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     }
   }
 
-  function billingStatusText(): string {
-    const s = billing?.status || 'none';
-    if (s === 'trialing')
-      return billing?.trial_end
-        ? f(t.settings.trialOngoing, { date: formatDate(billing.trial_end, intl) })
-        : t.settings.trialOngoingNoDate;
-    if (s === 'active')
-      return billing?.cancel_at_period_end
-        ? f(t.settings.activeCancel, { date: formatDate(billing?.current_period_end || null, intl) })
-        : f(t.settings.activeRenew, { date: formatDate(billing?.current_period_end || null, intl) });
-    if (s === 'past_due' || s === 'unpaid') return t.settings.pastDue;
-    if (s === 'canceled') return t.settings.canceled;
-    // Essai gratuit SANS carte en cours (pas d'abonnement Stripe).
-    if (billing?.source === 'trial' && billing?.free_trial_ends_at) {
-      return f(t.settings.trialOngoing, { date: formatDate(billing.free_trial_ends_at, intl) });
-    }
-    return t.settings.noneNoPrice;
-  }
-
-  /** Valeur courte affichee a droite de la rangee « Abonnement » sur l'index.
-   *  Volontairement vide hors abonnement paye : un statut tronque se lit plus mal
-   *  que pas de statut du tout. */
-  function billingShort(): string | undefined {
-    if (billing?.source === 'subscription' && billing?.plan) {
-      return PLAN_NAMES[billing.plan] || billing.plan;
-    }
-    return undefined;
-  }
 
   const show = (k: SettingsSection) => only === k;
 
@@ -879,12 +649,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
 
             <Text style={styles.groupTitle}>{t.settings.groupAccount}</Text>
             <View style={styles.list}>
-              <NavRow
-                label={t.settings.subscription}
-                value={billingUi === 'loading' ? undefined : billingShort()}
-                onPress={() => router.push('/settings/abonnement')}
-              />
-              <View style={styles.hubSep} />
               <NavRow label={ps.title} onPress={() => router.push('/settings/personnalisation')} />
               <View style={styles.hubSep} />
               <NavRow label={ps.viewStyle} onPress={() => router.push('/style')} />
@@ -1105,60 +869,12 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
         </View>
         ) : null}
 
-        {show('abonnement') ? (
-        <View style={styles.card}>
-            <Text style={styles.hint}>{t.settings.subHint}</Text>
-          {billingUi === 'loading' ? (
-            <ActivityIndicator color={colors.terracotta} style={{ marginVertical: spacing.md }} />
-          ) : (
-            <>
-              <Text style={styles.billingStatus}>{billingStatusText()}</Text>
-
-              {/* Essai sans carte = accès Premium complet (note). */}
-              {billing?.source === 'trial' ? (
-                <Text style={styles.hint}>{pl.trialPremiumNote}</Text>
-              ) : null}
-
-              {/* Formule courante + upsell Essentiel → Premium. */}
-              {billing?.source === 'subscription' && billing?.plan ? (
-                <>
-                  <Text style={styles.billingStatus}>
-                    {f(pl.planLabel, { plan: PLAN_NAMES[billing.plan] || billing.plan })}
-                  </Text>
-                  {billing.plan === 'essential' ? (
-                    <Text style={styles.hint}>{pl.upgradeHint}</Text>
-                  ) : null}
-                </>
-              ) : null}
-
-              {billingMsg ? (
-                <Text style={[styles.msg, billingUi === 'error' ? styles.msgErr : styles.msgOk]}>
-                  {billingMsg}
-                </Text>
-              ) : null}
-            </>
-          )}
-        </View>
-        ) : null}
 
         {/* Parrainage (programme ambassadeur) */}
         {show('parrainage') && referral?.code ? (
           <View style={styles.card}>
-            <Text style={styles.hint}>{rs.intro}</Text>
             <Text style={styles.subLabel}>{rs.yourCode}</Text>
             <Text style={styles.refCode}>{referral.code}</Text>
-            {referral.active_count > 0 ? (
-              <>
-                <Text style={styles.billingStatus}>
-                  {f(rs.activeCount, { n: String(referral.active_count) })}
-                </Text>
-                <Text style={styles.refDiscount}>
-                  {f(rs.discount, { pct: String(referral.discount_pct) })}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.billingStatus}>{rs.none}</Text>
-            )}
             <Pressable style={[styles.saveBtn, styles.subscribeBtn]} onPress={shareReferral}>
               <Text style={styles.saveBtnText}>{rs.share}</Text>
             </Pressable>
@@ -1203,14 +919,9 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
         {show('personnalisation') ? (
         <View style={styles.card}>
           <View style={styles.persoTitleRow}>
-            {persoLocked ? (
-              <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>{pl.lockBadge}</Text>
-              </View>
-            ) : null}
           </View>
 
-          {/* Verrou plan : la perso est réservée à Premium (inerte côté serveur sinon). */}
+          {/* Verrou d'option, applique COTE SERVEUR. Formulation neutre depuis le 27/08/2026. */}
           {persoLocked ? (
             <View style={styles.persoLock}>
               <Text style={styles.hint}>{pl.lockBody}</Text>
@@ -1444,8 +1155,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
-  billingStatus: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink2, lineHeight: 20, marginTop: spacing.xs },
-  billingBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
   manageBtn: {
     borderColor: colors.cardline,
     borderWidth: 1,
@@ -1477,20 +1186,6 @@ const styles = StyleSheet.create({
   },
   persoDimmed: { opacity: 0.5 },
   persoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  premiumBadge: {
-    borderWidth: 1,
-    borderColor: colors.terracotta,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  premiumBadgeText: {
-    fontFamily: fonts.sansSemibold,
-    color: colors.terracotta,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   persoLock: {
     borderWidth: 1,
     borderColor: colors.cardline,
@@ -1500,13 +1195,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   planChooser: { gap: spacing.sm, marginTop: spacing.sm },
-  planCard: {
-    borderWidth: 1,
-    borderColor: colors.cardline,
-    borderRadius: 10,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
   planHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -1514,13 +1202,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   planName: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink },
-  planPrice: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink2 },
-  planBtnAlt: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.cardline,
-  },
-  planBtnAltText: { fontFamily: fonts.sansSemibold, color: colors.ink, fontSize: 15 },
   refCode: {
     fontFamily: fonts.sansBold,
     fontSize: 24,
@@ -1529,7 +1210,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: spacing.xs,
   },
-  refDiscount: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.terracotta, marginTop: 2 },
   refClaimRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   refInput: {
     fontFamily: fonts.sans,

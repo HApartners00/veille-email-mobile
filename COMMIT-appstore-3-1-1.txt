@@ -1,0 +1,74 @@
+fix(ios): retirer toute mention d'un service payant et la creation de compte
+
+Refus App Store du 27/08/2026, build 21, submission 77af4453-f578-4551-89fa-ed1c7b6babe4.
+Regles citees : 3.1.1 (In-App Purchase) et 3.1.3(c) (Enterprise Services).
+
+Le texte d'Apple, resume : l'app donne acces a un service payant vendu aussi a
+des particuliers, sans passer par l'achat integre. La regle 3.1.3(b) est
+explicite : un abonnement acquis sur le web n'est accessible dans l'app QUE si
+les memes offres y sont aussi disponibles en achat integre. Cacher le prix ne
+suffit pas.
+
+Ce commit prend la premiere des deux issues possibles : l'app iOS devient une
+app de CONNEXION pour des clients existants, et ne dit plus rien d'un service
+payant. L'autre issue (implementer StoreKit) reste ouverte si Apple l'exige.
+
+CE QUI CHANGE
+
+1. src/app/login.tsx
+   - shouldCreateUser passe de true a false. L'app ne cree plus de compte et ne
+     demarre plus l'essai gratuit. C'etait le point central du refus : n'importe
+     qui pouvait s'inscrire depuis l'iPhone sans jamais voir le site.
+   - L'erreur Supabase « Signups not allowed for otp » est traduite en message
+     clair, qui dit ou creer le compte au lieu d'un texte technique en anglais.
+   - Une phrase ajoutee sous le champ email : « Votre compte se cree sur
+     veille-email.fr. » Sans cela, un utilisateur sans compte se retrouve dans
+     un cul-de-sac, ce qui expose a un refus au titre de la regle 2.1.
+
+2. src/components/settings-panel.tsx  (-14 195 octets)
+   - L'ecran « Abonnement » est retire : la rangee de l'index, le bloc de rendu,
+     et 'abonnement' dans le type SettingsSection.
+   - L'appel a GET /api/billing/status est retire, ainsi que billingStatusText,
+     billingShort, le type BillingStatus et les trois useState associes.
+   - PLAN_NAMES (« Essentiel » / « Premium ») est supprime.
+   - PLAN_STR passe de 12 chaines x 8 langues a une seule, neutre :
+     « Cette option n'est pas activee sur votre compte. » Disparaissent ainsi
+     'Choisissez votre formule', '{price}/mois', 'Choisir {plan}',
+     'Passer a Premium', les descriptions de formules et le badge Premium.
+   - Parrainage : les remises -10 % / -20 % ne sont plus affichees ni stockees
+     (cles intro, activeCount, discount retirees des 8 langues). Le code de
+     parrainage, le partage et la saisie d'un code restent.
+   - Styles morts supprimes : billingStatus, billingBtns, premiumBadge,
+     premiumBadgeText, planCard, planPrice, planBtnAlt, planBtnAltText,
+     refDiscount. Fonction formatDate supprimee (ne servait qu'aux dates
+     d'abonnement).
+
+3. src/lib/i18n/messages.ts  (-7 316 octets)
+   - 15 cles retirees des 8 langues : subscription, subHint, trialOngoing,
+     trialOngoingNoDate, activeRenew, activeCancel, pastDue, canceled,
+     noneWithPrice, noneNoPrice, manage, opening, startTrial, redirecting,
+     readImpossible. Elles etaient dans le bundle livre, donc lisibles.
+   - 2 cles ajoutees aux 8 langues : signupHint, noAccount.
+
+4. src/app/(tabs)/sent.tsx
+   - Le bandeau d'etat vide disait « Votre essai gratuit est termine : ... ».
+     Reformule dans les 8 langues sans mention d'essai ni d'abonnement.
+
+5. src/app/settings/[section].tsx
+   - 'abonnement' retire de KNOWN et de la table des titres.
+
+CE QUI NE CHANGE PAS
+
+- Aucun controle d'acces cote client n'est ajoute ni retire : le verrou reste
+  applique COTE SERVEUR, comme avant.
+- Le site web garde son ecran Abonnement, ses prix et son parrainage complet.
+  Ce commit ne touche QUE l'app mobile, volontairement : la contrainte vient
+  d'Apple et ne concerne pas le web.
+- Aucun fichier n8n, aucune migration.
+
+CONTROLES FAITS
+
+- Zero erreur de syntaxe TypeScript (TS1xxx) sur les 5 fichiers.
+- Les 8 langues portent exactement les memes cles : login 12/12, settings 24/24.
+- Balayage de tout src/ : plus aucune chaine visible contenant essai gratuit,
+  abonnement, formule, prix, remise, Premium ou Essentiel.

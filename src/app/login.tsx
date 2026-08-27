@@ -31,14 +31,28 @@ export default function Login() {
     if (!clean) return;
     setLoading(true);
     setError(null);
+    // 🔴 shouldCreateUser: false — 27/08/2026.
+    // Avant, l'app iOS CREAIT le compte et demarrait l'essai gratuit. Apple a refuse
+    // le build 21 le 27/08 (regles 3.1.1 et 3.1.3(c)) : un service payant vendu a des
+    // particuliers doit passer par l'achat integre. L'app devient donc une app de
+    // CONNEXION pour des clients qui ont deja un compte ; la creation de compte se
+    // fait sur le web. Ne pas remettre `true` sans avoir ajoute l'achat integre.
     const { error: err } = await supabase.auth.signInWithOtp({
       email: clean,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: false },
     });
     setLoading(false);
     if (err) {
       console.error('signInWithOtp error:', err);
-      setError(err.message || JSON.stringify(err) || t.login.errSend);
+      // Supabase repond « Signups not allowed for otp » quand l'adresse n'a pas de
+      // compte. C'est le cas NORMAL ici, pas une panne : on dit ou creer le compte
+      // plutot que d'afficher un message technique en anglais.
+      const brut = `${err.message || ''} ${(err as any)?.code || ''}`.toLowerCase();
+      const inconnu =
+        brut.includes('signups not allowed') ||
+        brut.includes('otp_disabled') ||
+        brut.includes('user not found');
+      setError(inconnu ? t.login.noAccount : err.message || JSON.stringify(err) || t.login.errSend);
       return;
     }
     setStep('code');
@@ -121,6 +135,7 @@ export default function Login() {
                   )}
                 </Pressable>
                 <Text style={styles.hint}>{t.login.emailHint}</Text>
+                <Text style={styles.hint}>{t.login.signupHint}</Text>
               </View>
             ) : (
               <View style={styles.card}>

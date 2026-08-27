@@ -66,16 +66,20 @@ function sanitize(q: string): string {
  * « EN PAUSE » — dictionnaire LOCAL, meme convention que le reste des ecrans.
  * Jumeau de PAUSE_STR dans `apps/web/src/app/sent/sent-list.tsx`.
  */
+// Bandeau d'etat vide quand la releve des envoyes est en pause. Formulation
+// NEUTRALISEE le 27/08/2026 : elle disait « votre essai gratuit est termine »,
+// ce qui decrit un service payant dans une app qui ne permet pas d'acheter
+// (refus App Store du 27/08, regles 3.1.1 et 3.1.3(c)).
 type DictPause = { paused: string; pausedHint: string };
 const PAUSE_STR: Record<string, DictPause> = {
-  fr: { paused: 'La relève de vos envois est en pause.', pausedHint: 'Votre essai gratuit est terminé : vos nouveaux envois ne sont plus remontés ici. Ceux d’avant restent visibles.' },
-  en: { paused: 'Sent-mail pickup is paused.', pausedHint: 'Your free trial has ended: new sent emails are no longer collected here. Earlier ones stay visible.' },
-  es: { paused: 'La recogida de tus envíos está en pausa.', pausedHint: 'Tu prueba gratuita ha terminado: los nuevos envíos ya no se recogen aquí. Los anteriores siguen visibles.' },
-  de: { paused: 'Das Abrufen deiner gesendeten E-Mails ist pausiert.', pausedHint: 'Deine kostenlose Testphase ist beendet: neue gesendete E-Mails werden nicht mehr abgeholt. Frühere bleiben sichtbar.' },
-  pt: { paused: 'A recolha dos seus envios está em pausa.', pausedHint: 'O seu período gratuito terminou: os novos envios já não são recolhidos aqui. Os anteriores continuam visíveis.' },
-  it: { paused: 'Il recupero dei messaggi inviati è in pausa.', pausedHint: 'La tua prova gratuita è terminata: i nuovi invii non vengono più raccolti qui. Quelli precedenti restano visibili.' },
-  ar: { paused: 'تم إيقاف جلب رسائلك المُرسَلة مؤقتًا.', pausedHint: 'انتهت فترتك التجريبية المجانية: لم تعد الرسائل المُرسَلة الجديدة تُجلب هنا. تبقى الرسائل السابقة ظاهرة.' },
-  ru: { paused: 'Сбор отправленных писем приостановлен.', pausedHint: 'Ваш бесплатный период закончился: новые отправленные письма больше не собираются. Прежние остаются видимыми.' },
+  fr: { paused: 'La relève de vos envois est en pause.', pausedHint: 'Les nouveaux envois ne sont plus remontés ici. Ceux d’avant restent visibles.' },
+  en: { paused: 'Sent-mail pickup is paused.', pausedHint: 'New sent emails are no longer collected here. Earlier ones stay visible.' },
+  es: { paused: 'La recogida de tus envíos está en pausa.', pausedHint: 'Los nuevos envíos ya no se recogen aquí. Los anteriores siguen visibles.' },
+  de: { paused: 'Das Abrufen deiner gesendeten E-Mails ist pausiert.', pausedHint: 'Neue gesendete E-Mails werden nicht mehr abgeholt. Frühere bleiben sichtbar.' },
+  pt: { paused: 'A recolha dos seus envios está em pausa.', pausedHint: 'Os novos envios já não são recolhidos aqui. Os anteriores continuam visíveis.' },
+  it: { paused: 'Il recupero dei messaggi inviati è in pausa.', pausedHint: 'I nuovi invii non vengono più raccolti qui. Quelli precedenti restano visibili.' },
+  ar: { paused: 'تم إيقاف جلب رسائلك المُرسَلة مؤقتًا.', pausedHint: 'لم تعد الرسائل المُرسَلة الجديدة تُجلب هنا. تبقى الرسائل السابقة ظاهرة.' },
+  ru: { paused: 'Сбор отправленных писем приостановлен.', pausedHint: 'Новые отправленные письма больше не собираются. Прежние остаются видимыми.' },
 };
 
 export default function SentScreen() {
