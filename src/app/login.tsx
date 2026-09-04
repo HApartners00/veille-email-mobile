@@ -135,7 +135,10 @@ export default function Login() {
                   )}
                 </Pressable>
                 <Text style={styles.hint}>{t.login.emailHint}</Text>
-                <Text style={styles.hint}>{t.login.signupHint}</Text>
+                {/* 03/09/2026 — la phrase « Votre compte se cree sur veille-email.fr »
+                    est RETIREE. Guideline 3.1.3(f) : « no calls to action for purchase
+                    outside of the app ». Elle nommait un domaine ou l'on souscrit un
+                    service payant. Ne pas la remettre sans avoir tranche avec Apple. */}
               </View>
             ) : (
               <View style={styles.card}>

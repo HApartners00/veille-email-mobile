@@ -43,8 +43,7 @@ const fr = {
     changeEmail: 'Changer d’email',
     codeSentTo: 'Code envoyé à {email}. Pensez au dossier spam.',
     errSend: 'Erreur d’envoi',
-    signupHint: 'Votre compte se crée sur veille-email.fr.',
-    noAccount: 'Aucun compte pour cette adresse. Créez-le sur veille-email.fr, puis revenez ici.',
+    noAccount: 'Aucun compte Vmail pour cette adresse.',
   },
   home: {
     boxUpToDate: 'Boîte à jour — rien à traiter pour le moment.',
@@ -300,8 +299,7 @@ const en: Dict = {
     changeEmail: 'Change email',
     codeSentTo: 'Code sent to {email}. Check your spam folder.',
     errSend: 'Sending failed',
-    signupHint: 'Your account is created at veille-email.fr.',
-    noAccount: 'No account for this address. Create it at veille-email.fr, then come back here.',
+    noAccount: 'No Vmail account for this address.',
   },
   home: {
     boxUpToDate: 'Inbox clear — nothing to handle right now.',
@@ -555,8 +553,7 @@ const es: Dict = {
     changeEmail: 'Cambiar correo',
     codeSentTo: 'Código enviado a {email}. Mira también en spam.',
     errSend: 'Error al enviar',
-    signupHint: 'Tu cuenta se crea en veille-email.fr.',
-    noAccount: 'No hay cuenta para esta dirección. Créala en veille-email.fr y vuelve aquí.',
+    noAccount: 'No hay ninguna cuenta de Vmail para esta dirección.',
   },
   home: {
     boxUpToDate: 'Bandeja al día — nada que gestionar por ahora.',
@@ -810,8 +807,7 @@ const de: Dict = {
     changeEmail: 'E-Mail ändern',
     codeSentTo: 'Code gesendet an {email}. Schau auch im Spam-Ordner nach.',
     errSend: 'Senden fehlgeschlagen',
-    signupHint: 'Dein Konto wird auf veille-email.fr erstellt.',
-    noAccount: 'Kein Konto für diese Adresse. Erstelle es auf veille-email.fr und komm dann zurück.',
+    noAccount: 'Kein Vmail-Konto für diese Adresse.',
   },
   home: {
     boxUpToDate: 'Postfach aktuell — gerade nichts zu erledigen.',
@@ -1065,8 +1061,7 @@ const pt: Dict = {
     changeEmail: 'Mudar de email',
     codeSentTo: 'Código enviado para {email}. Veja também no spam.',
     errSend: 'Erro ao enviar',
-    signupHint: 'A sua conta é criada em veille-email.fr.',
-    noAccount: 'Não existe conta para este endereço. Crie-a em veille-email.fr e volte aqui.',
+    noAccount: 'Não existe conta Vmail para este endereço.',
   },
   home: {
     boxUpToDate: 'Caixa em dia — nada a tratar de momento.',
@@ -1320,8 +1315,7 @@ const it: Dict = {
     changeEmail: 'Cambia email',
     codeSentTo: 'Codice inviato a {email}. Controlla anche lo spam.',
     errSend: 'Errore di invio',
-    signupHint: 'Il tuo account si crea su veille-email.fr.',
-    noAccount: 'Nessun account per questo indirizzo. Crealo su veille-email.fr, poi torna qui.',
+    noAccount: 'Nessun account Vmail per questo indirizzo.',
   },
   home: {
     boxUpToDate: 'Casella in ordine — niente da gestire al momento.',
@@ -1575,8 +1569,7 @@ const ar: Dict = {
     changeEmail: 'تغيير البريد',
     codeSentTo: 'تم إرسال الرمز إلى {email}. تحقّق من مجلد البريد غير المرغوب فيه.',
     errSend: 'فشل الإرسال',
-    signupHint: 'يتم إنشاء حسابك على veille-email.fr.',
-    noAccount: 'لا يوجد حساب لهذا العنوان. أنشئه على veille-email.fr ثم عد إلى هنا.',
+    noAccount: 'لا يوجد حساب Vmail لهذا العنوان.',
   },
   home: {
     boxUpToDate: 'البريد محدَّث — لا شيء للمعالجة الآن.',
@@ -1830,8 +1823,7 @@ const ru: Dict = {
     changeEmail: 'Изменить почту',
     codeSentTo: 'Код отправлен на {email}. Проверьте папку «Спам».',
     errSend: 'Ошибка отправки',
-    signupHint: 'Ваш аккаунт создаётся на veille-email.fr.',
-    noAccount: 'Для этого адреса нет аккаунта. Создайте его на veille-email.fr и вернитесь сюда.',
+    noAccount: 'Для этого адреса нет аккаунта Vmail.',
   },
   home: {
     boxUpToDate: 'Почта в порядке — сейчас обрабатывать нечего.',
