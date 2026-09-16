@@ -11,13 +11,14 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EmailRow } from '@/components/email-row';
 import { MailboxHeader } from '@/components/mailbox-header';
 import { memoriserBrouillons, type Brouillon } from '@/lib/cache-brouillons';
 import { useI18n } from '@/context/i18n';
 import { apiGet } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
-import { cleanText, formatDate, recipientsLabel } from '@/lib/mail-format';
-import { colors, fonts, radius, spacing } from '@/lib/theme';
+import { cleanText, formatDateCourte, recipientsLabel, senderInitials } from '@/lib/mail-format';
+import { colors, fonts, spacing } from '@/lib/theme';
 
 /**
  * Onglet « Brouillons » — jumeau mobile de apps/web/src/app/drafts/.
@@ -257,58 +258,31 @@ export default function DraftsScreen() {
         }
         renderItem={({ item: d }) => {
           const to = d.to;
+          // Pas de destinataire : un « @ », pas les initiales de « Sans destinataire ».
+          const initiales = to === tx.noRecipient ? '@' : senderInitials(to);
+          // ⚠️ LA LIGNE OUVRE UNE PAGE — HA, 13/08 : Modifier, Envoyer et Supprimer
+          // ne sont pas dans la liste. « Envoyer » fait partir un vrai mail et
+          // « Supprimer » efface DEFINITIVEMENT chez le fournisseur.
+          // Pleine largeur facon Gmail depuis le 16/09/2026 : `layout="ligne"`.
+          // La pastille dit ce qu'on peut FAIRE (« Modifiable »), pas d'ou ca vient.
           return (
-            <View style={styles.rowWrap}>
-              {/* ⚠️ LA CARTE OUVRE UNE PAGE — HA, 13/08 : « meme logique pour les
-                  brouillons ». Modifier, Envoyer et Supprimer ne sont plus ici :
-                  « Envoyer » fait partir un vrai mail et « Supprimer » efface
-                  DEFINITIVEMENT chez le fournisseur. Deux gestes irrattrapables
-                  qui n'ont rien a faire sur chaque carte d'une liste dense. */}
-              <Pressable
-                style={styles.card}
-                onPress={() =>
-                  d.vmail
-                    ? router.push({ pathname: '/nouveau', params: { draft: d.id } })
-                    : router.push({ pathname: '/brouillon/[id]', params: { id: d.id } })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={d.subject || t.common.noSubject}
-              >
-                <View style={styles.metaRow}>
-                  <Text style={styles.toLabel}>{tx.to}</Text>
-                  <Text style={styles.to} numberOfLines={1}>
-                    {to}
-                  </Text>
-                  {/* La pastille dit ce qu'on peut FAIRE, pas d'ou ca vient :
-                      « Modifiable » a un sens pour l'utilisateur, « brouillon
-                      Vmail » n'en a aucun. */}
-                  {d.vmail ? (
-                    <Text style={styles.badge}>{sv.modifiable}</Text>
-                  ) : d.byVmail ? (
-                    <Text style={styles.badge}>{tx.byVmail}</Text>
-                  ) : null}
-                  {d.updatedAt ? (
-                    <Text style={styles.date}>{formatDate(d.updatedAt, intl)}</Text>
-                  ) : null}
-                </View>
-
-                <Text style={styles.subject} numberOfLines={1}>
-                  {d.subject || t.common.noSubject}
-                </Text>
-
-                {cleanText(d.preview) ? (
-                  <Text style={styles.preview} numberOfLines={2}>
-                    {cleanText(d.preview)}
-                  </Text>
-                ) : null}
-
-                {accounts.length > 1 ? (
-                  <Text style={styles.account} numberOfLines={1}>
-                    {d.accountEmail}
-                  </Text>
-                ) : null}
-              </Pressable>
-            </View>
+            <EmailRow
+              layout="ligne"
+              prefix={tx.to}
+              sender={to}
+              initials={initiales}
+              prioColor="#5c554a"
+              badge={d.vmail ? sv.modifiable : d.byVmail ? tx.byVmail : undefined}
+              date={d.updatedAt ? formatDateCourte(d.updatedAt, intl) : undefined}
+              subject={d.subject || t.common.noSubject}
+              preview={cleanText(d.preview) || null}
+              footnote={accounts.length > 1 ? d.accountEmail : undefined}
+              onPress={() =>
+                d.vmail
+                  ? router.push({ pathname: '/nouveau', params: { draft: d.id } })
+                  : router.push({ pathname: '/brouillon/[id]', params: { id: d.id } })
+              }
+            />
           );
         }}
       />
@@ -333,43 +307,9 @@ const styles = StyleSheet.create({
   listHeader: { marginBottom: 14 },
   rowWrap: { paddingHorizontal: spacing.xl },
 
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.cardline,
-    borderRadius: radius.md + 3,
-    paddingHorizontal: spacing.md + 4,
-    paddingVertical: spacing.md + 3,
-    marginBottom: 9,
-  },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  toLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.hint,
-  },
-  to: { fontFamily: fonts.sans, flexShrink: 1, fontSize: 12.5, color: colors.muted },
-  badge: {
-    fontFamily: fonts.sansBold,
-    fontSize: 9.5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    color: colors.terracotta,
-    backgroundColor: 'rgba(232,93,12,0.10)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    overflow: 'hidden',
-  },
-  date: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint },
-  subject: { fontFamily: fonts.sansSemibold, fontSize: 15, color: colors.ink, letterSpacing: -0.2 },
-  preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 3 },
-
-  account: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint, flexShrink: 1 },
-
-
+  // Les styles de l'ancienne carte (card, metaRow, toLabel, to, badge, date,
+  // subject, preview, account) sont partis le 16/09/2026 avec elle : la ligne
+  // vit desormais dans components/email-row.tsx (`layout="ligne"`).
 
   // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
   // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
