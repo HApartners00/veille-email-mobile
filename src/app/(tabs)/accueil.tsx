@@ -21,6 +21,7 @@ import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconRefresh } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
+import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
 
 type Item = {
@@ -40,6 +41,16 @@ const RECAP_TINT: Record<string, string> = {
   important: '#d5b06a',
   human: '#9aa6ac',
   info: '#a7b199',
+};
+
+// ⚠️ TITRE DE SECTION « À RÉPONDRE » — 16/09/2026. Sa couleur de categorie
+// (#4a443a) etait a 1,72:1 sur le fond sombre : quasi invisible. Il prend le
+// texte secondaire sur fond sombre, le meme que le mot « À RÉPONDRE » des
+// lignes de l'onglet Emails. Les autres titres gardent leur couleur.
+// Mesure au passage, NON corrige (non demande) : Urgent #c2410c 3,21:1 et
+// Info #3f7e58 3,43:1, sous le seuil de 4,5:1 pour ce corps de texte.
+const TITRE_SECTION: Record<string, string> = {
+  human: colors.onDarkMuted,
 };
 
 // Plafond du récap « du jour ». Suffisant pour couvrir une journée normale ;
@@ -314,20 +325,27 @@ export default function Accueil() {
           return (
             <View key={p.key} style={styles.section}>
               <View style={styles.sectionHead}>
-                <View style={[styles.dot, { backgroundColor: p.color }]} />
-                <Text style={[styles.sectionTitle, { color: p.color }]}>
+                <View style={[styles.dot, { backgroundColor: TITRE_SECTION[p.key] ?? p.color }]} />
+                <Text style={[styles.sectionTitle, { color: TITRE_SECTION[p.key] ?? p.color }]}>
                   {prioLabel(t, p.key)}
                 </Text>
                 <Text style={styles.sectionCount}>{list.length}</Text>
                 <View style={styles.sectionLine} />
               </View>
               {list.map((it) => (
+                // Pleine largeur facon Gmail depuis le 16/09/2026, comme Emails,
+                // Envoyes et Brouillons. Pas de mot de categorie : le titre de
+                // section le dit deja.
                 <EmailRow
                   key={it.id}
+                  layout="ligne"
                   subject={it.title || t.common.noSubject}
                   sender={senderName(it.author, t.common.unknownSender)}
+                  initials={senderInitials(it.author)}
+                  prioKey={p.key}
                   prioColor={p.color}
-                  showDot
+                  date={formatDateCourte(it.received_at, intl)}
+                  preview={it.preview ? cleanText(it.preview) : null}
                   unread={it.status === 'unread'}
                   onPress={() => router.push({ pathname: '/email/[id]', params: { id: it.id } })}
                 />
@@ -403,16 +421,19 @@ const styles = StyleSheet.create({
   recapEmpty: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.onDarkMuted, marginTop: spacing.sm, lineHeight: 20 },
 
   // Corps
-  body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginBottom: spacing.md },
+  // Pas de marge laterale sur le corps : les lignes de mail vont d'un bord a
+  // l'autre (16/09/2026). La marge de 24 px est reportee sur ce qui n'est pas
+  // une ligne : erreur, titres de section, message « tout est traite ».
+  body: { paddingTop: spacing.xl },
+  error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13, marginBottom: spacing.md, paddingHorizontal: spacing.xl },
   section: { marginBottom: spacing.lg },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs, paddingHorizontal: spacing.xl },
   dot: { width: 7, height: 7, borderRadius: 4 },
   sectionTitle: { fontFamily: fonts.sansBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: 'uppercase' },
   sectionCount: { fontFamily: fonts.sansSemibold, fontSize: 11.5, color: colors.hint },
   sectionLine: { flex: 1, height: 1, backgroundColor: colors.cardline },
 
-  allClear: { marginTop: spacing.xxl, alignItems: 'center' },
+  allClear: { marginTop: spacing.xxl, alignItems: 'center', paddingHorizontal: spacing.xl },
   allClearTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.sage },
   allClearSub: {
     fontFamily: fonts.sans,
