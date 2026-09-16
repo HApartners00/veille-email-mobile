@@ -48,26 +48,38 @@ export function formatDate(value: string, intl: string): string {
 }
 
 /**
- * Date courte facon Gmail (liste `ligne`, 16/09/2026) :
+ * Date courte facon Gmail (listes `ligne`, 16/09/2026) :
  * aujourd'hui -> « 14:32 » · cette annee -> « 15 sept. » · avant -> « 15/09/2025 ».
  * `formatDate` (date + heure) reste inchange pour ses autres usages.
+ *
+ * ⚠️ `timeZone` — 16/09/2026. Cote SERVEUR (Accueil web), l'horloge de Vercel est
+ * en UTC : sans fuseau, l'heure affichee avait 2 h de retard sur Paris (mesure en
+ * production : 12:44 sur l'Accueil, 14:44 dans le Feed pour le meme mail). Le
+ * fuseau sert aussi a decider ce qu'est « aujourd'hui ». Omis = fuseau de
+ * l'appareil, ce qui est juste dans un navigateur ou sur le telephone.
  */
-export function formatDateCourte(value: string, intl: string): string {
+export function formatDateCourte(value: string, intl: string, timeZone?: string): string {
   try {
     const d = new Date(value);
     // Date illisible : on affiche « ? » plutot que rien, pour qu'une donnee
     // cassee se voie dans la liste au lieu de passer inapercue.
     if (Number.isNaN(d.getTime())) return '?';
+    const tz = timeZone ? { timeZone } : {};
+    // Jour civil dans le fuseau voulu, au format AAAA-MM-JJ (en-CA).
+    const jour = (x: Date) =>
+      x.toLocaleDateString('en-CA', { ...tz, year: 'numeric', month: '2-digit', day: '2-digit' });
     const now = new Date();
-    if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString(intl, { hour: '2-digit', minute: '2-digit' });
+    if (jour(d) === jour(now)) {
+      return d.toLocaleTimeString(intl, { ...tz, hour: '2-digit', minute: '2-digit' });
     }
-    if (d.getFullYear() === now.getFullYear()) {
-      return d.toLocaleDateString(intl, { day: 'numeric', month: 'short' });
+    if (jour(d).slice(0, 4) === jour(now).slice(0, 4)) {
+      return d.toLocaleDateString(intl, { ...tz, day: 'numeric', month: 'short' });
     }
-    return d.toLocaleDateString(intl, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString(intl, { ...tz, day: '2-digit', month: '2-digit', year: 'numeric' });
   } catch {
-    return '';
+    // Seul cas connu : un code de langue ou un fuseau que le moteur refuse.
+    // Rendu « ? » (et non une chaine vide) pour que le defaut se voie.
+    return '?';
   }
 }
 
