@@ -27,6 +27,12 @@ type Props = {
   prioKey?: string;
   /** Initiales du rond (`senderInitials`). Utilisees par `ligne`. */
   initials?: string;
+  /** Petit mot avant le nom, ex. « À » dans Envoyés. Utilise par `ligne`. */
+  prefix?: string;
+  /** Pastille apres le nom, ex. « Vmail » dans Envoyés. Utilisee par `ligne`. */
+  badge?: string;
+  /** Petite ligne sous l'apercu, ex. la boite d'envoi. Utilisee par `ligne`. */
+  footnote?: string;
 };
 
 /**
@@ -49,6 +55,9 @@ export function EmailRow({
   layout = 'carte',
   prioKey,
   initials,
+  prefix,
+  badge,
+  footnote,
 }: Props) {
   if (layout === 'ligne') {
     return (
@@ -64,6 +73,9 @@ export function EmailRow({
         unread={unread}
         draft={draft}
         draftLabel={draftLabel}
+        prefix={prefix}
+        badge={badge}
+        footnote={footnote}
         onPress={onPress}
       />
     );
@@ -247,6 +259,9 @@ function EmailLigne({
   unread,
   draft,
   draftLabel,
+  prefix,
+  badge,
+  footnote,
   onPress,
 }: LigneProps) {
   // Une cle inconnue retombe sur la couleur fournie par l'appelant : on ne
@@ -256,6 +271,8 @@ function EmailLigne({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={subject}
       style={({ pressed }) => [lg.row, pressed && lg.rowPressed]}
     >
       <View style={[lg.avatar, { backgroundColor: rond }]}>
@@ -264,9 +281,11 @@ function EmailLigne({
 
       <View style={lg.body}>
         <View style={lg.top}>
+          {prefix ? <Text style={lg.prefix}>{prefix}</Text> : null}
           <Text style={[lg.sender, unread && lg.senderUnread]} numberOfLines={1}>
             {sender}
           </Text>
+          {badge ? <Text style={lg.badge}>{badge}</Text> : null}
           {prioLabel ? (
             <Text style={[lg.cat, { color: mot }]} numberOfLines={1}>
               {prioLabel}
@@ -289,6 +308,12 @@ function EmailLigne({
           </Text>
           {unread ? <View style={lg.unreadDot} /> : null}
         </View>
+
+        {footnote ? (
+          <Text style={lg.footnote} numberOfLines={1}>
+            {footnote}
+          </Text>
+        ) : null}
       </View>
 
       {/* Trait de separation, decale pour commencer sous le texte (pas sous le rond). */}
@@ -331,6 +356,34 @@ const lg = StyleSheet.create({
     color: 'rgba(234,225,208,0.80)',
   },
   senderUnread: { fontFamily: fonts.sansBold, color: colors.onDark },
+  prefix: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: 'rgba(234,225,208,0.55)',
+    flexShrink: 0,
+  },
+  badge: {
+    fontFamily: fonts.sansBold,
+    fontSize: 9.5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: colors.terracottaLight,
+    backgroundColor: 'rgba(232,93,12,0.16)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  footnote: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(234,225,208,0.45)',
+    marginTop: 3,
+  },
   // La categorie ne se coupe pas : c'est elle qui porte le tri. C'est le nom qui
   // cede la place (flex: 1 + numberOfLines).
   cat: {

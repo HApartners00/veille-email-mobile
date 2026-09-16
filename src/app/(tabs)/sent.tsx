@@ -18,14 +18,17 @@ import { MailboxHeader } from '@/components/mailbox-header';
 import { useI18n } from '@/context/i18n';
 import { apiGet } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
+import { EmailRow } from '@/components/email-row';
 import {
   cleanText,
-  formatDate,
+  formatDateCourte,
+  parseRecipients,
   recipientsEmails,
   recipientsLabel,
+  senderInitials,
 } from '@/lib/mail-format';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts, radius, spacing } from '@/lib/theme';
+import { colors, fonts, spacing } from '@/lib/theme';
 
 /**
  * Onglet « Emails envoyés » — jumeau mobile de apps/web/src/app/sent/.
@@ -351,46 +354,28 @@ export default function SentScreen() {
         }
         renderItem={({ item }) => {
           const to = recipientsLabel(item.recipients, tx.noRecipient);
+          const premier = parseRecipients(item.recipients)[0];
+          const initiales = premier
+            ? senderInitials(premier.name ? `${premier.name} <${premier.email ?? ''}>` : premier.email ?? null)
+            : '@';
+          // ⚠️ LA LIGNE OUVRE UNE PAGE, et ne porte ni « Renvoyer » ni « Transferer »
+          // (HA, 13/08 : ces boutons FONT PARTIR UN MAIL, pas sur une liste dense).
+          // Pleine largeur facon Gmail depuis le 16/09/2026 : `layout="ligne"`.
+          // Rond neutre : un envoi n'a pas de categorie de tri.
           return (
-            <View style={styles.rowWrap}>
-              {/* ⚠️ LA CARTE OUVRE UNE PAGE, elle ne se deplie plus sur place, et
-                  elle ne porte plus « Renvoyer » ni « Transferer » — HA, 13/08 :
-                  « qd ds envoyés on puisse vrmt cliquer sur un mail et qu'il
-                  s'ouvre vraiment ». Ces deux boutons FONT PARTIR UN MAIL : les
-                  laisser sur chaque carte d'une liste dense etait la meme faute
-                  que celle corrigee le 08/08 pour Archiver et Corbeille. */}
-              <Pressable
-                style={styles.card}
-                onPress={() => router.push({ pathname: '/envoi/[id]', params: { id: item.id } })}
-                accessibilityRole="button"
-                accessibilityLabel={item.subject || t.common.noSubject}
-              >
-                <View style={styles.metaRow}>
-                  <Text style={styles.toLabel}>{tx.to}</Text>
-                  <Text style={styles.to} numberOfLines={1}>
-                    {to}
-                  </Text>
-                  {item.sent_via_vmail ? <Text style={styles.badge}>{tx.viaVmail}</Text> : null}
-                  <Text style={styles.date}>{formatDate(item.sent_at, intl)}</Text>
-                </View>
-
-                <Text style={styles.subject} numberOfLines={1}>
-                  {item.subject || t.common.noSubject}
-                </Text>
-
-                {cleanText(item.preview) ? (
-                  <Text style={styles.preview} numberOfLines={2}>
-                    {cleanText(item.preview)}
-                  </Text>
-                ) : null}
-
-                {accounts.length > 1 ? (
-                  <Text style={styles.account} numberOfLines={1}>
-                    {item.account_email}
-                  </Text>
-                ) : null}
-              </Pressable>
-            </View>
+            <EmailRow
+              layout="ligne"
+              prefix={tx.to}
+              sender={to}
+              initials={initiales}
+              prioColor="#5c554a"
+              badge={item.sent_via_vmail ? tx.viaVmail : undefined}
+              date={formatDateCourte(item.sent_at, intl)}
+              subject={item.subject || t.common.noSubject}
+              preview={cleanText(item.preview) || null}
+              footnote={accounts.length > 1 ? item.account_email : undefined}
+              onPress={() => router.push({ pathname: '/envoi/[id]', params: { id: item.id } })}
+            />
           );
         }}
       />
@@ -405,48 +390,9 @@ const styles = StyleSheet.create({
   listHeader: { marginBottom: 14 },
   rowWrap: { paddingHorizontal: spacing.xl },
 
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.cardline,
-    borderRadius: radius.md + 3,
-    paddingHorizontal: spacing.md + 4,
-    paddingVertical: spacing.md + 3,
-    marginBottom: 9,
-  },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  toLabel: {
-    fontFamily: fonts.sansBold,
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.hint,
-  },
-  to: { fontFamily: fonts.sans, flexShrink: 1, fontSize: 12.5, color: colors.muted },
-  badge: {
-    fontFamily: fonts.sansBold,
-    fontSize: 9.5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    color: colors.terracotta,
-    backgroundColor: 'rgba(232,93,12,0.10)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    overflow: 'hidden',
-  },
-  date: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint },
-  subject: {
-    fontFamily: fonts.sansSemibold,
-    fontSize: 15,
-    color: colors.ink,
-    letterSpacing: -0.2,
-  },
-  preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 3 },
-  // 52 px, comme l'écran d'un mail reçu, pour le nouveau cadre à 32 %.
-
-  account: { fontFamily: fonts.sans, marginLeft: 'auto', fontSize: 11, color: colors.hint, flexShrink: 1 },
-
+  // Les styles de l'ancienne carte (card, metaRow, toLabel, to, badge, date,
+  // subject, preview, account) sont partis le 16/09/2026 avec elle : la ligne
+  // vit desormais dans components/email-row.tsx (`layout="ligne"`).
 
   // ⚠️ SUR FOND SOMBRE : `muted` y serait a 2,83:1 depuis le correctif du 12/08.
   // Le fond de page etant sombre, ce libelle prend le jeton prevu pour lui.
