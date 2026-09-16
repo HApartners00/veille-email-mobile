@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,7 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmailRow } from '@/components/email-row';
 import { MailboxHeader } from '@/components/mailbox-header';
-import { memoriserBrouillons, type Brouillon } from '@/lib/cache-brouillons';
+import {
+  lireListeMemorisee,
+  memoriserBrouillons,
+  memoriserListe,
+  type Brouillon,
+} from '@/lib/cache-brouillons';
+import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
 import { apiGet } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
@@ -35,16 +41,16 @@ import { colors, fonts, spacing } from '@/lib/theme';
  * `NOTE_STR` dans `app/brouillon/[id].tsx` : deux chaines ne justifient pas
  * d'elargir le dictionnaire global, qui obligerait a toucher les huit tables.
  */
-type DictVmail = { modifiable: string; chezVous: string };
+type DictVmail = { modifiable: string; chezVous: string; memoire: string };
 const VMAIL_STR: Record<string, DictVmail> = {
-  fr: { modifiable: 'Modifiable', chezVous: 'Vos brouillons Vmail ne sont pas visibles dans Gmail ni dans Outlook.' },
-  en: { modifiable: 'Editable', chezVous: 'Your Vmail drafts are not visible in Gmail or Outlook.' },
-  es: { modifiable: 'Editable', chezVous: 'Tus borradores de Vmail no se ven en Gmail ni en Outlook.' },
-  de: { modifiable: 'Bearbeitbar', chezVous: 'Deine Vmail-Entwürfe sind in Gmail und Outlook nicht sichtbar.' },
-  pt: { modifiable: 'Editável', chezVous: 'Os seus rascunhos Vmail não aparecem no Gmail nem no Outlook.' },
-  it: { modifiable: 'Modificabile', chezVous: 'Le tue bozze Vmail non sono visibili in Gmail né in Outlook.' },
-  ar: { modifiable: 'قابلة للتعديل', chezVous: 'مسوداتك في Vmail غير ظاهرة في Gmail أو Outlook.' },
-  ru: { modifiable: 'Редактируемый', chezVous: 'Ваши черновики Vmail не видны в Gmail и Outlook.' },
+  fr: { modifiable: 'Modifiable', chezVous: 'Vos brouillons Vmail ne sont pas visibles dans Gmail ni dans Outlook.', memoire: 'Liste de votre dernière visite — mise à jour en cours…' },
+  en: { modifiable: 'Editable', chezVous: 'Your Vmail drafts are not visible in Gmail or Outlook.', memoire: 'List from your last visit — updating…' },
+  es: { modifiable: 'Editable', chezVous: 'Tus borradores de Vmail no se ven en Gmail ni en Outlook.', memoire: 'Lista de su última visita — actualizando…' },
+  de: { modifiable: 'Bearbeitbar', chezVous: 'Deine Vmail-Entwürfe sind in Gmail und Outlook nicht sichtbar.', memoire: 'Liste von Ihrem letzten Besuch — wird aktualisiert…' },
+  pt: { modifiable: 'Editável', chezVous: 'Os seus rascunhos Vmail não aparecem no Gmail nem no Outlook.', memoire: 'Lista da sua última visita — a atualizar…' },
+  it: { modifiable: 'Modificabile', chezVous: 'Le tue bozze Vmail non sono visibili in Gmail né in Outlook.', memoire: 'Elenco della tua ultima visita — aggiornamento in corso…' },
+  ar: { modifiable: 'قابلة للتعديل', chezVous: 'مسوداتك في Vmail غير ظاهرة في Gmail أو Outlook.', memoire: 'قائمة زيارتك الأخيرة — جارٍ التحديث…' },
+  ru: { modifiable: 'Редактируемый', chezVous: 'Ваши черновики Vmail не видны в Gmail и Outlook.', memoire: 'Список с вашего прошлого визита — обновляется…' },
 };
 
 type BrouillonVmail = {
@@ -97,6 +103,41 @@ export default function DraftsScreen() {
   const [query, setQuery] = useState('');
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>([]);
 
+  // ==========================================================================
+  // AFFICHAGE IMMEDIAT — 16/09/2026. Mesure : /api/drafts met 2,6 a 7,4 s.
+  // On montre d'abord la liste de la derniere visite (sans corps, voir
+  // lib/cache-brouillons), avec une ligne qui dit qu'elle se met a jour, puis
+  // la vraie liste la remplace. Jumeau de apps/web/src/app/drafts/drafts-list.tsx.
+  // ==========================================================================
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? '';
+  const [depuisMemoire, setDepuisMemoire] = useState(false);
+  const reseauBrouillons = useRef<Brouillon[] | null>(null);
+  const reseauVmail = useRef<BrouillonVmail[] | null>(null);
+  const vmailAffiche = useRef<BrouillonVmail[]>([]);
+  vmailAffiche.current = vmailDrafts;
+
+  useEffect(() => {
+    let actif = true;
+    void lireListeMemorisee<BrouillonVmail>(userId).then((m) => {
+      // Si la vraie liste est deja arrivee, la copie ne l'ecrase pas.
+      if (!actif || !m || reseauBrouillons.current) return;
+      setDrafts(m.brouillons);
+      if (!reseauVmail.current) setVmailDrafts(m.vmail);
+      setDepuisMemoire(true);
+    });
+    return () => {
+      actif = false;
+    };
+  }, [userId]);
+
+  const enregistrer = useCallback(() => {
+    // Rien tant que la liste du FOURNISSEUR n'est pas arrivee : une copie sans
+    // elle ecraserait la bonne par une liste vide.
+    if (!reseauBrouillons.current) return;
+    memoriserListe(userId, reseauBrouillons.current, reseauVmail.current ?? vmailAffiche.current);
+  }, [userId]);
+
   const reload = useCallback(async () => {
     setLoading(true);
     setFailure(null);
@@ -104,22 +145,34 @@ export default function DraftsScreen() {
     // Les brouillons Vmail, en base : rapides, et independants de la messagerie.
     // Un echec ici n'efface pas ceux du fournisseur, et reciproquement.
     void apiGet<{ ok?: boolean; drafts?: BrouillonVmail[] }>('/api/vmail-drafts')
-      .then((j) => setVmailDrafts(Array.isArray(j?.drafts) ? j.drafts : []))
-      .catch(() => setVmailDrafts([]));
+      .then((j) => {
+        if (!Array.isArray(j?.drafts)) {
+          // Avant le 16/09 : liste videe EN SILENCE. On garde l'affichage et on le dit.
+          console.error('[brouillons] /api/vmail-drafts : reponse invalide', j);
+          return;
+        }
+        reseauVmail.current = j.drafts;
+        setVmailDrafts(j.drafts);
+        enregistrer();
+      })
+      .catch((e) => console.error('[brouillons] /api/vmail-drafts en echec', e));
 
     try {
       const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] }>('/api/drafts');
       const liste = Array.isArray(j?.drafts) ? j.drafts : [];
       setDrafts(liste);
+      setDepuisMemoire(false);
       // La page /brouillon/[id] y puise sans repayer 1,5 a 2,5 s de reseau.
       memoriserBrouillons(liste);
+      reseauBrouillons.current = liste;
+      enregistrer();
     } catch (e) {
       setFailure(e instanceof Error && e.message ? e.message : tx.unreachable);
       setDrafts([]);
     } finally {
       setLoading(false);
     }
-  }, [tx.unreachable]);
+  }, [tx.unreachable, enregistrer]);
 
   useEffect(() => {
     void reload();
@@ -228,6 +281,11 @@ export default function DraftsScreen() {
           <View>
             {header}
             <View style={styles.listHeader} />
+            {depuisMemoire && loading && !failure ? (
+              <Text style={styles.memoire} accessibilityRole="text">
+                {sv.memoire}
+              </Text>
+            ) : null}
             {error ? (
               <View style={styles.rowWrap}>
                 <Text style={styles.error}>{error}</Text>
@@ -291,6 +349,14 @@ export default function DraftsScreen() {
 }
 
 const styles = StyleSheet.create({
+  memoire: {
+    fontFamily: fonts.sans,
+    fontSize: 11.5,
+    color: colors.onDarkMuted,
+    paddingHorizontal: spacing.lg,
+    marginTop: -6,
+    marginBottom: spacing.sm,
+  },
   noteVmail: {
     fontFamily: fonts.sans,
     fontSize: 11.5,

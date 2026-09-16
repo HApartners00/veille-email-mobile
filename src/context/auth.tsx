@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
+import { effacerListesMemorisees } from '@/lib/cache-brouillons';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
@@ -26,7 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // 16/09/2026 : la liste des brouillons memorisee sur l'appareil part avec
+      // la session, y compris quand elle expire sans clic sur « Se deconnecter ».
+      if (event === 'SIGNED_OUT') void effacerListesMemorisees();
       setSession(newSession);
     });
     return () => {
@@ -36,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    await effacerListesMemorisees();
     await supabase.auth.signOut();
   };
 
