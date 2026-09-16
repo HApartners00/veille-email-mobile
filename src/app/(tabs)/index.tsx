@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiGet, apiPost } from '@/lib/api';
-import { cleanText, formatDate, senderName } from '@/lib/mail-format';
+import { cleanText, formatDateCourte, senderInitials, senderName } from '@/lib/mail-format';
 import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
@@ -589,18 +589,21 @@ export default function Feed() {
   function renderItem({ item }: { item: Item }) {
     const p = prio(item);
     return (
-      <View style={styles.rowWrap}>
-        <EmailRow
-          subject={item.title || t.common.noSubject}
-          sender={senderName(item.author, t.common.unknownSender)}
-          prioColor={p.color}
-          prioLabel={prioLabel(t, p.key).toUpperCase()}
-          date={formatDate(item.received_at, intl)}
-          preview={item.preview ? cleanText(item.preview) : null}
-          unread={item.status === 'unread'}
-          onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
-        />
-      </View>
+      // Pleine largeur facon Gmail (16/09/2026) : plus de `rowWrap` ni de marge,
+      // la ligne va d'un bord a l'autre. Voir `layout="ligne"` dans email-row.tsx.
+      <EmailRow
+        layout="ligne"
+        subject={item.title || t.common.noSubject}
+        sender={senderName(item.author, t.common.unknownSender)}
+        initials={senderInitials(item.author)}
+        prioKey={p.key}
+        prioColor={p.color}
+        prioLabel={prioLabel(t, p.key).toUpperCase()}
+        date={formatDateCourte(item.received_at, intl)}
+        preview={item.preview ? cleanText(item.preview) : null}
+        unread={item.status === 'unread'}
+        onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
+      />
     );
   }
 

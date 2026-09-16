@@ -18,6 +18,15 @@ type Props = {
   draft?: boolean;
   draftLabel?: string;
   onPress?: () => void;
+  /**
+   * Disposition. `carte` (defaut) = la carte creme arrondie, gardee pour l'Accueil.
+   * `ligne` = pleine largeur sur le fond sombre, facon Gmail (onglet Emails, 16/09/2026).
+   */
+  layout?: 'carte' | 'ligne';
+  /** Cle de categorie (`urgent` | `important` | `human` | `info`). Utilisee par `ligne`. */
+  prioKey?: string;
+  /** Initiales du rond (`senderInitials`). Utilisees par `ligne`. */
+  initials?: string;
 };
 
 /**
@@ -37,7 +46,28 @@ export function EmailRow({
   draft,
   draftLabel,
   onPress,
+  layout = 'carte',
+  prioKey,
+  initials,
 }: Props) {
+  if (layout === 'ligne') {
+    return (
+      <EmailLigne
+        subject={subject}
+        sender={sender}
+        prioKey={prioKey}
+        prioColor={prioColor}
+        prioLabel={prioLabel}
+        initials={initials}
+        date={date}
+        preview={preview}
+        unread={unread}
+        draft={draft}
+        draftLabel={draftLabel}
+        onPress={onPress}
+      />
+    );
+  }
   return (
     <Pressable style={styles.card} onPress={onPress}>
       {/* ⚠️ ECHANGE DU 13/08/2026, demande de HA : « je veux que la position de la
@@ -160,6 +190,174 @@ const styles = StyleSheet.create({
   sender: { fontFamily: fonts.sansMedium, flexShrink: 1, fontSize: 12.5, color: colors.ink },
   time: { fontFamily: fonts.sans, fontSize: 11, color: colors.hint },
   preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 3 },
+});
+
+// =============================================================================
+// DISPOSITION `ligne` — 16/09/2026, demande de HA : « les mails affiches sont en
+// bandeau creme qui ne prennent pas toute la largeur, je veux un truc comme
+// Outlook ou Gmail ». Maquette validee : « B sombre + categorie ».
+//
+//   [rond]  Expediteur ............ CATEGORIE · heure
+//           Sujet
+//           Apercu ................................. •
+//
+// ⚠️ ORDRE : l'expediteur revient en haut a gauche et l'heure a droite. C'est
+// l'inverse de l'echange demande le 13/08 (voir la carte plus bas) — assume par
+// HA en choisissant la maquette B.
+//
+// ⚠️ COULEURS SUR FOND SOMBRE, mesurees le 16/09 (contre #211e19) :
+//   mot URGENT     #e8956b  7,07:1
+//   mot IMPORTANT  #d9a73a  7,54:1
+//   mot INFO       #6fb58a  6,84:1
+//   mot A REPONDRE onDarkMuted
+// Les couleurs de priorite d'origine (#4a443a surtout) disparaissent sur le
+// charbon : elles restent pour les ronds, pas pour le texte.
+//
+// ⚠️ RONDS : initiales creme #f2ebde. Mesure du contraste :
+//   urgent #c2410c 4,37:1 · info #3f7e58 4,08:1 · human #5c554a 6,21:1
+//   important #b8860b ne donnait que 2,75:1 -> assombri en #8f6708 (4,31:1).
+//   human #4a443a se confondait avec le fond -> eclairci en #5c554a.
+// =============================================================================
+
+const LIGNE_MOT: Record<string, string> = {
+  urgent: '#e8956b',
+  important: '#d9a73a',
+  human: colors.onDarkMuted,
+  info: '#6fb58a',
+};
+
+const LIGNE_ROND: Record<string, string> = {
+  urgent: '#c2410c',
+  important: '#8f6708',
+  human: '#5c554a',
+  info: '#3f7e58',
+};
+
+type LigneProps = Omit<Props, 'layout' | 'showDot'>;
+
+function EmailLigne({
+  subject,
+  sender,
+  prioKey,
+  prioColor,
+  prioLabel,
+  initials,
+  date,
+  preview,
+  unread,
+  draft,
+  draftLabel,
+  onPress,
+}: LigneProps) {
+  // Une cle inconnue retombe sur la couleur fournie par l'appelant : on ne
+  // masque pas une categorie nouvelle derriere une couleur par defaut.
+  const rond = (prioKey && LIGNE_ROND[prioKey]) || prioColor;
+  const mot = (prioKey && LIGNE_MOT[prioKey]) || prioColor;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [lg.row, pressed && lg.rowPressed]}
+    >
+      <View style={[lg.avatar, { backgroundColor: rond }]}>
+        <Text style={lg.initials}>{initials || '@'}</Text>
+      </View>
+
+      <View style={lg.body}>
+        <View style={lg.top}>
+          <Text style={[lg.sender, unread && lg.senderUnread]} numberOfLines={1}>
+            {sender}
+          </Text>
+          {prioLabel ? (
+            <Text style={[lg.cat, { color: mot }]} numberOfLines={1}>
+              {prioLabel}
+            </Text>
+          ) : null}
+          {prioLabel && date ? <Text style={lg.sep}>·</Text> : null}
+          {date ? <Text style={[lg.time, unread && lg.timeUnread]}>{date}</Text> : null}
+        </View>
+
+        <View style={lg.subjRow}>
+          <Text style={[lg.subject, unread && lg.subjectUnread]} numberOfLines={1}>
+            {subject}
+          </Text>
+          {draft ? <Text style={styles.draft}>{draftLabel ?? 'Brouillon'}</Text> : null}
+        </View>
+
+        <View style={lg.bottom}>
+          <Text style={lg.preview} numberOfLines={1}>
+            {preview ?? ''}
+          </Text>
+          {unread ? <View style={lg.unreadDot} /> : null}
+        </View>
+      </View>
+
+      {/* Trait de separation, decale pour commencer sous le texte (pas sous le rond). */}
+      <View style={lg.separator} />
+    </Pressable>
+  );
+}
+
+const AVATAR = 40;
+const PAD_H = 16;
+const GAP = 12;
+
+const lg = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: GAP,
+    paddingHorizontal: PAD_H,
+    paddingVertical: 12,
+    backgroundColor: colors.fond,
+  },
+  rowPressed: { backgroundColor: 'rgba(234,225,208,0.06)' },
+  avatar: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  initials: { fontFamily: fonts.sansSemibold, fontSize: 14, color: '#f2ebde' },
+  body: { flex: 1, minWidth: 0 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sender: {
+    fontFamily: fonts.sansMedium,
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    color: 'rgba(234,225,208,0.80)',
+  },
+  senderUnread: { fontFamily: fonts.sansBold, color: colors.onDark },
+  // La categorie ne se coupe pas : c'est elle qui porte le tri. C'est le nom qui
+  // cede la place (flex: 1 + numberOfLines).
+  cat: {
+    fontFamily: fonts.sansBold,
+    fontSize: 9.5,
+    letterSpacing: 0.8,
+    flexShrink: 0,
+  },
+  sep: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(234,225,208,0.35)' },
+  time: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(234,225,208,0.55)', flexShrink: 0 },
+  timeUnread: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight },
+  subjRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
+  subject: { fontFamily: fonts.sans, flex: 1, fontSize: 14, lineHeight: 19, color: 'rgba(234,225,208,0.80)' },
+  subjectUnread: { fontFamily: fonts.sansSemibold, color: colors.onDark },
+  // `minHeight` : un mail sans apercu garde la meme hauteur que les autres
+  // (mesure au rendu du 16/09 : sans elle, la ligne etait plus courte).
+  bottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2, minHeight: 18 },
+  preview: { fontFamily: fonts.sans, flex: 1, fontSize: 13, lineHeight: 18, color: 'rgba(234,225,208,0.55)' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.terracottaVivid },
+  separator: {
+    position: 'absolute',
+    left: PAD_H + AVATAR + GAP,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.charline,
+  },
 });
 
 export default EmailRow;

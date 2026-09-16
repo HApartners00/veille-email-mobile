@@ -47,6 +47,30 @@ export function formatDate(value: string, intl: string): string {
   }
 }
 
+/**
+ * Date courte facon Gmail (liste `ligne`, 16/09/2026) :
+ * aujourd'hui -> « 14:32 » · cette annee -> « 15 sept. » · avant -> « 15/09/2025 ».
+ * `formatDate` (date + heure) reste inchange pour ses autres usages.
+ */
+export function formatDateCourte(value: string, intl: string): string {
+  try {
+    const d = new Date(value);
+    // Date illisible : on affiche « ? » plutot que rien, pour qu'une donnee
+    // cassee se voie dans la liste au lieu de passer inapercue.
+    if (Number.isNaN(d.getTime())) return '?';
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString(intl, { hour: '2-digit', minute: '2-digit' });
+    }
+    if (d.getFullYear() === now.getFullYear()) {
+      return d.toLocaleDateString(intl, { day: 'numeric', month: 'short' });
+    }
+    return d.toLocaleDateString(intl, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
 /** Nom lisible d'un interlocuteur : « Marie Dupont » depuis `Marie Dupont <m@x.fr>`. */
 export function senderName(author: string | null, unknown: string): string {
   if (!author) return unknown;
