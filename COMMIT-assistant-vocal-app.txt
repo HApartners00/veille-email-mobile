@@ -1,0 +1,128 @@
+ASSISTANT VOCAL — ETAPE 3 : L'ECRAN (PISTE A) + LES MISES A JOUR SANS BUILD
+============================================================================
+(17/09/2026)
+
+⚠️ LE SERVEUR EST DEJA POUSSE (fait le 17/09). Ce commit ne concerne que l'app.
+
+
+1) LES FICHIERS A AJOUTER (jamais `git add .`)
+----------------------------------------------
+
+cd "C:\Users\hamza\Desktop\Projets Claude\veille-email-mobile"
+
+git add package.json
+git add package-lock.json
+git add app.json
+git add eas.json
+git add src/lib/voix-client.ts
+git add src/components/panneau-voix.tsx
+git add src/components/icons.tsx
+git add "src/app/email/[id].tsx"
+git add COMMIT-assistant-vocal-app.txt
+
+
+2) LE COMMIT ET LE BUILD
+------------------------
+
+git commit -F COMMIT-assistant-vocal-app.txt
+git push origin main
+npm install
+npx eas build --platform ios --profile production
+
+Puis, avec l'identifiant affiche par EAS :
+npx eas submit --platform ios --id <id du build>
+
+⚠️ Toujours `--id`, jamais `--latest`.
+⚠️ TestFlight seulement : ce build contient encore l'ecran de diagnostic.
+
+
+3) A PARTIR DE CE BUILD : LES RETOUCHES NE COUTENT PLUS DE BUILD
+----------------------------------------------------------------
+
+Mesure du 17/09 sur expo.dev : plan Free, 15 builds iOS par mois,
+10 deja consommes du 1er au 17/09. Il en restait 5.
+
+L'app embarque desormais `expo-updates`. Toute modification qui ne touche PAS
+au code natif (textes, ecrans, logique, instructions de l'assistant) part en
+deux minutes :
+
+  npx eas update --branch production --message "ce qui change"
+
+Un build EAS ne redevient necessaire que pour : un nouveau module natif, une
+permission iOS, un changement dans app.json, ou une montee de version d'Expo.
+
+⚠️ LE GARDE-FOU : la version passe de 1.1.0 a 1.2.0 dans le meme mouvement.
+`runtimeVersion` suit la version de l'app : une mise a jour poussee sur 1.2.0
+ne peut donc PAS atteindre les utilisateurs de la 1.1.0 publiee sur l'App
+Store. Sans ce decalage, un `eas update` du soir partirait chez tout le monde.
+
+
+4) CE QUE TU TESTES SUR L'IPHONE
+--------------------------------
+
+Ouvre un mail, appuie sur « Assistant » dans la barre du bas.
+- Il doit lire le resume, puis la reponse s'il y en a une.
+- Dis « ecris une reponse » puis « plus court » : le texte a l'ecran doit
+  changer tout seul.
+- Dis « envoie » : il doit REPETER le destinataire et attendre ton « oui ».
+- Dis « archive-le », puis « mail suivant ».
+- Coupe le micro, verrouille l'ecran (la conversation doit continuer), termine.
+
+Envoie-moi ce qui se passe, surtout ce qui ne marche pas.
+
+
+MESSAGE
+=======
+
+Assistant vocal : l'ecran (piste A), et les mises a jour sans build
+
+Troisieme etape : ce que l'on voit et ce que l'on entend. Piste A, validee sur
+maquette — la barre du bas devient le panneau vocal, le mail et la reponse
+restent visibles au-dessus.
+
+L'ECRAN
+- src/lib/voix-client.ts : l'appel NE VIT PAS DANS UN ECRAN, il vit dans le
+  module, et les ecrans s'y abonnent. Raison : quand l'assistant passe au mail
+  suivant, l'app navigue et demonte l'ecran — un appel qui appartiendrait a
+  l'ecran se couperait a chaque « suivant », exactement ce qu'on veut eviter en
+  mains libres. Le module demande un laissez-passer de 10 minutes a
+  /api/voice/start ; AUCUNE cle Vapi n'est embarquee dans l'app.
+  A chaque appel d'outil vu passer, il relit /api/voice/etat : c'est ainsi que
+  le brouillon affiche suit ce que l'assistant vient d'ecrire.
+- src/components/panneau-voix.tsx : le panneau, trois etats rendus au banc
+  (en conversation, confirmation d'envoi, panne). Le message d'erreur est
+  affiche BRUT — rien en silence. Dictionnaire local FR/EN : l'assistant ne
+  parle que ces deux langues pour l'instant.
+- src/app/email/[id].tsx : le bouton « Assistant » dans la barre (5 boutons,
+  donc 52 px au lieu de 58 pour que « Repondre » tienne sur une ligne), le
+  panneau qui remplace la barre pendant la conversation, le brouillon qui
+  redescend dans l'ecran, et le changement de mail qui suit l'assistant.
+- src/components/icons.tsx : deux icones, micro et micro coupe.
+Le bouton n'apparait que si le serveur dit que la fonction est ouverte
+(Premium). Tant qu'on ne sait pas, on n'affiche RIEN : un bouton qui apparait
+puis s'efface est pire qu'un bouton absent.
+
+LES MISES A JOUR SANS BUILD
+- expo-updates 29.0.20 (version de l'SDK 54), `updates.url` sur le projet EAS,
+  `runtimeVersion` sur la version de l'app, et un canal par profil dans
+  eas.json.
+- La version passe a 1.2.0 pour isoler ces mises a jour des utilisateurs de la
+  1.1.0 deja publiee.
+- Motif : le plan EAS Free donne 15 builds iOS par mois, 10 etaient deja
+  consommes le 17/09. L'assistant vocal va demander beaucoup de retouches de
+  texte et de comportement, qui sont toutes du JavaScript.
+
+MESURES (faites dans le cloud)
+- `npm ci` sur un dossier vide : passe, 878 paquets, expo-updates 29.0.20.
+- `expo prebuild` : version 1.2.0, permission micro, mode audio en arriere-plan,
+  et la configuration des mises a jour (URL, runtime 1.2.0, actif) bien ecrites.
+- `tsc --noEmit` : 20 erreurs avant, 20 apres, les memes.
+- Le panneau vocal a ete rendu dans le banc, dans ses trois etats.
+
+CE QUI N'EST PAS VERIFIE
+- Aucun appel vocal reel : ni la voix, ni la latence, ni les outils, ni le cout
+  d'une minute mesure chez nous.
+- Le comportement quand l'ecran se verrouille.
+- Le passage au mail suivant en cours de conversation.
+- La premiere mise a jour poussee par `eas update` (jamais essayee sur ce
+  projet).

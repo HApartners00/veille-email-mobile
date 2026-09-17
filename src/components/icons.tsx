@@ -412,3 +412,26 @@ export function IconPaperclip({ size = 18, color = DEF, strokeWidth = 2 }: IconP
     </Svg>
   );
 }
+
+/** Micro — assistant vocal (17/09/2026). */
+export function IconMic({ size = 18, color = DEF, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={9} y={3} width={6} height={11} rx={3} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M5 11a7 7 0 0 0 14 0" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={12} y1={18} x2={12} y2={21} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Micro coupé. */
+export function IconMicOff({ size = 18, color = DEF, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={9} y={3} width={6} height={11} rx={3} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M5 11a7 7 0 0 0 14 0" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={12} y1={18} x2={12} y2={21} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={4} y1={4} x2={20} y2={20} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}

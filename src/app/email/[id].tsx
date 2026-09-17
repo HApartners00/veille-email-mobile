@@ -38,11 +38,21 @@ import MailHtml from '@/components/mail-html';
 import { ressembleAHtml } from '@/lib/mail-format';
 import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
+import PanneauVoix from '@/components/panneau-voix';
+import {
+  demarrerVoix,
+  ecouterVoix,
+  eligibiliteConnue,
+  etatVoix,
+  lireEligibilite,
+  type EtatVoix,
+} from '@/lib/voix-client';
 import {
   IconChevronLeft,
   IconClose,
   IconFunnel,
   IconInbox,
+  IconMic,
   IconMore,
   IconPlus,
   IconReplySuggested,
@@ -534,6 +544,44 @@ export default function EmailDetail() {
   const [reError, setReError] = useState<string | null>(null);
 
   const insets = useSafeAreaInsets();
+
+  // ==========================================================================
+  // ASSISTANT VOCAL — 17/09/2026, piste A.
+  //
+  // L'appel ne vit PAS dans cet écran (voir `lib/voix-client.ts`) : il survit au
+  // passage au mail suivant, qui démonte l'écran. Ici on ne fait que s'abonner.
+  // ==========================================================================
+  const [voix, setVoix] = useState<EtatVoix>(() => etatVoix());
+  useEffect(() => ecouterVoix(setVoix), []);
+
+  // Le bouton micro n'existe que pour Premium. `null` = on ne sait pas encore,
+  // et on n'affiche RIEN : un bouton qui apparaît puis s'efface est pire que pas
+  // de bouton (règle des trois états, 14/08).
+  const [microDispo, setMicroDispo] = useState<boolean | null>(() => eligibiliteConnue());
+  useEffect(() => {
+    let vivant = true;
+    void lireEligibilite().then((oui) => {
+      if (vivant) setMicroDispo(oui);
+    });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  // Le brouillon que l'assistant réécrit redescend dans l'écran, et le bloc de
+  // réponse s'ouvre tout seul : on doit VOIR ce qu'il vient de dire.
+  useEffect(() => {
+    if (!voix.brouillon || voix.brouillon === draft) return;
+    setDraft(voix.brouillon);
+    setRepondreOuvert(true);
+  }, [voix.brouillon]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // « Mail suivant » : c'est le serveur qui a changé de mail, l'écran suit.
+  useEffect(() => {
+    if (voix.itemId && voix.itemId !== String(id)) {
+      router.replace(`/email/${voix.itemId}` as never);
+    }
+  }, [voix.itemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⚠️ MEMOISE. `useMailActions` vit maintenant dans la page, et non plus dans un
   // composant enfant : lui passer `item?.tags ?? []` directement fabriquerait un
@@ -1590,10 +1638,32 @@ export default function EmailDetail() {
         ) : null}
         {actions.erreur ? <Text style={styles.dockErreur}>{actions.erreur}</Text> : null}
 
+        {voix.etape !== 'inactif' ? (
+          <PanneauVoix etat={voix} locale={locale} />
+        ) : (
         <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           <Pressable style={[styles.cta, styles.flex1]} onPress={ouvrirReponse}>
-            <Text style={styles.ctaText}>{t.email.actionReply}</Text>
+            <Text style={styles.ctaText} numberOfLines={1}>{t.email.actionReply}</Text>
           </Pressable>
+
+          {/* Le micro : il lance la conversation sur CE mail, avec le brouillon
+              affiché s'il y en a un. */}
+          {microDispo === true ? (
+            <Pressable
+              style={styles.dockBtnEtroit}
+              accessibilityLabel={locale === 'en' ? 'Talk to the assistant' : "Parler à l'assistant"}
+              onPress={() =>
+                void demarrerVoix({ itemId: String(id), locale, brouillon: draft })
+              }
+            >
+              <View style={styles.dockMicro}>
+                <IconMic size={17} color={colors.terracottaLight} />
+              </View>
+              <Text style={[styles.dockLbl, styles.dockLblAccent]} numberOfLines={1}>
+                {locale === 'en' ? 'Assistant' : 'Assistant'}
+              </Text>
+            </Pressable>
+          ) : null}
 
           <Pressable style={styles.dockBtn} onPress={() => setFeuille('classer')}>
             <IconFunnel size={18} color={colors.onDark} />
@@ -1637,6 +1707,7 @@ export default function EmailDetail() {
             </Pressable>
           ) : null}
         </View>
+        )}
 
         {/* ---------------- FEUILLE « CLASSER » ---------------- */}
         <Modal
@@ -2372,6 +2443,18 @@ const styles = StyleSheet.create({
   // empiles parce qu'un libelle seul en 9,5 pt ne se lit pas d'un coup d'oeil, et
   // qu'une icone seule ne dit pas « Desarchiver ».
   dockBtn: { minWidth: 58, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 5 },
+  // Avec le micro, la barre porte 5 boutons : 52 px au lieu de 58, c'est ce qui
+  // laisse « Repondre » tenir sur une ligne sur un ecran de 390 pt.
+  dockBtnEtroit: { minWidth: 52, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 5 },
+  dockMicro: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(232,93,12,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dockLblAccent: { color: colors.terracottaLight },
   dockLbl: {
     fontFamily: fonts.sansSemibold,
     fontSize: 9.5,

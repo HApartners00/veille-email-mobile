@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vmail",
     "slug": "veille-email-mobile",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "veilleemailmobile",
@@ -100,6 +100,13 @@
         "projectId": "c0ac22e3-d640-4c5d-a461-3b975114d614"
       }
     },
-    "owner": "ha.partners"
+    "owner": "ha.partners",
+    "updates": {
+      "url": "https://u.expo.dev/c0ac22e3-d640-4c5d-a461-3b975114d614",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
