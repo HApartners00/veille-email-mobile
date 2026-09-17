@@ -243,7 +243,7 @@ export function SignatureSection() {
                   <Switch
                     value={enabled[k] !== false}
                     onValueChange={(v) => setEnabled((p) => ({ ...p, [k]: v }))}
-                    trackColor={{ true: colors.terracotta, false: colors.cardline }}
+                    trackColor={{ true: colors.terracotta, false: D.line }}
                   />
                 </View>
               </View>
@@ -251,7 +251,7 @@ export function SignatureSection() {
                 value={drafts[k] ?? ''}
                 onChangeText={(v) => setDrafts((p) => ({ ...p, [k]: v }))}
                 placeholder={s.placeholder}
-                placeholderTextColor={colors.hint}
+                placeholderTextColor={D.hint}
                 multiline
                 style={styles.input}
               />
@@ -272,57 +272,75 @@ export function SignatureSection() {
   );
 }
 
+// 17/09/2026 — PISTE A DE HA : reglages PLATS sur le fond sombre, comme l'Accueil.
+// Plus de cartes creme : des sections separees par un filet, textes clairs.
+// Retour arriere : remettre les jetons clairs (colors.ink, colors.surface...).
+const D = {
+  text: colors.onDark,
+  muted: colors.onDarkMuted,
+  hint: 'rgba(234,225,208,0.45)',
+  line: colors.charline,
+  voile: 'rgba(234,225,208,0.05)',
+  accent: colors.terracottaLight,
+  danger: '#f0957a',
+  ok: '#8fc7a3',
+} as const;
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
+    borderColor: D.line,
+    borderTopWidth: 1,
+    paddingTop: spacing.lg,
   },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  title: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink, flexShrink: 1 },
-  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 4 },
-  hint: { fontFamily: fonts.sans, fontSize: 13, color: colors.hint, marginTop: spacing.md },
+  title: {
+    fontFamily: fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: D.accent,
+    flexShrink: 1,
+  },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13, color: D.muted, marginTop: 4 },
+  hint: { fontFamily: fonts.sans, fontSize: 13, color: D.hint, marginTop: spacing.md },
   importBtn: {
     borderWidth: 1,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
   },
-  importText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: colors.ink },
+  importText: { fontFamily: fonts.sansSemibold, fontSize: 12, color: D.text },
   box: { marginTop: spacing.lg },
   boxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  email: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink, flexShrink: 1 },
+  email: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.text, flexShrink: 1 },
   enableRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  enableLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
+  enableLabel: { fontFamily: fonts.sans, fontSize: 12, color: D.muted },
   input: {
     fontFamily: fonts.sans,
     marginTop: spacing.sm,
     minHeight: 88,
     textAlignVertical: 'top',
-    backgroundColor: colors.cream,
-    borderColor: colors.cardline,
+    backgroundColor: D.voile,
+    borderColor: D.line,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: 14,
-    color: colors.ink,
+    color: D.text,
   },
   saveBtn: {
     marginTop: spacing.sm,
     alignSelf: 'flex-start',
-    backgroundColor: colors.terracotta,
+    backgroundColor: colors.terracottaVivid,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: 9,
   },
-  saveText: { fontFamily: fonts.sansBold, color: colors.cream, fontSize: 13 },
+  saveText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 13 },
   disabled: { opacity: 0.5 },
-  message: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: spacing.md },
+  message: { fontFamily: fonts.sans, fontSize: 13, color: D.muted, marginTop: spacing.md },
 });
 
 export default SignatureSection;

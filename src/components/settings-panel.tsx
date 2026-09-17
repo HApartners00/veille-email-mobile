@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/auth';
@@ -205,6 +206,25 @@ type RefStrings = {
   apply: string;
   applied: string;
   invalid: string;
+  // 17/09/2026 — suivi complet du parrainage dans l'app (decision de HA).
+  count: string;
+  discount: string;
+  gainsTitle: string;
+  rate: string;
+  balance: string;
+  noGains: string;
+  setup: string;
+  setupResume: string;
+  setupReady: string;
+  setupHint: string;
+  withdraw: string;
+  minHint: string;
+  sent: string;
+  history: string;
+  stDemande: string;
+  stEnvoye: string;
+  stEchec: string;
+  err: string;
 };
 const REF_STR: Record<string, RefStrings> = {
   fr: {
@@ -217,6 +237,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Appliquer',
     applied: 'Code appliqué !',
     invalid: 'Code invalide ou compte non éligible.',
+    count: 'Filleuls abonnés : {n}',
+    discount: 'Réduction obtenue : -{pct} %',
+    gainsTitle: 'Vos gains',
+    rate: 'Votre réduction est de 100 %, et chaque filleul en plus vous rapporte {pct} % en argent à chaque période.',
+    balance: 'Solde disponible : {amount}',
+    noGains: 'Pas encore de gains.',
+    setup: 'Configurer mes virements',
+    setupResume: 'Terminer la configuration de mes virements',
+    setupReady: 'Virements configurés.',
+    setupHint: 'Stripe vérifie votre identité et garde vos coordonnées bancaires. Vmail ne les voit jamais.',
+    withdraw: 'Retirer {amount}',
+    minHint: 'Retrait possible dès {min}.',
+    sent: 'Virement envoyé : {amount}. Il arrive sous quelques jours.',
+    history: 'Derniers retraits',
+    stDemande: 'en cours',
+    stEnvoye: 'envoyé',
+    stEchec: 'refusé — solde rendu',
+    err: 'Lecture impossible.',
   },
   en: {
     title: 'Referral program',
@@ -228,6 +266,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Apply',
     applied: 'Code applied!',
     invalid: 'Invalid code or account not eligible.',
+    count: 'Subscribed referrals: {n}',
+    discount: 'Discount earned: -{pct}%',
+    gainsTitle: 'Your earnings',
+    rate: 'Your discount is 100%, and each extra referral earns you {pct}% in cash every period.',
+    balance: 'Available balance: {amount}',
+    noGains: 'No earnings yet.',
+    setup: 'Set up payouts',
+    setupResume: 'Finish setting up payouts',
+    setupReady: 'Payouts are set up.',
+    setupHint: 'Stripe verifies your identity and keeps your bank details. Vmail never sees them.',
+    withdraw: 'Withdraw {amount}',
+    minHint: 'You can withdraw from {min}.',
+    sent: 'Payout sent: {amount}. It arrives within a few days.',
+    history: 'Recent payouts',
+    stDemande: 'in progress',
+    stEnvoye: 'sent',
+    stEchec: 'declined — balance restored',
+    err: 'Unable to load.',
   },
   es: {
     title: 'Programa de recomendación',
@@ -239,6 +295,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Aplicar',
     applied: '¡Código aplicado!',
     invalid: 'Código no válido o cuenta no elegible.',
+    count: 'Recomendados suscritos: {n}',
+    discount: 'Descuento obtenido: -{pct} %',
+    gainsTitle: 'Tus ganancias',
+    rate: 'Tu descuento es del 100 % y cada recomendado adicional te da un {pct} % en dinero cada periodo.',
+    balance: 'Saldo disponible: {amount}',
+    noGains: 'Aún no hay ganancias.',
+    setup: 'Configurar mis transferencias',
+    setupResume: 'Terminar de configurar mis transferencias',
+    setupReady: 'Transferencias configuradas.',
+    setupHint: 'Stripe verifica tu identidad y guarda tus datos bancarios. Vmail nunca los ve.',
+    withdraw: 'Retirar {amount}',
+    minHint: 'Puedes retirar a partir de {min}.',
+    sent: 'Transferencia enviada: {amount}. Llega en unos días.',
+    history: 'Últimos retiros',
+    stDemande: 'en curso',
+    stEnvoye: 'enviado',
+    stEchec: 'rechazado — saldo devuelto',
+    err: 'No se pudo cargar.',
   },
   de: {
     title: 'Empfehlungsprogramm',
@@ -250,6 +324,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Anwenden',
     applied: 'Code angewendet!',
     invalid: 'Ungültiger Code oder Konto nicht berechtigt.',
+    count: 'Abonnierte Empfehlungen: {n}',
+    discount: 'Erhaltener Rabatt: -{pct} %',
+    gainsTitle: 'Deine Einnahmen',
+    rate: 'Dein Rabatt beträgt 100 %, und jede weitere Empfehlung bringt dir pro Zeitraum {pct} % in Geld.',
+    balance: 'Verfügbares Guthaben: {amount}',
+    noGains: 'Noch keine Einnahmen.',
+    setup: 'Auszahlungen einrichten',
+    setupResume: 'Einrichtung der Auszahlungen abschließen',
+    setupReady: 'Auszahlungen sind eingerichtet.',
+    setupHint: 'Stripe prüft deine Identität und verwahrt deine Bankdaten. Vmail sieht sie nie.',
+    withdraw: '{amount} auszahlen',
+    minHint: 'Auszahlung ab {min} möglich.',
+    sent: 'Auszahlung gesendet: {amount}. Sie kommt in wenigen Tagen an.',
+    history: 'Letzte Auszahlungen',
+    stDemande: 'läuft',
+    stEnvoye: 'gesendet',
+    stEchec: 'abgelehnt — Guthaben erstattet',
+    err: 'Laden nicht möglich.',
   },
   pt: {
     title: 'Programa de indicação',
@@ -261,6 +353,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Aplicar',
     applied: 'Código aplicado!',
     invalid: 'Código inválido ou conta não elegível.',
+    count: 'Indicados subscritos: {n}',
+    discount: 'Desconto obtido: -{pct} %',
+    gainsTitle: 'Os teus ganhos',
+    rate: 'O teu desconto é de 100 % e cada indicado a mais rende-te {pct} % em dinheiro por período.',
+    balance: 'Saldo disponível: {amount}',
+    noGains: 'Ainda sem ganhos.',
+    setup: 'Configurar as minhas transferências',
+    setupResume: 'Concluir a configuração das transferências',
+    setupReady: 'Transferências configuradas.',
+    setupHint: 'O Stripe verifica a tua identidade e guarda os teus dados bancários. O Vmail nunca os vê.',
+    withdraw: 'Levantar {amount}',
+    minHint: 'Levantamento possível a partir de {min}.',
+    sent: 'Transferência enviada: {amount}. Chega em poucos dias.',
+    history: 'Últimos levantamentos',
+    stDemande: 'em curso',
+    stEnvoye: 'enviado',
+    stEchec: 'recusado — saldo reposto',
+    err: 'Não foi possível carregar.',
   },
   it: {
     title: 'Programma di referral',
@@ -272,6 +382,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Applica',
     applied: 'Codice applicato!',
     invalid: 'Codice non valido o account non idoneo.',
+    count: 'Invitati abbonati: {n}',
+    discount: 'Sconto ottenuto: -{pct}%',
+    gainsTitle: 'I tuoi guadagni',
+    rate: 'Il tuo sconto è del 100% e ogni invitato in più ti fa guadagnare il {pct}% in denaro per periodo.',
+    balance: 'Saldo disponibile: {amount}',
+    noGains: 'Ancora nessun guadagno.',
+    setup: 'Configura i miei bonifici',
+    setupResume: 'Completa la configurazione dei bonifici',
+    setupReady: 'Bonifici configurati.',
+    setupHint: 'Stripe verifica la tua identità e custodisce i tuoi dati bancari. Vmail non li vede mai.',
+    withdraw: 'Preleva {amount}',
+    minHint: 'Prelievo possibile da {min}.',
+    sent: 'Bonifico inviato: {amount}. Arriva in pochi giorni.',
+    history: 'Ultimi prelievi',
+    stDemande: 'in corso',
+    stEnvoye: 'inviato',
+    stEchec: 'rifiutato — saldo ripristinato',
+    err: 'Impossibile caricare.',
   },
   ar: {
     title: 'برنامج الإحالة',
@@ -283,6 +411,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'تطبيق',
     applied: 'تم تطبيق الرمز!',
     invalid: 'رمز غير صالح أو حساب غير مؤهل.',
+    count: 'المُحالون المشتركون: {n}',
+    discount: 'الخصم المحصَّل: ‎-{pct}%‎',
+    gainsTitle: 'أرباحك',
+    rate: 'خصمك 100%، وكل مُحال إضافي يربحك {pct}‎%‎ نقدًا في كل فترة.',
+    balance: 'الرصيد المتاح: {amount}',
+    noGains: 'لا أرباح بعد.',
+    setup: 'إعداد التحويلات',
+    setupResume: 'إكمال إعداد التحويلات',
+    setupReady: 'تم إعداد التحويلات.',
+    setupHint: 'تتحقق Stripe من هويتك وتحتفظ ببياناتك البنكية. لا يراها Vmail أبدًا.',
+    withdraw: 'سحب {amount}',
+    minHint: 'السحب ممكن ابتداءً من {min}.',
+    sent: 'تم إرسال التحويل: {amount}. يصل خلال أيام.',
+    history: 'آخر عمليات السحب',
+    stDemande: 'قيد التنفيذ',
+    stEnvoye: 'مُرسل',
+    stEchec: 'مرفوض — أُعيد الرصيد',
+    err: 'تعذّر التحميل.',
   },
   ru: {
     title: 'Реферальная программа',
@@ -294,6 +440,24 @@ const REF_STR: Record<string, RefStrings> = {
     apply: 'Применить',
     applied: 'Код применён!',
     invalid: 'Неверный код или аккаунт не подходит.',
+    count: 'Подписавшиеся приглашённые: {n}',
+    discount: 'Полученная скидка: -{pct} %',
+    gainsTitle: 'Ваш доход',
+    rate: 'Ваша скидка — 100 %, и каждый следующий приглашённый приносит вам {pct} % деньгами за каждый период.',
+    balance: 'Доступный баланс: {amount}',
+    noGains: 'Дохода пока нет.',
+    setup: 'Настроить выплаты',
+    setupResume: 'Завершить настройку выплат',
+    setupReady: 'Выплаты настроены.',
+    setupHint: 'Stripe проверяет вашу личность и хранит банковские данные. Vmail их не видит.',
+    withdraw: 'Вывести {amount}',
+    minHint: 'Вывод возможен от {min}.',
+    sent: 'Перевод отправлен: {amount}. Поступит через несколько дней.',
+    history: 'Последние выводы',
+    stDemande: 'выполняется',
+    stEnvoye: 'отправлен',
+    stEchec: 'отклонён — баланс возвращён',
+    err: 'Не удалось загрузить.',
   },
 };
 
@@ -399,28 +563,96 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
 
   // Parrainage (programme ambassadeur)
   const rs = REF_STR[locale] ?? REF_STR.en;
-  const [referral, setReferral] = useState<{
+  // 17/09/2026 — l'app montre le MEME suivi que le web (decision de HA :
+  // « c'est horrible s'il doit aller chercher son PC juste pour ca ») :
+  // filleuls, reduction, et au-dela de 100 % les gains, les virements et le
+  // retrait. Meme route que le web (/api/referral), memes regles serveur.
+  // ⚠️ Risque App Store assume par HA : le parrainage n'est pas un achat,
+  // mais l'ecran parle d'argent. Aucun prix d'abonnement n'y figure.
+  type Referral = {
     code: string | null;
     link: string | null;
     discount_pct: number;
     active_count: number;
-  } | null>(null);
+    gain_pct?: number;
+    balances?: { currency: string; cents: number }[];
+    min_withdraw_cents?: number;
+    payouts_setup?: 'aucun' | 'a_finir' | 'pret' | 'inconnu';
+    payouts?: { amount_cents: number; currency: string; status: 'demande' | 'envoye' | 'echec'; created_at: string }[];
+    gains_error?: string | null;
+  };
+  const [referral, setReferral] = useState<Referral | null>(null);
+  const [refErr, setRefErr] = useState(false);
+  const [refTick, setRefTick] = useState(0);
+  const [refBusy, setRefBusy] = useState<'virements' | 'retrait' | null>(null);
+  const [refMsg, setRefMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await apiGet<{
-          code: string | null;
-          link: string | null;
-          discount_pct: number;
-          active_count: number;
-        }>('/api/referral');
+        const r = await apiGet<Referral>('/api/referral');
         setReferral(r);
-      } catch {
-        // silencieux : la carte reste masquée
+        setRefErr(false);
+      } catch (e) {
+        // Plus de silence (17/09/2026) : la panne est journalisee ET dite.
+        console.error('[parrainage] lecture /api/referral en echec', e);
+        setRefErr(true);
       }
     })();
-  }, []);
+  }, [refTick]);
+
+  function argent(cents: number, currency: string): string {
+    try {
+      return new Intl.NumberFormat(intl, { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+    } catch {
+      return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+    }
+  }
+
+  async function configurerVirements() {
+    if (refBusy) return;
+    setRefBusy('virements');
+    setRefMsg(null);
+    try {
+      // `retour: 'app'` : Stripe renvoie vers une page qui rouvre l'app,
+      // et jamais vers le tableau de bord web dans la fenetre de l'app.
+      const r = await apiPost<{ url?: string; error?: string }>('/api/referral', {
+        action: 'virements',
+        retour: 'app',
+      });
+      if (!r.url) throw new Error(r.error || rs.err);
+      await WebBrowser.openAuthSessionAsync(r.url, 'veilleemailmobile://parrainage');
+    } catch (e: any) {
+      console.error('[parrainage] configuration des virements en echec', e);
+      setRefMsg({ ok: false, text: e?.message || rs.err });
+    } finally {
+      setRefBusy(null);
+      setRefTick((x) => x + 1);
+    }
+  }
+
+  async function retirer(currency: string) {
+    if (refBusy) return;
+    setRefBusy('retrait');
+    setRefMsg(null);
+    try {
+      const r = await apiPost<{ ok?: boolean; amount_cents?: number; currency?: string; error?: string }>(
+        '/api/referral',
+        { action: 'retrait', currency },
+      );
+      if (r.ok && r.amount_cents && r.currency) {
+        setRefMsg({ ok: true, text: rs.sent.replace('{amount}', argent(r.amount_cents, r.currency)) });
+      } else {
+        setRefMsg({ ok: false, text: r.error || rs.err });
+      }
+    } catch (e: any) {
+      console.error('[parrainage] retrait en echec', e);
+      setRefMsg({ ok: false, text: e?.message || rs.err });
+    } finally {
+      setRefBusy(null);
+      setRefTick((x) => x + 1);
+    }
+  }
 
   async function shareReferral() {
     if (!referral?.link) return;
@@ -704,7 +936,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                     value={delText}
                     onChangeText={setDelText}
                     placeholder={CONFIRM_WORD}
-                    placeholderTextColor={colors.muted}
+                    placeholderTextColor={D.muted}
                     autoCapitalize="characters"
                     autoCorrect={false}
                     editable={!delBusy}
@@ -796,7 +1028,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                     <Switch
                       value={notifPrefs[row.key]}
                       onValueChange={() => toggleNotif(row.key)}
-                      trackColor={{ true: colors.terracotta, false: colors.cardline }}
+                      trackColor={{ true: colors.terracotta, false: D.line }}
                       thumbColor={colors.surface}
                     />
                   </View>
@@ -821,11 +1053,11 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <Text style={styles.subLabel}>{t.settings.hourLabel}</Text>
               <View style={styles.hourRow}>
                 <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.max(0, h - 1))}>
-                  <IconMinus size={20} color={colors.ink} />
+                  <IconMinus size={20} color={D.text} />
                 </Pressable>
                 <Text style={styles.hourValue}>{String(hour).padStart(2, '0')}h00</Text>
                 <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.min(23, h + 1))}>
-                  <IconPlus size={20} color={colors.ink} />
+                  <IconPlus size={20} color={D.text} />
                 </Pressable>
               </View>
 
@@ -879,6 +1111,105 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <Text style={styles.saveBtnText}>{rs.share}</Text>
             </Pressable>
 
+            {/* Suivi (17/09/2026) */}
+            <View style={styles.refBlock}>
+              {referral.active_count > 0 ? (
+                <>
+                  <Text style={styles.value}>{rs.count.replace('{n}', String(referral.active_count))}</Text>
+                  <Text style={styles.refDiscount}>
+                    {rs.discount.replace('{pct}', String(referral.discount_pct))}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.hint}>{rs.none}</Text>
+              )}
+            </View>
+
+            {(referral.gain_pct || 0) > 0 ||
+            (referral.balances || []).some((b) => b.cents > 0) ||
+            (referral.payouts || []).length > 0 ? (
+              <View style={styles.refBlock}>
+                <Text style={styles.cardTitle}>{rs.gainsTitle}</Text>
+                {(referral.gain_pct || 0) > 0 ? (
+                  <Text style={styles.hint}>{rs.rate.replace('{pct}', String(referral.gain_pct))}</Text>
+                ) : null}
+                {referral.gains_error ? <Text style={[styles.msg, styles.msgErr]}>{rs.err}</Text> : null}
+
+                {(referral.balances || []).filter((b) => b.cents > 0).length ? (
+                  (referral.balances || [])
+                    .filter((b) => b.cents > 0)
+                    .map((b) => {
+                      const min = referral.min_withdraw_cents ?? 2000;
+                      return (
+                        <View key={b.currency} style={{ gap: spacing.xs }}>
+                          <Text style={styles.value}>
+                            {rs.balance.replace('{amount}', argent(b.cents, b.currency))}
+                          </Text>
+                          {referral.payouts_setup === 'pret' && b.cents >= min ? (
+                            <Pressable
+                              style={[styles.saveBtn, refBusy !== null && styles.btnDisabled]}
+                              onPress={() => retirer(b.currency)}
+                              disabled={refBusy !== null}
+                            >
+                              {refBusy === 'retrait' ? (
+                                <ActivityIndicator color={colors.onDark} />
+                              ) : (
+                                <Text style={styles.saveBtnText}>
+                                  {rs.withdraw.replace('{amount}', argent(b.cents, b.currency))}
+                                </Text>
+                              )}
+                            </Pressable>
+                          ) : b.cents < min ? (
+                            <Text style={styles.hint}>{rs.minHint.replace('{min}', argent(min, b.currency))}</Text>
+                          ) : null}
+                        </View>
+                      );
+                    })
+                ) : (
+                  <Text style={styles.hint}>{rs.noGains}</Text>
+                )}
+
+                {referral.payouts_setup === 'pret' ? (
+                  <Text style={styles.hint}>{rs.setupReady}</Text>
+                ) : referral.payouts_setup === 'inconnu' ? (
+                  <Text style={[styles.msg, styles.msgErr]}>{rs.err}</Text>
+                ) : (
+                  <>
+                    <Pressable
+                      style={[styles.manageBtn, refBusy !== null && styles.btnDisabled]}
+                      onPress={configurerVirements}
+                      disabled={refBusy !== null}
+                    >
+                      {refBusy === 'virements' ? (
+                        <ActivityIndicator color={D.text} />
+                      ) : (
+                        <Text style={styles.manageBtnText}>
+                          {referral.payouts_setup === 'a_finir' ? rs.setupResume : rs.setup}
+                        </Text>
+                      )}
+                    </Pressable>
+                    <Text style={styles.hint}>{rs.setupHint}</Text>
+                  </>
+                )}
+
+                {refMsg ? (
+                  <Text style={[styles.msg, refMsg.ok ? styles.msgOk : styles.msgErr]}>{refMsg.text}</Text>
+                ) : null}
+
+                {(referral.payouts || []).length ? (
+                  <View style={{ gap: 2 }}>
+                    <Text style={styles.subLabel}>{rs.history}</Text>
+                    {(referral.payouts || []).map((po, i) => (
+                      <Text key={i} style={styles.hint}>
+                        {new Date(po.created_at).toLocaleDateString(intl)} · {argent(po.amount_cents, po.currency)} ·{' '}
+                        {po.status === 'envoye' ? rs.stEnvoye : po.status === 'echec' ? rs.stEchec : rs.stDemande}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
             {/* Saisie d'un code reçu (pas de lien ?ref au signup mobile) */}
             <Text style={[styles.subLabel, { marginTop: spacing.md }]}>{rs.haveCode}</Text>
             {refClaim === 'ok' ? (
@@ -893,7 +1224,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                     if (refClaim === 'err') setRefClaim('idle');
                   }}
                   placeholder={rs.codePlaceholder}
-                  placeholderTextColor={colors.ink2}
+                  placeholderTextColor={D.muted}
                   autoCapitalize="characters"
                   autoCorrect={false}
                 />
@@ -903,7 +1234,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                   disabled={refClaim === 'busy'}
                 >
                   {refClaim === 'busy' ? (
-                    <ActivityIndicator color={colors.ink} />
+                    <ActivityIndicator color={D.text} />
                   ) : (
                     <Text style={styles.manageBtnText}>{rs.apply}</Text>
                   )}
@@ -937,7 +1268,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               value={persoEnabled}
               disabled={!persoLoaded || persoLocked}
               onValueChange={(v) => savePerso({ personalization_enabled: v })}
-              trackColor={{ true: colors.terracotta, false: colors.cardline }}
+              trackColor={{ true: colors.terracotta, false: D.line }}
               thumbColor={colors.surface}
             />
           </View>
@@ -957,7 +1288,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               value={persoLearn}
               disabled={!persoLoaded || !persoEnabled || persoLocked}
               onValueChange={(v) => savePerso({ learn_from_replies: v })}
-              trackColor={{ true: colors.terracotta, false: colors.cardline }}
+              trackColor={{ true: colors.terracotta, false: D.line }}
               thumbColor={colors.surface}
             />
           </View>
@@ -972,7 +1303,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
             disabled={persoBusy}
           >
             {persoBusy ? (
-              <ActivityIndicator color={colors.ink} />
+              <ActivityIndicator color={D.text} />
             ) : (
               <Text style={styles.persoResetText}>{ps.reset}</Text>
             )}
@@ -1014,7 +1345,7 @@ function NavRow({
           {value}
         </Text>
       ) : null}
-      <IconChevronRight size={17} color={colors.hint} />
+      <IconChevronRight size={17} color={D.hint} />
     </Pressable>
   );
 }
@@ -1028,6 +1359,20 @@ export function settingsSectionTitle(key: SettingsSection, locale: string): stri
 }
 
 export default SettingsPanel;
+
+// 17/09/2026 — PISTE A DE HA : reglages PLATS sur le fond sombre, comme l'Accueil.
+// Plus de cartes creme : des sections separees par un filet, textes clairs.
+// Retour arriere : remettre les jetons clairs (colors.ink, colors.surface...).
+const D = {
+  text: colors.onDark,
+  muted: colors.onDarkMuted,
+  hint: 'rgba(234,225,208,0.45)',
+  line: colors.charline,
+  voile: 'rgba(234,225,208,0.05)',
+  accent: colors.terracottaLight,
+  danger: '#f0957a',
+  ok: '#8fc7a3',
+} as const;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.fond },
@@ -1054,58 +1399,60 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontFamily: fonts.sansBold,
     fontSize: 10.5,
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
-    color: colors.muted,
-    marginLeft: spacing.xs,
-    marginBottom: -spacing.xs,
+    color: D.hint,
+    marginTop: spacing.md,
+    marginBottom: -spacing.sm,
   },
   list: {
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
+    borderColor: D.line,
+    borderBottomWidth: 1,
   },
   hubRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md + 2 },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingHorizontal: spacing.md + 4,
     paddingVertical: 15,
   },
-  navLabel: { fontFamily: fonts.sansMedium, fontSize: 15.5, color: colors.ink, flex: 1 },
-  navValue: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, maxWidth: '50%' },
-  hubSep: { height: 1, backgroundColor: colors.cardline, marginLeft: spacing.md + 4 },
+  navLabel: { fontFamily: fonts.sansMedium, fontSize: 15.5, color: D.text, flex: 1 },
+  navValue: { fontFamily: fonts.sans, fontSize: 14, color: D.muted, maxWidth: '50%' },
+  hubSep: { height: 1, backgroundColor: D.line },
   ric: {
     width: 34,
     height: 34,
     borderRadius: 9,
-    backgroundColor: colors.creamAlt,
+    backgroundColor: D.voile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rtxt: { flex: 1, minWidth: 0 },
-  rlabel: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink, letterSpacing: -0.2 },
-  rsub: { fontFamily: fonts.sans, fontSize: 12, color: colors.hint, marginTop: 1 },
+  rlabel: { fontFamily: fonts.sansMedium, fontSize: 15, color: D.text, letterSpacing: -0.2 },
+  rsub: { fontFamily: fonts.sans, fontSize: 12, color: D.hint, marginTop: 1 },
 
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
+    borderColor: D.line,
+    borderTopWidth: 1,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  label: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
-  value: { fontFamily: fonts.sansSemibold, fontSize: 16, color: colors.ink },
-  cardTitle: { fontFamily: fonts.sansBold, fontSize: 18, color: colors.ink, marginBottom: spacing.xs },
-  hint: { fontFamily: fonts.sans, color: colors.hint, fontSize: 13, lineHeight: 19 },
+  label: { fontFamily: fonts.sans, fontSize: 12, color: D.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  value: { fontFamily: fonts.sansSemibold, fontSize: 16, color: D.text },
+  cardTitle: {
+    fontFamily: fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: D.accent,
+    marginBottom: spacing.xs,
+  },
+  hint: { fontFamily: fonts.sans, color: D.hint, fontSize: 13, lineHeight: 19 },
   subLabel: {
     fontFamily: fonts.sans,
     fontSize: 11,
-    color: colors.muted,
+    color: D.muted,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginTop: spacing.md,
@@ -1115,38 +1462,38 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cream,
+    backgroundColor: D.voile,
   },
-  hourBtnText: { fontFamily: fonts.sans, fontSize: 24, color: colors.ink, lineHeight: 26 },
-  hourValue: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.ink, minWidth: 110, textAlign: 'center' },
+  hourBtnText: { fontFamily: fonts.sans, fontSize: 24, color: D.text, lineHeight: 26 },
+  hourValue: { fontFamily: fonts.sansBold, fontSize: 26, color: D.text, minWidth: 110, textAlign: 'center' },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   langChip: {
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: radius.pill,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderWidth: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: D.voile,
   },
   langChipOn: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
-  langChipText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.ink2 },
+  langChipText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.muted },
   langChipTextOn: { color: colors.surface },
   daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
   day: {
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: radius.sm,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderWidth: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: D.voile,
   },
-  dayOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  dayText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.muted },
-  dayTextOn: { color: colors.cream },
+  dayOn: { backgroundColor: colors.onDark, borderColor: colors.onDark },
+  dayText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.muted },
+  dayTextOn: { color: colors.charcoal },
   saveBtn: {
     marginTop: spacing.lg,
     backgroundColor: colors.terracottaVivid,
@@ -1156,7 +1503,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   manageBtn: {
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: 12,
@@ -1164,12 +1511,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  manageBtnText: { fontFamily: fonts.sansSemibold, color: colors.ink, fontSize: 14 },
+  manageBtnText: { fontFamily: fonts.sansSemibold, color: D.text, fontSize: 14 },
   subscribeBtn: { marginTop: 0, paddingHorizontal: spacing.lg, flexGrow: 1 },
   btnDisabled: { opacity: 0.5 },
   msg: { fontFamily: fonts.sans, fontSize: 13, marginTop: spacing.sm },
-  msgOk: { color: colors.sage },
-  msgErr: { color: colors.danger },
+  msgOk: { color: D.ok },
+  msgErr: { color: D.danger },
   persoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1181,14 +1528,14 @@ const styles = StyleSheet.create({
   notifDot: { width: 8, height: 8, borderRadius: 4 },
   persoRowBordered: {
     borderTopWidth: 1,
-    borderTopColor: colors.cardline,
+    borderTopColor: D.line,
     paddingTop: spacing.md,
   },
   persoDimmed: { opacity: 0.5 },
   persoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   persoLock: {
     borderWidth: 1,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderRadius: 10,
     padding: spacing.md,
     gap: spacing.sm,
@@ -1201,67 +1548,77 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  planName: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink },
+  planName: { fontFamily: fonts.sansBold, fontSize: 16, color: D.text },
   refCode: {
     fontFamily: fonts.sansBold,
     fontSize: 24,
     letterSpacing: 4,
-    color: colors.ink,
+    color: D.text,
     marginTop: 2,
     marginBottom: spacing.xs,
   },
+  refBlock: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: D.line,
+    gap: spacing.sm,
+  },
+  refDiscount: { fontFamily: fonts.sansSemibold, fontSize: 15, color: D.accent },
   refClaimRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   refInput: {
     fontFamily: fonts.sans,
     flex: 1,
     borderWidth: 1,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderRadius: 10,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: 14,
-    color: colors.ink,
+    color: D.text,
+    backgroundColor: D.voile,
   },
   persoTexts: { flex: 1, gap: 2 },
-  persoLabel: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
+  persoLabel: { fontFamily: fonts.sansMedium, fontSize: 15, color: D.text },
   persoReset: {
     marginTop: spacing.md,
-    borderColor: colors.cardline,
+    borderColor: D.line,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  persoResetText: { fontFamily: fonts.sansSemibold, color: colors.ink, fontSize: 14 },
+  persoResetText: { fontFamily: fonts.sansSemibold, color: D.text, fontSize: 14 },
   persoLink: { marginTop: spacing.md },
-  persoLinkText: { fontFamily: fonts.sansSemibold, color: colors.terracotta, fontSize: 14 },
+  persoLinkText: { fontFamily: fonts.sansSemibold, color: D.accent, fontSize: 14 },
   delBtn: {
     marginTop: spacing.md,
-    borderColor: colors.danger,
+    borderColor: D.danger,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  delBtnText: { fontFamily: fonts.sansSemibold, color: colors.danger, fontSize: 15 },
+  delBtnText: { fontFamily: fonts.sansSemibold, color: D.danger, fontSize: 15 },
   dangerBox: {
     marginTop: spacing.md,
-    borderColor: colors.danger,
+    borderColor: D.danger,
     borderWidth: 1,
     borderRadius: radius.sm,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  dangerText: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.danger },
+  dangerText: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: D.danger },
   dangerInput: {
     fontFamily: fonts.sansSemibold,
     borderWidth: 1,
-    borderColor: colors.danger,
+    borderColor: D.danger,
     borderRadius: 10,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: 15,
-    color: colors.ink,
+    color: D.text,
+    backgroundColor: D.voile,
   },
   dangerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   dangerBtn: {
@@ -1275,11 +1632,11 @@ const styles = StyleSheet.create({
   dangerBtnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   signout: {
     marginTop: spacing.md,
-    borderColor: colors.danger,
+    borderColor: D.danger,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  signoutText: { fontFamily: fonts.sansSemibold, color: colors.danger, fontSize: 15 },
+  signoutText: { fontFamily: fonts.sansSemibold, color: D.danger, fontSize: 15 },
 });
