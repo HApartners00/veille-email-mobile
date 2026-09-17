@@ -1,0 +1,19 @@
+La voix de l'appel vient maintenant du serveur
+
+L'app pose sur l'appel la voix que /api/voice/start lui indique, et seulement
+si le serveur en demande une.
+
+Motif : une voix Cartesia etiquetee francaise est enregistree en francais. Elle
+parle anglais avec un accent francais. Le serveur renvoie donc `null` en
+francais (« ne remplace rien », l'assistant a deja la bonne voix) et une voix
+americaine native en anglais.
+
+Le garde `...(r.voix ? { voice: r.voix } : {})` n'est pas une precaution de
+style : sans lui, une reponse sans `voix` enverrait `undefined` chez Vapi. Et
+grace a lui, une app plus ancienne qui ignore ce champ se comporte exactement
+comme avant.
+
+Rien de natif ne change : cette modification part par `eas update`, pas par un
+build. C'est le premier `eas update` de ce projet. En cas d'echec, l'app reste
+en l'etat — la voix francaise pour tout le monde, c'est-a-dire le comportement
+d'aujourd'hui.

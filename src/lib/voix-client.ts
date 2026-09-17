@@ -127,6 +127,15 @@ type ReponseStart = {
   assistantId: string;
   jetonVapi: string;
   session: string;
+  /**
+   * La voix à utiliser pour CET appel, quand elle doit changer (18/09).
+   *
+   * Le serveur renvoie `null` en français : l'assistant a déjà la bonne voix,
+   * il n'y a rien à remplacer. Il ne renvoie un objet que pour l'anglais, où la
+   * voix française sonnerait avec un accent français. On ne fabrique donc RIEN
+   * ici : c'est le serveur qui décide, et lui seul se relit dans git.
+   */
+  voix?: { provider: string; model: string; voiceId: string } | null;
   contexte: {
     objet: string;
     expediteur: string;
@@ -160,6 +169,9 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
     vapi = new Vapi(r.jetonVapi);
     brancher(r.session);
     await vapi.start(r.assistantId, {
+      // La voix n'est posée QUE si le serveur en demande une. Sans ce garde, une
+      // réponse sans `voix` enverrait `undefined` chez Vapi.
+      ...(r.voix ? { voice: r.voix } : {}),
       variableValues: {
         session: r.session,
         objet: r.contexte.objet,
