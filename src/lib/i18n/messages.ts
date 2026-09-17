@@ -44,6 +44,11 @@ const fr = {
     codeSentTo: 'Code envoyé à {email}. Pensez au dossier spam.',
     errSend: 'Erreur d’envoi',
     noAccount: 'Aucun compte Vmail pour cette adresse.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Aucun compte pour cette adresse. Connectez votre boîte Outlook pour essayer Vmail.',
+    createAccount: 'Connecter ma boîte Outlook',
+    accountCreated: 'Boîte connectée, compte créé. Saisissez le code à 8 chiffres reçu par email.',
+    trialOpenFailed: 'Impossible d’ouvrir la page. Réessayez.',
   },
   home: {
     boxUpToDate: 'Boîte à jour — rien à traiter pour le moment.',
@@ -300,6 +305,11 @@ const en: Dict = {
     codeSentTo: 'Code sent to {email}. Check your spam folder.',
     errSend: 'Sending failed',
     noAccount: 'No Vmail account for this address.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'No account for this address yet. Connect your Outlook mailbox to try Vmail.',
+    createAccount: 'Connect my Outlook mailbox',
+    accountCreated: 'Mailbox connected, account created. Enter the 8-digit code we just emailed you.',
+    trialOpenFailed: 'Couldn’t open the page. Please try again.',
   },
   home: {
     boxUpToDate: 'Inbox clear — nothing to handle right now.',
@@ -554,6 +564,11 @@ const es: Dict = {
     codeSentTo: 'Código enviado a {email}. Mira también en spam.',
     errSend: 'Error al enviar',
     noAccount: 'No hay ninguna cuenta de Vmail para esta dirección.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Aún no hay cuenta para esta dirección. Conecta tu buzón de Outlook para probar Vmail.',
+    createAccount: 'Conectar mi buzón de Outlook',
+    accountCreated: 'Buzón conectado y cuenta creada. Introduce el código de 8 cifras que te hemos enviado.',
+    trialOpenFailed: 'No se pudo abrir la página. Inténtalo de nuevo.',
   },
   home: {
     boxUpToDate: 'Bandeja al día — nada que gestionar por ahora.',
@@ -808,6 +823,11 @@ const de: Dict = {
     codeSentTo: 'Code gesendet an {email}. Schau auch im Spam-Ordner nach.',
     errSend: 'Senden fehlgeschlagen',
     noAccount: 'Kein Vmail-Konto für diese Adresse.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Für diese Adresse gibt es noch kein Konto. Verbinde dein Outlook-Postfach, um Vmail zu testen.',
+    createAccount: 'Mein Outlook-Postfach verbinden',
+    accountCreated: 'Postfach verbunden, Konto erstellt. Gib den 8-stelligen Code aus der E-Mail ein.',
+    trialOpenFailed: 'Die Seite konnte nicht geöffnet werden. Bitte versuche es erneut.',
   },
   home: {
     boxUpToDate: 'Postfach aktuell — gerade nichts zu erledigen.',
@@ -1062,6 +1082,11 @@ const pt: Dict = {
     codeSentTo: 'Código enviado para {email}. Veja também no spam.',
     errSend: 'Erro ao enviar',
     noAccount: 'Não existe conta Vmail para este endereço.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Ainda não existe conta para este endereço. Ligue a sua caixa Outlook para experimentar o Vmail.',
+    createAccount: 'Ligar a minha caixa Outlook',
+    accountCreated: 'Caixa ligada e conta criada. Introduza o código de 8 dígitos recebido por email.',
+    trialOpenFailed: 'Não foi possível abrir a página. Tente novamente.',
   },
   home: {
     boxUpToDate: 'Caixa em dia — nada a tratar de momento.',
@@ -1316,6 +1341,11 @@ const it: Dict = {
     codeSentTo: 'Codice inviato a {email}. Controlla anche lo spam.',
     errSend: 'Errore di invio',
     noAccount: 'Nessun account Vmail per questo indirizzo.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Nessun account per questo indirizzo. Collega la tua casella Outlook per provare Vmail.',
+    createAccount: 'Collega la mia casella Outlook',
+    accountCreated: 'Casella collegata, account creato. Inserisci il codice di 8 cifre ricevuto via email.',
+    trialOpenFailed: 'Impossibile aprire la pagina. Riprova.',
   },
   home: {
     boxUpToDate: 'Casella in ordine — niente da gestire al momento.',
@@ -1570,6 +1600,11 @@ const ar: Dict = {
     codeSentTo: 'تم إرسال الرمز إلى {email}. تحقّق من مجلد البريد غير المرغوب فيه.',
     errSend: 'فشل الإرسال',
     noAccount: 'لا يوجد حساب Vmail لهذا العنوان.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'لا يوجد حساب لهذا العنوان بعد. اربط صندوق Outlook لتجربة Vmail.',
+    createAccount: 'ربط صندوق Outlook الخاص بي',
+    accountCreated: 'تم ربط الصندوق وإنشاء الحساب. أدخل الرمز المكوّن من 8 أرقام الذي وصلك عبر البريد.',
+    trialOpenFailed: 'تعذّر فتح الصفحة. حاول مجددًا.',
   },
   home: {
     boxUpToDate: 'البريد محدَّث — لا شيء للمعالجة الآن.',
@@ -1824,6 +1859,11 @@ const ru: Dict = {
     codeSentTo: 'Код отправлен на {email}. Проверьте папку «Спам».',
     errSend: 'Ошибка отправки',
     noAccount: 'Для этого адреса нет аккаунта Vmail.',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
+    noAccountTrial: 'Для этого адреса пока нет аккаунта. Подключите ящик Outlook, чтобы попробовать Vmail.',
+    createAccount: 'Подключить мой ящик Outlook',
+    accountCreated: 'Ящик подключён, аккаунт создан. Введите 8-значный код из письма.',
+    trialOpenFailed: 'Не удалось открыть страницу. Попробуйте ещё раз.',
   },
   home: {
     boxUpToDate: 'Почта в порядке — сейчас обрабатывать нечего.',

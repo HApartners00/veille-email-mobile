@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -17,20 +18,103 @@ import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
+// ─── PARCOURS D'ESSAI — 17/09/2026 ─────────────────────────────────────────
+// Avant : une adresse sans compte tombait sur « Aucun compte Vmail pour cette
+// adresse » et rien d'autre — un mur pour qui venait de telecharger l'app.
+// Decision de HA : l'app ouvre la page web /essai dans une fenetre Safari. La
+// page fait CONNECTER LA BOITE OUTLOOK — la meme inscription que le site : le
+// compte est cree a partir de l'adresse que Microsoft confirme, essai compris.
+// La page de succes n8n renvoie ensuite vers
+// `veilleemailmobile://connected?email=<adresse du compte>` ; on envoie alors
+// le code a CETTE adresse (elle peut differer de celle tapee) et on passe a la
+// saisie du code.
+//
+// Aucun code n'a ete envoye avant ce moment (le lien de connexion du web est
+// fabrique sans email), donc la limite Supabase d'un envoi par minute ne gene pas.
+//
+// ⚠️ RISQUE APPLE ASSUME PAR HA le 17/09/2026 — voir la note de /essai
+// (apps/web/src/app/essai/page.tsx) et App-Store-Connect-notes.md.
+//
+// `preferEphemeralSession` : la fenetre ne reprend pas une session web deja
+// ouverte dans Safari, donc elle n'affiche jamais le tableau de bord (et son
+// bandeau d'abonnement) a l'interieur de l'app.
+const PAGE_ESSAI = 'https://app.veille-email.fr/essai';
+// Meme adresse de retour que l'ecran Sources (sources.tsx).
+const RETOUR_CONNEXION = 'veilleemailmobile://connected';
+
+function adresseDuRetour(url: string): string | null {
+  const m = /[?&]email=([^&#]*)/.exec(url);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1] || '').trim().toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Login() {
   const router = useRouter();
-  const { t, f } = useI18n();
+  const { t, f, locale } = useI18n();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Adresse sans compte : on garde le bouton visible si l'utilisateur a ferme
+  // la fenetre sans aller au bout.
+  const [sansCompte, setSansCompte] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function ouvrirEssai(adresseTapee: string) {
+    setError(null);
+    const url = `${PAGE_ESSAI}?from=app&lang=${encodeURIComponent(locale)}`;
+    let res: WebBrowser.WebBrowserAuthSessionResult;
+    try {
+      res = await WebBrowser.openAuthSessionAsync(url, RETOUR_CONNEXION, {
+        preferEphemeralSession: true,
+      });
+    } catch (e) {
+      console.error('openAuthSessionAsync /essai en echec:', e);
+      setSansCompte(true);
+      setError(t.login.trialOpenFailed);
+      return;
+    }
+    if (res.type !== 'success') {
+      // Fenetre fermee sans connecter de boite : on reste ici, bouton visible.
+      setSansCompte(true);
+      setError(t.login.noAccountTrial);
+      return;
+    }
+    // Le compte porte l'adresse de la BOITE connectee, pas forcement celle tapee.
+    const adresse = adresseDuRetour(res.url) || adresseTapee;
+    setEmail(adresse);
+    setLoading(true);
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: adresse,
+      options: { shouldCreateUser: false },
+    });
+    setLoading(false);
+    if (err) {
+      // On ne masque rien : la boite est connectee mais le code n'est pas parti.
+      console.error('signInWithOtp apres inscription en echec:', err);
+      setSansCompte(false);
+      setError(`${t.login.errSend} : ${err.message}`);
+      return;
+    }
+    setCode('');
+    setError(null);
+    setSansCompte(false);
+    setInfo(t.login.accountCreated);
+    setStep('code');
+  }
 
   async function sendCode() {
     const clean = email.trim().toLowerCase();
     if (!clean) return;
     setLoading(true);
     setError(null);
+    setInfo(null);
+    setSansCompte(false);
     // 🔴 shouldCreateUser: false — 27/08/2026.
     // Avant, l'app iOS CREAIT le compte et demarrait l'essai gratuit. Apple a refuse
     // le build 21 le 27/08 (regles 3.1.1 et 3.1.3(c)) : un service payant vendu a des
@@ -52,7 +136,12 @@ export default function Login() {
         brut.includes('signups not allowed') ||
         brut.includes('otp_disabled') ||
         brut.includes('user not found');
-      setError(inconnu ? t.login.noAccount : err.message || JSON.stringify(err) || t.login.errSend);
+      if (inconnu) {
+        // Adresse sans compte : on ouvre directement la page d'essai.
+        await ouvrirEssai(clean);
+        return;
+      }
+      setError(err.message || JSON.stringify(err) || t.login.errSend);
       return;
     }
     setStep('code');
@@ -134,6 +223,15 @@ export default function Login() {
                     <Text style={styles.btnText}>{t.login.getCode}</Text>
                   )}
                 </Pressable>
+                {sansCompte ? (
+                  <Pressable
+                    style={[styles.btnSecondary, loading && styles.btnDisabled]}
+                    onPress={() => ouvrirEssai(email.trim().toLowerCase())}
+                    disabled={loading}
+                  >
+                    <Text style={styles.btnSecondaryText}>{t.login.createAccount}</Text>
+                  </Pressable>
+                ) : null}
                 <Text style={styles.hint}>{t.login.emailHint}</Text>
                 {/* 03/09/2026 — la phrase « Votre compte se cree sur veille-email.fr »
                     est RETIREE. Guideline 3.1.3(f) : « no calls to action for purchase
@@ -171,10 +269,12 @@ export default function Login() {
                     setStep('email');
                     setCode('');
                     setError(null);
+                    setInfo(null);
                   }}
                 >
                   <Text style={styles.linkText}>{t.login.changeEmail}</Text>
                 </Pressable>
+                {info ? <Text style={styles.info}>{info}</Text> : null}
                 <Text style={styles.hint}>
                   {f(t.login.codeSentTo, { email: email.trim().toLowerCase() })}
                 </Text>
@@ -228,6 +328,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnDisabled: { opacity: 0.5 },
+  btnSecondary: {
+    borderColor: colors.terracottaVivid,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondaryText: { fontFamily: fonts.sansBold, color: colors.terracottaLight, fontSize: 15 },
+  info: { fontFamily: fonts.sansSemibold, color: colors.onDark, fontSize: 13, textAlign: 'center' },
   btnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   linkText: { fontFamily: fonts.sans, color: colors.terracottaLight, textAlign: 'center', fontSize: 14 },
   hint: { fontFamily: fonts.sans, color: colors.onDarkMuted, fontSize: 12, textAlign: 'center' },
