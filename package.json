@@ -62,5 +62,13 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@daily-co/react-native-daily-js": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
+    },
+    "@vapi-ai/react-native": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
+    }
+  }
 }
