@@ -1273,7 +1273,10 @@ export default function EmailDetail() {
                   {corpsServeur && ressembleAHtml(corpsServeur) ? (
                     <MailHtml html={corpsServeur} />
                   ) : (
-                    <LinkifiedText text={body} style={styles.content} />
+                    // 17/09/2026 (piste A) : meme feuille claire que le mail HTML.
+                    <View style={styles.papier}>
+                      <LinkifiedText text={body} style={styles.contentPapier} />
+                    </View>
                   )}
                 </View>
                 {corpsDeborde && !deplie ? (
@@ -1985,18 +1988,19 @@ const styles = StyleSheet.create({
   // passe en `onDark` (11,71:1) et l'intitule en `terracottaLight` (6,47:1) ;
   // `terracottaVivid` n'aurait donne que 4,34:1 sur cette teinte.
   // ==========================================================================
+  // ==========================================================================
+  // 17/09/2026 — PISTE A DE HA : ecran PLAT, comme l'Accueil et les Reglages.
+  // Le resume n'a plus de cadre : intitule orange + texte, puis un filet.
+  // Le mail garde sa feuille claire (mail-html.tsx) : c'est la seule surface
+  // claire de l'ecran, et elle est voulue.
+  // Retour arriere (ancienne carte) : fond charcoalSoft, bordure terracottaLight
+  // 1 px (demande HA du 12/08), rayon md+3, padding lg, marginBottom xl.
+  // ==========================================================================
   summaryCard: {
-    backgroundColor: colors.charcoalSoft,
-    borderWidth: 1,
-    // ⚠️ LE CONTOUR REPREND LA COULEUR DE L'INTITULE — HA, 12/08 : « je veux que
-    // le contour de l'encadre du resume soit de la mm couleur que la police de
-    // "resume" pr le mettre un peu plus en evidence ». Le filet `charline`
-    // (#37322b) le fermait sans le designer ; `terracottaLight` en fait un bloc
-    // qui se voit, et le cadre parle la meme langue que son intitule.
-    borderColor: colors.terracottaLight,
-    borderRadius: radius.md + 3,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.charline,
+    marginBottom: spacing.lg,
   },
   summaryLabel: {
     fontFamily: fonts.sansBold,
@@ -2081,6 +2085,13 @@ const styles = StyleSheet.create({
   // sombre — donc invisible. Ils passent en clair. Ce sont les SEULS de l'ecran
   // dans ce cas : tout le reste vit dans une carte claire.
   content: { fontFamily: fonts.sans, fontSize: 15, color: colors.onDark, lineHeight: 24 },
+  papier: {
+    backgroundColor: '#faf7f0',
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  contentPapier: { fontFamily: fonts.sans, fontSize: 15, color: '#2a2a25', lineHeight: 24 },
   corpsNote: {
     fontFamily: fonts.sans,
     fontSize: 12.5,
@@ -2096,11 +2107,10 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.cardline,
-    backgroundColor: colors.surface,
+    borderColor: colors.charline,
     alignItems: 'center',
   },
-  deplierBtnText: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.ink },
+  deplierBtnText: { fontFamily: fonts.sansSemibold, fontSize: 14, color: colors.onDark },
   linkBtn: { marginTop: spacing.lg },
   // ⚠️ Pose sur le fond sombre : `terracotta` n'y donne que 3,21:1. Sa version
   // claire monte a 7,07:1 — meme famille, meme intention.
@@ -2118,38 +2128,44 @@ const styles = StyleSheet.create({
   draftHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // ⚠️ POSE DIRECTEMENT SUR LE FOND SOMBRE (pas dans une carte) : texte clair,
   // sinon invisible. Voir `fond` dans lib/theme.ts.
-  draftTitle: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.onDark },
+  draftTitle: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.terracottaLight,
+  },
   genLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
   // Les deux emplois (carte de resume, brouillon) sont sur fond sombre.
   genLoadingText: { fontFamily: fonts.sans, color: colors.onDarkMuted, fontSize: 14 },
   draftInput: {
     fontFamily: fonts.sans,
     minHeight: 160,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
+    backgroundColor: 'rgba(234,225,208,0.05)',
+    borderColor: colors.charline,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     fontSize: 15,
-    color: colors.ink2,
+    color: colors.onDark,
     lineHeight: 22,
   },
   tsBox: { marginTop: spacing.md },
   adaptedRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  adapted: { fontFamily: fonts.sansItalic, fontSize: 11, color: colors.hint },
+  adapted: { fontFamily: fonts.sansItalic, fontSize: 11, color: 'rgba(234,225,208,0.45)' },
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
+    backgroundColor: 'rgba(234,225,208,0.05)',
+    borderColor: colors.charline,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  noticeText: { fontFamily: fonts.sans, flex: 1, fontSize: 12, color: colors.muted, lineHeight: 17 },
+  noticeText: { fontFamily: fonts.sans, flex: 1, fontSize: 12, color: colors.onDarkMuted, lineHeight: 17 },
   // « Pieces jointes » et « Ajuster : » — poses sur le fond sombre du brouillon.
   refineLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted },
   attRow: {
@@ -2158,15 +2174,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginTop: spacing.xs,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
+    backgroundColor: 'rgba(234,225,208,0.05)',
+    borderColor: colors.charline,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
   },
   attError: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.danger, marginTop: 6, lineHeight: 18 },
-  attName: { fontFamily: fonts.sans, flex: 1, fontSize: 13, color: colors.ink2 },
+  attName: { fontFamily: fonts.sans, flex: 1, fontSize: 13, color: colors.onDark },
   attAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2174,7 +2190,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.cardline,
+    borderColor: 'rgba(234,225,208,0.28)',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
@@ -2186,8 +2202,8 @@ const styles = StyleSheet.create({
   attAddText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.onDark },
   recvBox: {
     marginTop: spacing.lg,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
+    backgroundColor: 'rgba(234,225,208,0.05)',
+    borderColor: colors.charline,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
@@ -2197,7 +2213,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.onDarkMuted,
     marginBottom: spacing.sm,
   },
   recvRow: {
@@ -2207,11 +2223,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.cardline,
+    borderTopColor: colors.charline,
   },
   recvNameWrap: { flex: 1, paddingEnd: spacing.sm },
-  recvName: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink },
-  recvDl: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracotta },
+  recvName: { fontFamily: fonts.sans, fontSize: 14, color: colors.onDark },
+  recvDl: { fontFamily: fonts.sansSemibold, fontSize: 13, color: colors.terracottaLight },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.93)', alignItems: 'center', justifyContent: 'center' },
   previewClose: { position: 'absolute', top: 52, end: 20, zIndex: 2, padding: 8 },
   previewImg: { width: '100%', height: '100%' },
@@ -2256,20 +2272,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.cardline,
-    backgroundColor: colors.surface,
+    borderColor: colors.charline,
   },
-  refineChipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.ink2 },
+  refineChipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: 'rgba(234,225,208,0.85)' },
   instr: {
     fontFamily: fonts.sans,
-    backgroundColor: colors.surface,
-    borderColor: colors.cardline,
+    backgroundColor: 'rgba(234,225,208,0.05)',
+    borderColor: colors.charline,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 11,
     fontSize: 14,
-    color: colors.ink,
+    color: colors.onDark,
   },
   row: { flexDirection: 'row', gap: spacing.sm },
   flex1: { flex: 1 },
