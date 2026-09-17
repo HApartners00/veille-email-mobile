@@ -75,10 +75,57 @@ export function oublierBrouillon(id: string): void {
 export async function lireBrouillon(id: string): Promise<Brouillon | null> {
   const deja = brouillonEnCache(id);
   if (deja) return deja;
-  const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] }>('/api/drafts');
-  const liste = Array.isArray(j?.drafts) ? j.drafts : [];
-  memoriserBrouillons(liste);
-  return brouillonEnCache(id);
+  const liste = await chargerEnDirect();
+  return liste.find((b) => String(b.id) === String(id)) ?? null;
+}
+
+/**
+ * UNE SEULE LECTURE EN DIRECT A LA FOIS — 16/09/2026. Jumeau du web.
+ *
+ * La liste s'affiche maintenant tout de suite (copie locale ou base), donc on
+ * peut toucher un brouillon AVANT que la lecture chez le fournisseur soit
+ * finie. Avant, la page du brouillon relancait alors SON propre appel de 2 a
+ * 6 s. Ici, elle reprend celui qui est deja en route.
+ *
+ * Remplit la Map (corps compris) a chaque succes. Leve en cas d'echec : « on
+ * n'a pas pu regarder » ne doit jamais ressembler a « il n'y a rien ».
+ */
+let enCours: Promise<Brouillon[]> | null = null;
+
+export function chargerEnDirect(): Promise<Brouillon[]> {
+  if (enCours) return enCours;
+  enCours = (async () => {
+    try {
+      const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] }>('/api/drafts');
+      const liste = Array.isArray(j?.drafts) ? j.drafts : [];
+      memoriserBrouillons(liste);
+      return liste;
+    } finally {
+      enCours = null;
+    }
+  })();
+  return enCours;
+}
+
+/**
+ * LA DERNIERE LISTE GARDEE EN BASE — 16/09/2026 (`public.draft_lists`, ecrite
+ * par `/api/drafts` a chaque lecture reussie, SANS les corps).
+ *
+ * Sert le premier passage sur cet appareil, et l'ouverture apres une
+ * deconnexion : la copie locale est alors vide. `null` = rien d'enregistre,
+ * ou lecture en echec (journalisee) — l'ecran attend alors la lecture en direct.
+ */
+export async function lireListeBase(): Promise<{ brouillons: Brouillon[]; enregistreLe: number } | null> {
+  try {
+    const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] | null; syncedAt?: string | null }>(
+      '/api/drafts?source=base',
+    );
+    if (!Array.isArray(j?.drafts) || !j.syncedAt) return null;
+    return { brouillons: j.drafts, enregistreLe: new Date(j.syncedAt).getTime() };
+  } catch (e) {
+    console.warn('[brouillons] liste en base illisible', e);
+    return null;
+  }
 }
 
 // ============================================================================

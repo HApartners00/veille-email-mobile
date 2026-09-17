@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmailRow } from '@/components/email-row';
 import { MailboxHeader } from '@/components/mailbox-header';
 import {
+  chargerEnDirect,
+  lireListeBase,
   lireListeMemorisee,
   memoriserBrouillons,
   memoriserListe,
@@ -41,16 +43,16 @@ import { colors, fonts, spacing } from '@/lib/theme';
  * `NOTE_STR` dans `app/brouillon/[id].tsx` : deux chaines ne justifient pas
  * d'elargir le dictionnaire global, qui obligerait a toucher les huit tables.
  */
-type DictVmail = { modifiable: string; chezVous: string; memoire: string };
+type DictVmail = { modifiable: string; chezVous: string; memoire: string; memoireSeule: string };
 const VMAIL_STR: Record<string, DictVmail> = {
-  fr: { modifiable: 'Modifiable', chezVous: 'Vos brouillons Vmail ne sont pas visibles dans Gmail ni dans Outlook.', memoire: 'Liste de votre dernière visite — mise à jour en cours…' },
-  en: { modifiable: 'Editable', chezVous: 'Your Vmail drafts are not visible in Gmail or Outlook.', memoire: 'List from your last visit — updating…' },
-  es: { modifiable: 'Editable', chezVous: 'Tus borradores de Vmail no se ven en Gmail ni en Outlook.', memoire: 'Lista de su última visita — actualizando…' },
-  de: { modifiable: 'Bearbeitbar', chezVous: 'Deine Vmail-Entwürfe sind in Gmail und Outlook nicht sichtbar.', memoire: 'Liste von Ihrem letzten Besuch — wird aktualisiert…' },
-  pt: { modifiable: 'Editável', chezVous: 'Os seus rascunhos Vmail não aparecem no Gmail nem no Outlook.', memoire: 'Lista da sua última visita — a atualizar…' },
-  it: { modifiable: 'Modificabile', chezVous: 'Le tue bozze Vmail non sono visibili in Gmail né in Outlook.', memoire: 'Elenco della tua ultima visita — aggiornamento in corso…' },
-  ar: { modifiable: 'قابلة للتعديل', chezVous: 'مسوداتك في Vmail غير ظاهرة في Gmail أو Outlook.', memoire: 'قائمة زيارتك الأخيرة — جارٍ التحديث…' },
-  ru: { modifiable: 'Редактируемый', chezVous: 'Ваши черновики Vmail не видны в Gmail и Outlook.', memoire: 'Список с вашего прошлого визита — обновляется…' },
+  fr: { modifiable: 'Modifiable', chezVous: 'Vos brouillons Vmail ne sont pas visibles dans Gmail ni dans Outlook.', memoire: 'Liste de votre dernière visite — mise à jour en cours…', memoireSeule: 'Liste de votre dernière visite — elle n’a pas pu être mise à jour.' },
+  en: { modifiable: 'Editable', chezVous: 'Your Vmail drafts are not visible in Gmail or Outlook.', memoire: 'List from your last visit — updating…', memoireSeule: 'List from your last visit — it could not be updated.' },
+  es: { modifiable: 'Editable', chezVous: 'Tus borradores de Vmail no se ven en Gmail ni en Outlook.', memoire: 'Lista de su última visita — actualizando…', memoireSeule: 'Lista de su última visita — no se ha podido actualizar.' },
+  de: { modifiable: 'Bearbeitbar', chezVous: 'Deine Vmail-Entwürfe sind in Gmail und Outlook nicht sichtbar.', memoire: 'Liste von Ihrem letzten Besuch — wird aktualisiert…', memoireSeule: 'Liste von Ihrem letzten Besuch — sie konnte nicht aktualisiert werden.' },
+  pt: { modifiable: 'Editável', chezVous: 'Os seus rascunhos Vmail não aparecem no Gmail nem no Outlook.', memoire: 'Lista da sua última visita — a atualizar…', memoireSeule: 'Lista da sua última visita — não foi possível atualizá-la.' },
+  it: { modifiable: 'Modificabile', chezVous: 'Le tue bozze Vmail non sono visibili in Gmail né in Outlook.', memoire: 'Elenco della tua ultima visita — aggiornamento in corso…', memoireSeule: 'Elenco della tua ultima visita — non è stato possibile aggiornarlo.' },
+  ar: { modifiable: 'قابلة للتعديل', chezVous: 'مسوداتك في Vmail غير ظاهرة في Gmail أو Outlook.', memoire: 'قائمة زيارتك الأخيرة — جارٍ التحديث…', memoireSeule: 'قائمة زيارتك الأخيرة — تعذّر تحديثها.' },
+  ru: { modifiable: 'Редактируемый', chezVous: 'Ваши черновики Vmail не видны в Gmail и Outlook.', memoire: 'Список с вашего прошлого визита — обновляется…', memoireSeule: 'Список с вашего прошлого визита — обновить его не удалось.' },
 };
 
 type BrouillonVmail = {
@@ -116,16 +118,35 @@ export default function DraftsScreen() {
   const reseauVmail = useRef<BrouillonVmail[] | null>(null);
   const vmailAffiche = useRef<BrouillonVmail[]>([]);
   vmailAffiche.current = vmailDrafts;
+  const depuisMemoireRef = useRef(depuisMemoire);
+  depuisMemoireRef.current = depuisMemoire;
+
+  // Plus recente liste deja affichee (copie locale ou base), pour que la plus
+  // ancienne des deux, si elle arrive en second, n'ecrase pas l'autre.
+  const affichageLe = useRef(0);
 
   useEffect(() => {
     let actif = true;
-    void lireListeMemorisee<BrouillonVmail>(userId).then((m) => {
-      // Si la vraie liste est deja arrivee, la copie ne l'ecrase pas.
-      if (!actif || !m || reseauBrouillons.current) return;
-      setDrafts(m.brouillons);
-      if (!reseauVmail.current) setVmailDrafts(m.vmail);
+    const montrer = (brouillons: Brouillon[], le: number) => {
+      // Si la vraie liste est deja arrivee, aucune copie ne l'ecrase.
+      if (!actif || reseauBrouillons.current || le <= affichageLe.current) return;
+      affichageLe.current = le;
+      setDrafts(brouillons);
       setDepuisMemoire(true);
+    };
+    void lireListeMemorisee<BrouillonVmail>(userId).then((m) => {
+      if (!m) return;
+      if (actif && !reseauVmail.current) setVmailDrafts(m.vmail);
+      montrer(m.brouillons, m.enregistreLe);
     });
+    // LISTE EN BASE — 16/09/2026. Seule source possible au premier passage sur
+    // cet appareil ou apres une deconnexion (la copie locale est alors vide).
+    // Une requete Supabase, sans appel a la messagerie.
+    if (userId) {
+      void lireListeBase().then((b) => {
+        if (b) montrer(b.brouillons, b.enregistreLe);
+      });
+    }
     return () => {
       actif = false;
     };
@@ -158,17 +179,19 @@ export default function DraftsScreen() {
       .catch((e) => console.error('[brouillons] /api/vmail-drafts en echec', e));
 
     try {
-      const j = await apiGet<{ ok?: boolean; drafts?: Brouillon[] }>('/api/drafts');
-      const liste = Array.isArray(j?.drafts) ? j.drafts : [];
+      // Lecture partagee avec la page /brouillon/[id] (lib/cache-brouillons) :
+      // elle remplit aussi le cache en memoire, corps compris.
+      const liste = await chargerEnDirect();
       setDrafts(liste);
       setDepuisMemoire(false);
-      // La page /brouillon/[id] y puise sans repayer 1,5 a 2,5 s de reseau.
-      memoriserBrouillons(liste);
       reseauBrouillons.current = liste;
       enregistrer();
     } catch (e) {
       setFailure(e instanceof Error && e.message ? e.message : tx.unreachable);
-      setDrafts([]);
+      // Une liste de la derniere visite deja affichee RESTE (elle est annoncee
+      // comme telle) ; sinon la liste est vide et la panne est dite.
+      if (!depuisMemoireRef.current) setDrafts([]);
+      memoriserBrouillons([]);
     } finally {
       setLoading(false);
     }
@@ -270,7 +293,7 @@ export default function DraftsScreen() {
   return (
     <View style={styles.screen}>
       <FlatList
-        data={failure ? [] : visible}
+        data={failure && !depuisMemoire ? [] : visible}
         keyExtractor={(d) => d.cle}
         style={styles.screen}
         contentContainerStyle={styles.content}
@@ -285,6 +308,15 @@ export default function DraftsScreen() {
               <Text style={styles.memoire} accessibilityRole="text">
                 {sv.memoire}
               </Text>
+            ) : null}
+            {failure && depuisMemoire && visible.length > 0 ? (
+              <View style={styles.rowWrap}>
+                <Text style={styles.memoireEchec}>{sv.memoireSeule}</Text>
+                <Text style={styles.failure}>{failure}</Text>
+                <Pressable onPress={() => void reload()}>
+                  <Text style={styles.retry}>{tx.retry}</Text>
+                </Pressable>
+              </View>
             ) : null}
             {error ? (
               <View style={styles.rowWrap}>
@@ -356,6 +388,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: -6,
     marginBottom: spacing.sm,
+  },
+  memoireEchec: {
+    fontFamily: fonts.sans,
+    fontSize: 11.5,
+    color: colors.onDarkMuted,
+    textAlign: 'center',
   },
   noteVmail: {
     fontFamily: fonts.sans,
