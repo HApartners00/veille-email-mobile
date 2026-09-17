@@ -1,0 +1,19 @@
+L'ecran suit la voix quand on passe au mail suivant
+
+L'app relisait l'etat de la conversation sur le message `tool-calls`. Vapi emet
+ce message quand le MODELE DEMANDE l'outil, pas quand notre serveur l'a execute.
+L'app relisait donc la session AVANT que `mail_suivant` y ait ecrit le nouveau
+mail : elle relisait l'ancien, une fois, et plus jamais. La voix parlait du mail
+suivant, l'ecran montrait le precedent. La bascule elle-meme existait deja dans
+src/app/email/[id].tsx ; elle ne recevait jamais la bonne valeur.
+
+On relit desormais sur `tool-calls` ET sur `tool-calls-result`, qui arrive apres
+la reponse de l'outil, plus deux relectures a 0,5 s et 1,5 s.
+
+Ces relectures ne sont pas decoratives : c'est la bascule de l'ecran qui
+declenche la fabrication du resume du mail suivant (un ecran de mail demande
+toujours son resume en s'ouvrant), et c'est ce resume que l'outil attend pour le
+faire lire a voix haute. Plus tot l'ecran bascule, plus tot l'assistant a
+quelque chose a dire.
+
+Rien de natif ne change : livrable par `eas update`, sans build.

@@ -245,10 +245,31 @@ function brancher(session: string) {
       return;
     }
 
-    if (type === 'tool-calls') {
+    if (type === 'tool-calls' || type === 'tool-calls-result') {
       // Le RÉSULTAT d'un outil va au modèle, pas à nous : c'est le serveur qui
       // détient le nouveau brouillon et le mail courant. On va donc les relire.
+      //
+      // ⚠️ LE DÉFAUT CORRIGÉ LE 18/09 — HA : « quand on passe au mail suivant,
+      // il faut que l'écran passe aussi ». On ne relisait que sur `tool-calls`,
+      // qui est émis quand le modèle DEMANDE l'outil, pas quand notre serveur l'a
+      // exécuté. On relisait donc l'ancien mail, une fois, et plus jamais :
+      // l'écran restait sur le mail précédent pendant que la voix parlait du
+      // suivant. `tool-calls-result` arrive APRÈS la réponse de l'outil.
+      //
+      // Les deux relectures sont gardées : la première rafraîchit tout de suite
+      // ce qui n'a pas changé, la seconde apporte le vrai résultat. Et un dernier
+      // filet à 1,5 s, au cas où `tool-calls-result` ne viendrait pas — mieux
+      // vaut une relecture de trop qu'un écran qui ment.
       void rafraichir(session);
+      if (type === 'tool-calls') {
+        // ⚠️ CES RELECTURES SONT UTILES, PAS DÉCORATIVES. C'est la bascule de
+        // l'écran qui déclenche la fabrication du résumé du mail suivant (un
+        // écran de mail demande toujours son résumé en s'ouvrant), et c'est ce
+        // résumé que l'outil attend pour le faire lire à voix haute. Plus tôt
+        // l'écran bascule, plus tôt l'assistant a quelque chose à dire.
+        setTimeout(() => void rafraichir(session), 500);
+        setTimeout(() => void rafraichir(session), 1500);
+      }
       return;
     }
 
