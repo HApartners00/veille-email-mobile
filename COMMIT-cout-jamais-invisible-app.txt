@@ -1,0 +1,20 @@
+L'app rattache l'appel a la conversation des la premiere seconde
+
+`vapi.start()` rend l'objet appel. On en poste l'identifiant a
+POST /api/voice/etat, sans attendre, pour ne pas retarder la conversation.
+
+Motif : le serveur n'apprenait l'identifiant de l'appel qu'au PREMIER OUTIL
+utilise. Un appel ou l'on se contente d'ecouter n'etait donc rattache a
+personne, et son cout n'etait ecrit nulle part. Mesure le 18/09 : quatre appels
+absents du suivi, alors que Vapi avait bien envoye ses rapports. L'app est la
+seule a connaitre a la fois le jeton de session et l'identifiant d'appel a cet
+instant.
+
+L'echec ne s'affiche pas dans le panneau, contrairement a la regle « rien en
+silence » qui gouverne le reste de cet assistant : cette panne ne touche pas la
+conversation, seulement la comptabilite. Alarmer quelqu'un en pleine
+conversation pour un defaut qui ne le concerne pas serait pire. Elle reste
+visible dans la console, et dans les donnees — le serveur ecrit alors une ligne
+de cout sans utilisateur.
+
+Rien de natif ne change : livrable par `eas update`, sans build.

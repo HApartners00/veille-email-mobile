@@ -168,7 +168,7 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
     const Vapi = mod?.default ?? mod;
     vapi = new Vapi(r.jetonVapi);
     brancher(r.session);
-    await vapi.start(r.assistantId, {
+    const appel = await vapi.start(r.assistantId, {
       // La voix n'est posée QUE si le serveur en demande une. Sans ce garde, une
       // réponse sans `voix` enverrait `undefined` chez Vapi.
       ...(r.voix ? { voice: r.voix } : {}),
@@ -182,9 +182,42 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
       },
     });
     poser({ etape: 'en_cours', session: r.session, debutMs: Date.now() });
+    // Sans attendre : le rattachement ne doit pas retarder la conversation.
+    void rattacherAppel(r.session, appel);
   } catch (e) {
     poser({ etape: 'fin', erreur: message(e) });
     await arreterVoix();
+  }
+}
+
+/**
+ * DIT AU SERVEUR QUEL APPEL VAPI CORRESPOND À CETTE CONVERSATION. 18/09/2026.
+ *
+ * ⚠️ POURQUOI L'APP, ET DÈS LA PREMIÈRE SECONDE. Avant, le serveur n'apprenait
+ * l'identifiant de l'appel qu'au PREMIER OUTIL utilisé. Un appel où l'on se
+ * contente d'écouter n'était donc rattaché à personne : à la fin, le rapport de
+ * coût de Vapi arrivait et ne pouvait être écrit nulle part. Mesuré le 18/09 :
+ * trois appels disparus du suivi. Des minutes consommées, un coût invisible.
+ * L'app est la SEULE à connaître à la fois le jeton de session et l'identifiant
+ * d'appel dès le départ — `vapi.start()` lui rend l'appel.
+ *
+ * ⚠️ POURQUOI L'ÉCHEC NE S'AFFICHE PAS À L'ÉCRAN, alors qu'on n'avale jamais une
+ * panne : celle-ci ne touche PAS la conversation, seulement notre comptabilité.
+ * Alarmer quelqu'un en pleine conversation pour un défaut qui ne le concerne pas
+ * serait pire. Elle reste visible deux fois : dans la console, et dans les
+ * données — le serveur écrit alors une ligne de coût SANS utilisateur, qui se
+ * remarque au premier coup d'œil.
+ */
+async function rattacherAppel(session: string, appel: unknown): Promise<void> {
+  try {
+    const id = String((appel as { id?: string } | null | undefined)?.id || '').trim();
+    if (!id) {
+      console.error("[voix] vapi.start n'a pas rendu d'identifiant d'appel : coût non rattaché");
+      return;
+    }
+    await apiPost('/api/voice/etat', { session, callId: id });
+  } catch (e) {
+    console.error('[voix] appel non rattaché à la conversation', message(e));
   }
 }
 
