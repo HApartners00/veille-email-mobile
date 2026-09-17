@@ -15,7 +15,11 @@
         "NSPhotoLibraryUsageDescription": "Autorisez l'accès à vos photos pour les joindre à vos réponses.",
         "NSCameraUsageDescription": "Autorisez l'accès à l'appareil photo pour joindre une photo à vos réponses.",
         "ExpoLocalization_supportsRTL": true,
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Autorisez le micro pour parler à l'assistant vocal de Vmail.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -59,7 +63,33 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Autorisez le micro pour parler à l'assistant vocal de Vmail.",
+          "cameraPermission": "Autorisez l'accès à l'appareil photo pour joindre une photo à vos réponses."
+        }
+      ],
+      [
+        "@daily-co/config-plugin-rn-daily-js",
+        {
+          "enableCamera": false,
+          "enableMicrophone": true,
+          "enableScreenShare": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

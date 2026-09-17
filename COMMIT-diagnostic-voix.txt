@@ -1,0 +1,90 @@
+ASSISTANT VOCAL — ETAPE 1 : LE BUILD D'ESSAI (17/09/2026)
+==========================================================
+
+Ce commit N'AJOUTE PAS l'assistant vocal. Il ajoute seulement de quoi PROUVER que
+le moteur audio de Vapi se charge sur un vrai iPhone, avant d'ecrire la suite.
+
+A lancer depuis :
+  cd "C:\Users\hamza\Desktop\Projets Claude\veille-email-mobile"
+
+
+1) LES FICHIERS A AJOUTER (jamais `git add .`)
+----------------------------------------------
+
+git add package.json
+git add package-lock.json
+git add app.json
+git add src/app/diagnostic-voix.tsx
+git add src/components/settings-panel.tsx
+git add COMMIT-diagnostic-voix.txt
+
+
+2) LE COMMIT
+------------
+
+git commit -F COMMIT-diagnostic-voix.txt
+
+(le message est le bloc "MESSAGE" ci-dessous ; si tu preferes ecrire toi-meme :
+ git commit -m "Assistant vocal : build d'essai du moteur audio (Vapi + Daily)")
+
+git push origin main
+
+
+3) LE BUILD
+-----------
+
+npx eas build --platform ios --profile production
+
+Puis, quand il est fini (garde l'identifiant que EAS affiche) :
+
+npx eas submit --platform ios --id <id du build>
+
+⚠️ `--latest` n'a rien fait le 17/09, sans message. Toujours `--id`.
+⚠️ NE PAS envoyer ce build a l'examen App Store : il contient l'ecran de
+   diagnostic. TestFlight interne seulement.
+
+
+4) CE QUE TU FAIS SUR L'IPHONE
+------------------------------
+
+Reglages > Diagnostic > Diagnostic voix > "Lancer le test".
+iOS demandera l'autorisation du micro : accepte.
+Envoie-moi le texte affiche, tel quel, meme en cas d'echec.
+
+
+MESSAGE
+=======
+
+Assistant vocal : build d'essai du moteur audio (Vapi + Daily)
+
+Premiere etape du chantier "assistant vocal" : verifier que le kit Vapi et son
+moteur audio (Daily + WebRTC 118) se chargent dans l'app, qui tourne en nouvelle
+architecture React Native. La notice de Vapi annonce une incompatibilite avec la
+nouvelle architecture (texte ecrit pour Android) et aucun des quatre modules
+natifs ajoutes ne la declare dans son podspec : seul un build sur un vrai iPhone
+peut trancher. Rien de l'assistant lui-meme n'est ajoute ici.
+
+- package.json : @vapi-ai/react-native 0.3.0, @daily-co/react-native-daily-js
+  0.78.0, @daily-co/react-native-webrtc 118.0.3-daily.4 (version exacte imposee
+  par Vapi), react-native-background-timer, react-native-get-random-values,
+  expo-build-properties ; cote outils, @config-plugins/react-native-webrtc 13 et
+  @daily-co/config-plugin-rn-daily-js 0.0.11 (les deux versions compatibles
+  Expo 54).
+- package.json, bloc "overrides" : daily-js 0.78 et le kit Vapi demandent
+  @react-native-async-storage/async-storage ^1.24 alors que l'app est en 2.2.0.
+  Mesure du 17/09 : sans ce bloc, `npm install` echoue en ERESOLVE et le build
+  EAS s'arrete avant de compiler. Avec lui, `npm ci` passe sur un dossier vide
+  (mesure faite dans le cloud) et tout le monde partage async-storage 2.2.0.
+- app.json : NSMicrophoneUsageDescription, UIBackgroundModes ["audio"] (la
+  conversation continue quand l'ecran s'eteint), et les trois greffons ci-dessus.
+  Verifie par un `expo prebuild` dans le cloud : les deux cles sont bien ecrites
+  dans l'Info.plist genere.
+- src/app/diagnostic-voix.tsx : ecran jetable, reserve a ha.partners00@gmail.com.
+  Cinq etapes (charger le moteur, charger le kit, creer un objet d'appel, ouvrir
+  le micro, refermer), chacune affichant le message d'erreur BRUT. Aucun appel
+  Vapi, aucune minute consommee, aucune cle embarquee.
+- src/components/settings-panel.tsx : la rangee qui y mene, visible par moi seul.
+
+Mesure : `tsc --noEmit` donne 20 erreurs avant comme apres, les memes.
+
+A retirer quand l'assistant sera en production : l'ecran et sa rangee.

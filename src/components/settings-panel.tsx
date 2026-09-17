@@ -513,6 +513,12 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const email = session?.user?.email ?? '—';
+  // 17/09/2026 — rangee « Diagnostic voix », VISIBLE PAR MOI SEUL. Elle ouvre un
+  // ecran jetable qui verifie que le moteur audio du futur assistant vocal se
+  // charge sur un vrai iPhone. Meme adresse que le tableau de bord admin du web.
+  // A RETIRER avec l'ecran `app/diagnostic-voix.tsx` quand l'assistant sera en
+  // production.
+  const estAdmin = (session?.user?.email ?? '').toLowerCase() === 'ha.partners00@gmail.com';
 
   const [loading, setLoading] = useState(true);
   const [hasAccounts, setHasAccounts] = useState(false);
@@ -899,6 +905,18 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                 </>
               ) : null}
             </View>
+
+            {estAdmin ? (
+              <>
+                <Text style={styles.groupTitle}>Diagnostic</Text>
+                <View style={styles.list}>
+                  <NavRow
+                    label="Diagnostic voix"
+                    onPress={() => router.push('/diagnostic-voix' as never)}
+                  />
+                </View>
+              </>
+            ) : null}
 
             <View style={styles.card}>
               <Text style={styles.label}>{t.settings.connectedAs}</Text>
