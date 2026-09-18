@@ -1,0 +1,32 @@
+Banc d'essai : la voix d'OpenAI en direct, et son cout reel
+
+Ecran admin, derriere les reglages, a cote du diagnostic voix. Il ne touche PAS
+l'assistant : le bouton « Assistant » continue de passer par Vapi.
+
+POURQUOI
+Mesure du 18/09 : 0,0898 $/min chez Vapi, dont 0,05 $ de peage — 56 % qui ne
+paient ni la voix, ni le modele, ni la transcription. Aucune remise sous
+999 $/mois. Les modeles temps reel d'OpenAI font l'aller-retour d'un seul tenant
+et l'app s'y connecte EN DIRECT, sans plateforme : ~0,02 $/min sur le papier.
+
+Un calcul n'est pas une mesure, et aucun tableau ne dit comment une voix sonne.
+Cet ecran tranche les deux.
+
+CE QU'IL FAIT
+Demande un jeton court au serveur, charge le module WebRTC deja present (venu
+avec Vapi), ouvre le micro, negocie une liaison directe avec OpenAI, et releve
+la consommation en jetons annoncee sur le canal d'evenements. Il affiche le cout
+par minute et l'ecart avec Vapi, avec le rappel que c'est un CALCUL sur les
+tarifs publies et pas une facture.
+
+La voix et le modele se choisissent a l'ecran : chaque essai coutait sinon un
+commit et trois minutes de deploiement.
+
+RIEN EN SILENCE
+Six etapes journalisees, chaque panne affichee BRUTE. C'est la lecon de l'ecran
+de diagnostic : un banc qui dit « echec » sans dire lequel ne sert a rien.
+
+A RETIRER une fois la decision prise : ce fichier et sa rangee dans
+`components/settings-panel.tsx`.
+
+Rien de natif ne change : livrable par `eas update`, sans build.

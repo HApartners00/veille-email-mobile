@@ -914,6 +914,14 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                     label="Diagnostic voix"
                     onPress={() => router.push('/diagnostic-voix' as never)}
                   />
+                  {/* 18/09/2026 — banc de mesure du coût vocal. Il ne touche PAS
+                      l'assistant : Vapi continue de servir tous les vrais appels.
+                      À RETIRER avec `app/essai-openai.tsx` une fois la décision
+                      prise (rester chez Vapi, ou basculer sur OpenAI). */}
+                  <NavRow
+                    label="Essai OpenAI (coût)"
+                    onPress={() => router.push('/essai-openai' as never)}
+                  />
                 </View>
               </>
             ) : null}
