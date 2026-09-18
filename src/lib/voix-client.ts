@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { apiGet, apiPost } from './api';
 
 /**
@@ -117,6 +119,42 @@ export async function lireEligibilite(): Promise<boolean> {
 // L'appel
 // ---------------------------------------------------------------------------
 
+/**
+ * LES CATÉGORIES COCHÉES DANS LE FLUX, AU MOMENT OÙ L'ON APPUIE SUR LE MICRO.
+ *
+ * ⚠️ POURQUOI ON LES LIT ICI ET PAS DEPUIS L'ÉCRAN. Constat de HA le 18/09 :
+ * « avant de cliquer sur le mail, j'ai filtré que les à répondre ; quand je lui
+ * dis mail suivant il doit descendre dans cette catégorie ». Le filtre vit dans
+ * l'écran du FLUX, qui n'est plus monté quand on ouvre un mail — il n'y a donc
+ * personne à qui le demander. Mais le flux l'écrit sur l'appareil à chaque
+ * changement : on relit simplement sa clé.
+ *
+ * ⚠️ MÊME CLÉ, MÊME FORME QUE `app/(tabs)/index.tsx` (`CLE_FILTRES`). Si elle
+ * change là-bas, elle doit changer ici — d'où ce commentaire plutôt qu'une
+ * constante partagée, que rien n'obligerait à relire.
+ *
+ * Illisible ou absente : on renvoie une liste vide, c'est-à-dire « toute la boîte
+ * de réception ». Jamais d'erreur affichée pour ça : ne pas savoir filtrer ne doit
+ * pas empêcher de parler.
+ */
+const CLE_FILTRES_FLUX = 'vmail.feed.filtres.v1';
+const CATEGORIES_CONNUES = ['urgent', 'important', 'human', 'info'];
+
+async function filtresDuFlux(): Promise<string[]> {
+  try {
+    const brut = await AsyncStorage.getItem(CLE_FILTRES_FLUX);
+    if (!brut) return [];
+    const p = JSON.parse(brut) as { filtres?: unknown };
+    if (!Array.isArray(p?.filtres)) return [];
+    return p.filtres
+      .map((x) => String(x || '').toLowerCase())
+      .filter((x) => CATEGORIES_CONNUES.includes(x));
+  } catch (e) {
+    console.warn('[voix] filtres du flux illisibles, on prend toute la boîte', e);
+    return [];
+  }
+}
+
 type Demarrage = {
   itemId: string;
   locale: string;
@@ -155,6 +193,7 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
       itemId: p.itemId,
       locale: p.locale,
       brouillon: p.brouillon,
+      filtres: await filtresDuFlux(),
     });
   } catch (e) {
     poser({ etape: 'fin', erreur: message(e) });

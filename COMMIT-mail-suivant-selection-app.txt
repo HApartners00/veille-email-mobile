@@ -1,0 +1,17 @@
+L'app envoie les categories cochees dans le flux au demarrage de la voix
+
+Constat de HA : « avant de cliquer sur le mail, j'ai filtre que les a repondre ;
+quand je lui dis mail suivant il doit descendre dans cette categorie ». Le filtre
+vit dans l'ecran du FLUX, qui n'est plus monte quand on ouvre un mail : il n'y a
+personne a qui le demander. Mais le flux l'ecrit sur l'appareil a chaque
+changement, alors on relit sa cle.
+
+⚠️ MEME CLE, MEME FORME que app/(tabs)/index.tsx (`vmail.feed.filtres.v1`). Si
+elle change la-bas, elle doit changer ici — d'ou le commentaire dans le code
+plutot qu'une constante partagee, que rien n'obligerait a relire.
+
+Illisible ou absente : liste vide, c'est-a-dire toute la boite de reception.
+Jamais d'erreur affichee pour ca : ne pas savoir filtrer ne doit pas empecher de
+parler.
+
+Rien de natif ne change : livrable par `eas update`, sans build.
