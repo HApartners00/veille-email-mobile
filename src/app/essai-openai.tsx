@@ -19,8 +19,15 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
  * Un calcul n'est pas une mesure, et aucun tableau ne dit comment une voix
  * SONNE. Cet écran tranche les deux, et rien d'autre.
  *
- * ⚠️ IL NE REMPLACE RIEN. Le bouton « Assistant » continue de passer par Vapi.
- * Rien ici n'est branché sur les vrais appels.
+ * ⚠️ IL NE DÉCIDE PLUS RIEN, IL COMPARE. La bascule a été faite le 18/09 : le
+ * bouton « Assistant » passe lui aussi par OpenAI, avec le MÊME socle serveur.
+ * Cet écran reste parce qu'il sait faire deux choses que le vrai assistant ne
+ * fait pas : essayer une autre voix ou un autre modèle sans redéployer, et
+ * montrer la consommation jeton par jeton.
+ *
+ * ⚠️ IL AGIT POUR DE VRAI. Les outils travaillent sur la vraie boîte : s'il
+ * archive, c'est archivé ; s'il envoie, le mail part. Ce n'est pas une
+ * simulation.
  *
  * ⚠️ LES SEPT OUTILS SONT LÀ DEPUIS LE 18/09, DEUXIÈME PASSE. Le banc n'en avait
  * aucun au départ : il ne posait que deux questions, la voix et le prix. Les
@@ -132,9 +139,11 @@ export default function EssaiOpenAI() {
 
     try {
       const session = await demarrerOpenAI({
-        voix,
-        modele,
-        locale: 'fr',
+        // Le banc passe par SA route (admin) : c'est la seule qui accepte de
+        // choisir une voix et un modèle. Le reste est identique au vrai
+        // assistant — même socle serveur, mêmes outils.
+        route: '/api/voice/essai-openai',
+        corps: { voix, modele, locale: 'fr' },
         surEtape: noter,
         // Les compteurs s'ADDITIONNENT : le module rend la consommation de
         // CHAQUE réponse, pas un cumul. Les remplacer ferait afficher le coût
@@ -154,6 +163,7 @@ export default function EssaiOpenAI() {
         // ne se contente pas d'arrêter la voix.
         surErreur: (m) => setErreur(m),
         surMail: (id) => noter(`   → la conversation passe au mail ${id.slice(0, 8)}…`),
+        surFin: () => setEtape('fin'),
       });
       sessionRef.current = session;
       setContexte(session.contexte);
@@ -184,9 +194,10 @@ export default function EssaiOpenAI() {
 
       <ScrollView contentContainerStyle={styles.corps}>
         <Text style={styles.intro}>
-          Banc de mesure. Vapi continue de servir les vrais appels : rien ici ne les touche.
-          Les sept outils sont branchés — essaie « résume-moi ce mail », « réponds que je suis
-          d&apos;accord », « archive-le », « mail suivant ».
+          Banc de mesure. Le vrai assistant passe par le même socle depuis la bascule : ce qui
+          s&apos;entend ici s&apos;entend là-bas. Ce que le banc ajoute, c&apos;est le choix de la
+          voix et du modèle, et la consommation jeton par jeton.{'\n\n'}
+          ⚠️ Les outils agissent sur ta vraie boîte : s&apos;il archive, c&apos;est archivé.
         </Text>
 
         {/* ------------------------------------------------------ la voix */}

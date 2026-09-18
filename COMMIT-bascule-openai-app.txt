@@ -1,0 +1,65 @@
+L'assistant vocal de l'app passe de Vapi a OpenAI
+
+`lib/voix-client.ts` a change d'INTERIEUR, pas d'interface. Ce qu'il expose —
+demarrerVoix, arreterVoix, couperMicro, ecouterVoix, etatVoix, oublierVoix,
+l'eligibilite — n'a pas bouge d'une ligne. L'ecran du mail (100 Ko) et le
+panneau vocal n'ont rien a changer : ils n'ont jamais eu a savoir qui sert la
+voix.
+
+POURQUOI. Mesure sur de vrais appels : 0,0898 $/min chez Vapi, dont 0,05 $ de
+peage. Appel reel de 49 s chez OpenAI : 0,0193 $/min, soit −78 %. HA a ecoute
+les dix voix et retenu `cedar`.
+
+UN SEUL MODULE POUR LES DEUX APPELANTS
+`lib/voix-openai.ts` porte toute la mecanique : jeton, micro, liaison WebRTC,
+canal de donnees, execution des outils, comptage. Le vrai assistant et le banc
+de mesure passent par lui, et ne different que par la route qui delivre le
+jeton. Deux copies finiraient par diverger, et on mesurerait sur le banc autre
+chose que ce qu'on livre.
+
+L'ECRAN SUIT LA VOIX SANS DEVINER
+Chez Vapi, l'app apprenait le changement de mail en interrogeant /api/voice/etat
+a l'aveugle, avec des relectures a 0,5 s et 1,5 s « au cas ou ». Ici c'est l'app
+qui execute l'outil : le serveur lui rend le nouveau mail dans la MEME reponse.
+Plus de relectures speculatives, plus de fenetre pendant laquelle l'ecran ment.
+
+UN DEFAUT VU EN RELISANT, CORRIGE AVANT D'ETRE VECU
+L'objet de session n'existe qu'a la fin du demarrage, alors qu'un outil peut
+partir des l'ouverture du canal — quelques millisecondes plus tot. S'appuyer sur
+lui pour connaitre le ticket laissait une fenetre etroite ou la relecture de
+l'etat ne savait pas quoi demander. Le ticket est desormais rendu par un rappel
+(`surTicket`) des qu'il est connu. Un defaut rare est un defaut introuvable.
+
+LE COUT EST RAPPORTE PAR `arreter()`, ET C'EST VOULU
+Vapi envoyait sa facture a notre serveur. OpenAI n'envoie rien : si l'app ne dit
+pas ce qu'elle a consomme, personne ne le saura jamais. Le mettre dans la
+fonction d'arret est la seule facon de ne pas pouvoir l'oublier — et on l'a deja
+oublie une fois, le 17/09, quand quatre appels ont disparu du suivi.
+Il ne bloque pas et ne s'affiche pas : cette panne-la ne touche pas la
+conversation, seulement la comptabilite. Elle reste visible dans la console et
+dans les donnees.
+
+DEUX GARDE-FOUS SUR LES OUTILS
+· UN PAR UN, jamais en parallele. Ils agissent sur le MEME ticket :
+  `reecrire_brouillon` et `preparer_envoi` lances ensemble prepareraient l'envoi
+  d'un texte deja remplace.
+· ON NE RELANCE LE MODELE QU'UNE FOIS TOUS LES RESULTATS DEPOSES. Trop tot, il
+  parle SANS eux et improvise « c'est fait » alors que rien ne l'est. C'est le
+  pire echec possible pour un assistant qui envoie des mails.
+
+CE QUI RESTE DE VAPI, ET POURQUOI
+Le paquet `@vapi-ai/react-native` reste installe : l'enlever touche du code
+NATIF, donc exigerait un `eas build` complet et pas un `eas update`. Plus aucune
+ligne ne l'appelle, sauf l'ecran jetable `app/diagnostic-voix.tsx`. Les deux
+partiront au prochain vrai build.
+
+CE QUI N'EST PAS VERIFIE
+- Aucun appel reel n'a ete passe par ce chemin. Le code compile sans erreur dans
+  les fichiers touches ; personne n'a encore entendu le vrai bouton parler.
+- La coupure du micro desactive la piste au lieu de l'arreter (une piste arretee
+  ne se rallume pas). Le comportement du module natif sur ce point n'a pas ete
+  essaye.
+- L'indicateur « qui parle » accepte plusieurs noms d'evenement, faute de savoir
+  lequel arrive vraiment. S'il ne bouge jamais, aucun n'etait le bon.
+- La premiere prise de parole est demandee a l'ouverture du canal. Si les
+  premiers mots sont coupes, c'est ce moment-la qu'il faudra retarder.

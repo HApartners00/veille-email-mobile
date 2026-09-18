@@ -5,27 +5,27 @@ import { apiPost } from './api';
  *
  * ⚠️ CE QUE CE FICHIER REMPLACE, ET POURQUOI.
  *
- * Chez Vapi, la chaîne est : app → Vapi → (transcription, modèle, synthèse) →
- * Vapi → app. Vapi prend 0,05 $ la minute pour tenir ce fil, soit 56 % d'une
+ * Chez Vapi, la chaîne était : app → Vapi → (transcription, modèle, synthèse) →
+ * Vapi → app. Vapi prenait 0,05 $ la minute pour tenir ce fil, soit 56 % d'une
  * facture mesurée à 0,0898 $/min. Aucune remise n'existe sous 999 $/mois.
  *
  * Ici il n'y a personne au milieu : l'app parle À OpenAI, qui entend et répond
  * en voix d'un seul tenant. Mesuré par HA le 18/09 sur un appel de 49 secondes :
- * 0,0193 $/min, soit −78 %. Et il a écouté les dix voix : `cedar` est la sienne.
+ * 0,0193 $/min, soit −78 %. Il a écouté les dix voix : `cedar` est la sienne.
  *
- * ⚠️ CE QUE ÇA DÉPLACE, ET C'EST TOUT LE SUJET DE CE FICHIER.
- * Vapi appelait nos outils de serveur à serveur. Sans Vapi, l'appel d'outil
- * redescend ICI, dans l'app, et c'est elle qui vient le faire exécuter par
- * `/api/voice/outil-app`. Le travail au bout du fil est le même code qu'avant
- * (`lib/voix-outils.ts` côté serveur) — seul le chemin change.
+ * ⚠️ CE QUE ÇA DÉPLACE. Vapi appelait nos outils de serveur à serveur. Sans
+ * Vapi, l'appel d'outil redescend ICI, dans l'app, et c'est elle qui vient le
+ * faire exécuter par `/api/voice/outil-app`. Le travail au bout du fil est le
+ * même code qu'avant (`lib/voix-outils.ts` côté serveur) : seul le chemin change.
  *
- * ⚠️ ÉCRIT COMME UN MODULE, PAS COMME UN ÉCRAN. Le banc d'essai s'en sert
- * aujourd'hui ; le vrai assistant s'en servira le jour où l'on bascule. Si la
- * bascule demandait de réécrire ça, on aurait mesuré une chose et livré une
- * autre.
+ * ⚠️ UN SEUL MODULE POUR LES DEUX APPELANTS. Le vrai assistant
+ * (`lib/voix-client.ts`) et le banc de mesure (`app/essai-openai.tsx`) passent
+ * par ici. Ils ne diffèrent que par la route qui délivre le jeton. Deux copies
+ * finiraient par diverger, et on mesurerait sur le banc autre chose que ce qu'on
+ * livre.
  *
  * ⚠️ AUCUNE CLÉ OPENAI NE DESCEND ICI. Le serveur échange sa vraie clé contre un
- * jeton de dix minutes, limité à cette session. Même principe que pour Vapi.
+ * jeton de dix minutes, limité à cette session.
  *
  * ⚠️ RIEN EN SILENCE. Chaque panne remonte par `surErreur`, brute. Un assistant
  * qui se tait laisse croire à une panne de micro, et on cherche au mauvais
@@ -39,6 +39,15 @@ export type Usage = {
   texteIn: number;
   texteCache: number;
   texteOut: number;
+};
+
+const USAGE_ZERO: Usage = {
+  audioIn: 0,
+  audioCache: 0,
+  audioOut: 0,
+  texteIn: 0,
+  texteCache: 0,
+  texteOut: 0,
 };
 
 export type AppelOutilVu = {
@@ -57,18 +66,23 @@ export type ContexteAppel = {
   expediteur?: string;
   resume?: string;
   aUnResume?: boolean;
+  langue?: string;
   longueurInstructions?: number;
 };
 
 export type SessionOpenAI = {
-  /** Coupe le micro et la liaison. Idempotent. */
-  arreter: () => void;
+  /** Coupe le micro et la liaison, et rapporte le coût. Idempotent. */
+  arreter: (raison?: string) => void;
+  /** Micro coupé ou non. La liaison reste ouverte : l'assistant continue de parler. */
+  couperMicro: (muet: boolean) => void;
   /** Le mail sur lequel porte la conversation, à cet instant. */
   itemIdCourant: () => string | null;
+  /** La consommation cumulée depuis le début de l'appel. */
+  usageTotal: () => Usage;
   modele: string;
   voix: string;
   contexte: ContexteAppel | null;
-  /** Le ticket de session. Absent = les outils ne marcheront pas, et on le dit. */
+  /** Le ticket de conversation. Absent = les outils ne marcheront pas, et on le dit. */
   ticket: string | null;
 };
 
@@ -85,6 +99,7 @@ function message(e: unknown): string {
 type Rappels = {
   /** Une étape du démarrage, en clair. Sert à savoir OÙ ça casse. */
   surEtape?: (texte: string) => void;
+  /** La consommation d'UNE réponse. À additionner, jamais à remplacer. */
   surUsage?: (u: Usage) => void;
   surOutil?: (a: AppelOutilVu) => void;
   surErreur?: (texte: string) => void;
@@ -92,15 +107,32 @@ type Rappels = {
   surMail?: (itemId: string) => void;
   /** Ce que dit l'assistant, au fil de l'eau. Pour les sous-titres. */
   surTexte?: (texte: string) => void;
+  /** Qui parle en ce moment. `null` = silence. */
+  surParole?: (qui: 'assistant' | 'vous' | null) => void;
+  /** La liaison est tombée ou s'est fermée. L'écran doit le montrer. */
+  surFin?: () => void;
+  /**
+   * Le ticket de conversation, DÈS QU'IL EST CONNU — c'est-à-dire bien avant que
+   * la liaison soit ouverte.
+   *
+   * ⚠️ POURQUOI CE RAPPEL EXISTE. L'appelant ne reçoit l'objet de session qu'à la
+   * fin du démarrage, alors que le premier outil peut partir dans la seconde qui
+   * suit l'ouverture du canal. Un appelant qui attendrait l'objet pour connaître
+   * le ticket aurait une fenêtre — courte, donc rare, donc introuvable — où il
+   * ne saurait pas quoi relire.
+   */
+  surTicket?: (ticket: string | null) => void;
 };
 
 export async function demarrerOpenAI(
   params: {
-    voix: string;
-    modele: string;
-    locale: string;
-    itemId?: string | null;
-    brouillon?: string | null;
+    /**
+     * La route qui délivre le jeton. `/api/voice/start` pour le vrai assistant,
+     * `/api/voice/essai-openai` pour le banc (admin, voix et modèle au choix).
+     */
+    route: string;
+    /** Ce que cette route attend. Le module n'en sait rien et n'a pas à le savoir. */
+    corps: Record<string, unknown>;
   } & Rappels,
 ): Promise<SessionOpenAI> {
   const noter = (t: string) => params.surEtape?.(t);
@@ -118,29 +150,25 @@ export async function demarrerOpenAI(
     outils?: string[];
     contexte?: ContexteAppel;
     error?: string;
-  }>('/api/voice/essai-openai', {
-    voix: params.voix,
-    modele: params.modele,
-    locale: params.locale,
-    itemId: params.itemId || undefined,
-    brouillon: params.brouillon || undefined,
-  });
+  }>(params.route, params.corps);
   if (!r?.jeton) throw new Error(r?.error || "Le serveur n'a pas renvoyé de jeton.");
 
-  const modele = String(r.modele || params.modele);
-  const voix = String(r.voix || params.voix);
+  const modele = String(r.modele || '');
+  const voix = String(r.voix || '');
   const ticket = r.session || null;
+
+  // Avant toute chose : l'appelant doit connaître le ticket tout de suite.
+  params.surTicket?.(ticket);
 
   noter(`   jeton reçu · modèle ${modele} · voix ${voix}`);
   noter(`   mail : ${r.contexte?.objet || '(sans objet)'} · résumé : ${r.contexte?.aUnResume ? 'oui' : 'NON'}`);
-  noter(`   outils déclarés : ${(r.outils || []).length}`);
 
   // ⚠️ RIEN EN SILENCE. Sans ticket, les sept outils échoueront TOUS, et
   // l'assistant dira « je n'ai pas pu » sans qu'on sache pourquoi. On le dit
   // maintenant, avant le premier mot.
   if (!ticket) {
     dire(
-      `⚠️ Pas de ticket de session : les outils ne marcheront pas. Cause : ${r.sessionEchec || 'non dite par le serveur'}`,
+      `⚠️ Pas de ticket de conversation : les outils ne marcheront pas. Cause : ${r.sessionEchec || 'non dite par le serveur'}`,
     );
   }
 
@@ -162,8 +190,10 @@ export async function demarrerOpenAI(
   const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   flux.getTracks().forEach((t: unknown) => pc.addTrack(t, flux));
 
-  let itemId: string | null = params.itemId || null;
+  let itemId = typeof params.corps.itemId === 'string' ? (params.corps.itemId as string) : null;
   let ferme = false;
+  const debutMs = Date.now();
+  let usage: Usage = { ...USAGE_ZERO };
 
   const canal = pc.createDataChannel('oai-events');
 
@@ -179,17 +209,15 @@ export async function demarrerOpenAI(
    * ⚠️ LES APPELS D'OUTILS SONT EXÉCUTÉS UN PAR UN, JAMAIS EN PARALLÈLE.
    *
    * Le modèle peut en demander plusieurs d'un coup. Or ils agissent sur le MÊME
-   * ticket de session : `reecrire_brouillon` puis `preparer_envoi` lancés
+   * ticket de conversation : `reecrire_brouillon` puis `preparer_envoi` lancés
    * ensemble prépareraient l'envoi d'un texte déjà remplacé. Le serveur refuse
    * ce cas (l'empreinte ne correspond plus), mais il vaut mieux ne pas le créer.
-   *
-   * Cette file garantit l'ordre d'arrivée.
    */
   let file: Promise<unknown> = Promise.resolve();
   /** Les travaux en cours, par réponse : on ne relance le modèle qu'à la fin. */
   const enCours = new Map<string, Promise<unknown>[]>();
 
-  async function executer(appel: { call_id: string; name: string; arguments: string; response_id: string }) {
+  async function executer(appel: { call_id: string; name: string; arguments: string }) {
     const debut = Date.now();
     let args: Record<string, unknown> = {};
     try {
@@ -207,7 +235,7 @@ export async function demarrerOpenAI(
     if (!ticket) {
       // La cause est connue depuis le démarrage : on la redonne à l'assistant
       // pour qu'il la DISE, au lieu d'un échec muet.
-      erreur = 'Pas de ticket de session : cette conversation ne peut rien faire.';
+      erreur = 'Pas de ticket de conversation : cette conversation ne peut rien faire.';
       sortie = erreur;
     } else {
       try {
@@ -241,14 +269,7 @@ export async function demarrerOpenAI(
       }
     }
 
-    params.surOutil?.({
-      nom: appel.name,
-      args,
-      ms: Date.now() - debut,
-      msServeur,
-      resultat: sortie,
-      erreur,
-    });
+    params.surOutil?.({ nom: appel.name, args, ms: Date.now() - debut, msServeur, resultat: sortie, erreur });
 
     envoyer({
       type: 'conversation.item.create',
@@ -263,7 +284,6 @@ export async function demarrerOpenAI(
       name?: string;
       arguments?: string;
       response_id?: string;
-      delta?: string;
       transcript?: string;
       response?: { usage?: Record<string, unknown>; id?: string };
       error?: { message?: string };
@@ -279,15 +299,35 @@ export async function demarrerOpenAI(
       return;
     }
 
-    // Ce que l'assistant dit, au fil de l'eau. Les deux noms d'événement sont
-    // acceptés : OpenAI a renommé celui-ci en passant en version générale, et on
-    // ne veut pas de sous-titres muets si l'app tourne sur l'ancien nom.
+    // -------------------------------------------------------------- qui parle
+    // Plusieurs noms d'événement selon la version : on les accepte tous plutôt
+    // que de parier sur un seul et d'avoir un indicateur qui ne bouge jamais.
+    if (m.type === 'input_audio_buffer.speech_started') {
+      params.surParole?.('vous');
+      return;
+    }
+    if (m.type === 'input_audio_buffer.speech_stopped') {
+      params.surParole?.(null);
+      return;
+    }
+    if (m.type === 'output_audio_buffer.started' || m.type === 'response.output_audio.delta') {
+      params.surParole?.('assistant');
+      return;
+    }
+    if (m.type === 'output_audio_buffer.stopped') {
+      params.surParole?.(null);
+      return;
+    }
+
+    // Ce que l'assistant dit, au fil de l'eau. Les deux noms sont acceptés :
+    // OpenAI a renommé celui-ci en passant en version générale.
     if (
       (m.type === 'response.output_audio_transcript.done' ||
         m.type === 'response.audio_transcript.done') &&
       m.transcript
     ) {
       params.surTexte?.(String(m.transcript));
+      return;
     }
 
     // -------------------------------------------------------- un outil demandé
@@ -298,7 +338,6 @@ export async function demarrerOpenAI(
           call_id: String(m.call_id),
           name: String(m.name),
           arguments: String(m.arguments || '{}'),
-          response_id: rid,
         }),
       ));
       const liste = enCours.get(rid) || [];
@@ -307,21 +346,21 @@ export async function demarrerOpenAI(
       return;
     }
 
-    // ------------------------------------------------------- la réponse est finie
+    // ------------------------------------------------------ la réponse est finie
     if (m.type === 'response.done') {
-      const u = (m.response?.usage || {}) as {
-        input_token_details?: {
-          audio_tokens?: number;
-          text_tokens?: number;
-          cached_tokens_details?: { audio_tokens?: number; text_tokens?: number };
-        };
-        output_token_details?: { audio_tokens?: number; text_tokens?: number };
-      };
       if (m.response?.usage) {
+        const u = m.response.usage as {
+          input_token_details?: {
+            audio_tokens?: number;
+            text_tokens?: number;
+            cached_tokens_details?: { audio_tokens?: number; text_tokens?: number };
+          };
+          output_token_details?: { audio_tokens?: number; text_tokens?: number };
+        };
         const ein = u.input_token_details || {};
         const cache = ein.cached_tokens_details || {};
         const eout = u.output_token_details || {};
-        params.surUsage?.({
+        const pas: Usage = {
           // Les jetons mis en cache sont facturés à part, TRÈS en dessous : les
           // compter au plein tarif gonflerait la note d'un facteur 30 et ferait
           // rater la décision.
@@ -331,8 +370,18 @@ export async function demarrerOpenAI(
           texteIn: Math.max(0, (ein.text_tokens || 0) - (cache.text_tokens || 0)),
           texteCache: cache.text_tokens || 0,
           texteOut: eout.text_tokens || 0,
-        });
+        };
+        usage = {
+          audioIn: usage.audioIn + pas.audioIn,
+          audioCache: usage.audioCache + pas.audioCache,
+          audioOut: usage.audioOut + pas.audioOut,
+          texteIn: usage.texteIn + pas.texteIn,
+          texteCache: usage.texteCache + pas.texteCache,
+          texteOut: usage.texteOut + pas.texteOut,
+        };
+        params.surUsage?.(pas);
       }
+      params.surParole?.(null);
 
       /**
        * ⚠️ ON NE RELANCE LE MODÈLE QU'UNE FOIS TOUS LES OUTILS RENDUS.
@@ -368,6 +417,17 @@ export async function demarrerOpenAI(
     envoyer({ type: 'response.create' });
   };
 
+  // La liaison peut tomber sans que personne ne parle : réseau coupé, tunnel,
+  // application mise en veille. L'écran doit le MONTRER, pas laisser un micro
+  // allumé sur une conversation morte.
+  pc.onconnectionstatechange = () => {
+    const etat = String(pc.connectionState || '');
+    if (etat === 'failed' || etat === 'disconnected' || etat === 'closed') {
+      if (etat === 'failed') dire('La liaison avec OpenAI est tombée.');
+      params.surFin?.();
+    }
+  };
+
   const offre = await pc.createOffer({});
   await pc.setLocalDescription(offre);
 
@@ -394,10 +454,41 @@ export async function demarrerOpenAI(
 
   noter('6. liaison établie — parle.');
 
+  /**
+   * LE RAPPORT DE COÛT. 18/09/2026.
+   *
+   * ⚠️ POURQUOI IL EST ICI ET PAS DANS L'ÉCRAN. Vapi envoyait sa vraie facture à
+   * notre serveur à la fin de chaque appel. OpenAI n'envoie rien : si l'app ne
+   * dit pas ce qu'elle a consommé, personne ne le saura jamais. Le mettre dans
+   * `arreter()` est la seule façon de ne pas pouvoir l'oublier — et on l'a déjà
+   * oublié une fois, le 17/09, quand quatre appels ont disparu du suivi.
+   *
+   * ⚠️ IL NE BLOQUE PAS ET NE S'AFFICHE PAS. Cette panne-là ne touche pas la
+   * conversation, seulement la comptabilité. Elle reste visible dans la console
+   * et dans les données.
+   */
+  function rapporter(raison: string) {
+    if (!ticket) {
+      console.error('[voix] appel sans ticket : coût non rapporté.');
+      return;
+    }
+    void apiPost('/api/voice/fin-appel', {
+      session: ticket,
+      debut: new Date(debutMs).toISOString(),
+      fin: new Date().toISOString(),
+      secondes: Math.max(0, Math.round((Date.now() - debutMs) / 1000)),
+      modele,
+      raison,
+      usage,
+    }).catch((e) => console.error('[voix] coût non rapporté', message(e)));
+  }
+
   return {
-    arreter: () => {
+    arreter: (raison?: string) => {
       if (ferme) return;
       ferme = true;
+      // On rapporte AVANT de couper : après, l'app peut être démontée.
+      rapporter(raison || 'fin_app');
       try {
         flux.getTracks().forEach((t: { stop: () => void }) => t.stop());
       } catch (e) {
@@ -409,7 +500,19 @@ export async function demarrerOpenAI(
         dire(`fermeture : ${message(e)}`);
       }
     },
+    couperMicro: (muet: boolean) => {
+      try {
+        // On DÉSACTIVE la piste, on ne la coupe pas : une piste arrêtée ne se
+        // rallume pas, et « couper le micro » doit pouvoir se défaire.
+        flux.getAudioTracks().forEach((t: { enabled: boolean }) => {
+          t.enabled = !muet;
+        });
+      } catch (e) {
+        dire(`micro : ${message(e)}`);
+      }
+    },
     itemIdCourant: () => itemId,
+    usageTotal: () => ({ ...usage }),
     modele,
     voix,
     contexte: r.contexte || null,

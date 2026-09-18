@@ -1,9 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { apiGet, apiPost } from './api';
+import { apiGet } from './api';
+import { demarrerOpenAI, type SessionOpenAI } from './voix-openai';
 
 /**
- * L'ASSISTANT VOCAL, CÔTÉ APP — 17/09/2026.
+ * L'ASSISTANT VOCAL, CÔTÉ APP — 17/09/2026, basculé sur OpenAI le 18/09.
+ *
+ * ⚠️ CE FICHIER A CHANGÉ D'INTÉRIEUR, PAS D'INTERFACE. Il parlait à Vapi ; il
+ * parle maintenant à OpenAI en direct, par `lib/voix-openai.ts`. Ce qu'il
+ * EXPOSE — `demarrerVoix`, `arreterVoix`, `couperMicro`, `ecouterVoix`,
+ * `etatVoix`, `oublierVoix`, l'éligibilité — n'a pas bougé d'une ligne. C'est
+ * voulu : l'écran du mail et le panneau vocal n'ont rien à savoir de qui sert la
+ * voix, et on ne touche pas à 100 Ko d'écran pour changer de fournisseur.
+ *
+ * POURQUOI LA BASCULE, mesuré sur de vrais appels : 0,0898 $/min chez Vapi, dont
+ * 0,05 $ de péage — 56 % qui ne payaient ni la voix, ni le modèle, ni la
+ * transcription, et aucune remise sous 999 $/mois. Un appel réel de 49 s chez
+ * OpenAI : 0,0193 $/min, soit −78 %.
  *
  * ⚠️ L'APPEL NE VIT PAS DANS UN ÉCRAN. Il vit ici, dans le module, et les écrans
  * s'y abonnent. Raison mesurée d'avance : quand l'assistant passe au mail
@@ -11,9 +24,8 @@ import { apiGet, apiPost } from './api';
  * appartenait à l'écran, la conversation se couperait à chaque « suivant », ce
  * qui est exactement ce qu'on veut éviter en mains libres.
  *
- * ⚠️ AUCUNE CLÉ VAPI ICI. L'app demande un laissez-passer de 10 minutes à
- * /api/voice/start, qui ne marche qu'avec notre assistant. Rien à embarquer,
- * rien à faire fuiter dans un build.
+ * ⚠️ AUCUNE CLÉ ICI. L'app demande un jeton de dix minutes à /api/voice/start.
+ * Rien à embarquer, rien à faire fuiter dans un build.
  *
  * ⚠️ RIEN EN SILENCE. Toute erreur est posée dans l'état et affichée à l'écran,
  * avec le message brut. Un assistant qui se tait sans raison est un bug qu'on ne
@@ -56,8 +68,17 @@ const VIDE: EtatVoix = {
 
 let etat: EtatVoix = VIDE;
 const ecoutes = new Set<(e: EtatVoix) => void>();
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let vapi: any = null;
+let appel: SessionOpenAI | null = null;
+/**
+ * Le ticket de la conversation en cours, connu AVANT l'objet de session.
+ *
+ * ⚠️ POURQUOI IL EST À PART. `appel` n'existe qu'une fois le démarrage terminé,
+ * alors qu'un outil peut partir dès l'ouverture du canal — quelques
+ * millisecondes plus tôt. S'appuyer sur `appel.ticket` laisserait une fenêtre
+ * étroite où la relecture de l'état ne saurait pas quoi demander : un défaut
+ * rare, donc impossible à retrouver.
+ */
+let ticketCourant: string | null = null;
 
 function poser(partiel: Partial<EtatVoix>) {
   etat = { ...etat, ...partiel };
@@ -161,164 +182,78 @@ type Demarrage = {
   brouillon: string;
 };
 
-type ReponseStart = {
-  assistantId: string;
-  jetonVapi: string;
-  session: string;
-  /**
-   * La voix à utiliser pour CET appel, quand elle doit changer (18/09).
-   *
-   * Le serveur renvoie `null` en français : l'assistant a déjà la bonne voix,
-   * il n'y a rien à remplacer. Il ne renvoie un objet que pour l'anglais, où la
-   * voix française sonnerait avec un accent français. On ne fabrique donc RIEN
-   * ici : c'est le serveur qui décide, et lui seul se relit dans git.
-   */
-  voix?: { provider: string; model: string; voiceId: string } | null;
-  contexte: {
-    objet: string;
-    expediteur: string;
-    resume: string;
-    brouillon: string;
-    langue: string;
-  };
-};
-
 export async function demarrerVoix(p: Demarrage): Promise<void> {
   if (etat.etape === 'demarrage' || etat.etape === 'en_cours') return;
   poser({ ...VIDE, etape: 'demarrage', itemId: p.itemId, brouillon: p.brouillon });
 
-  let r: ReponseStart;
   try {
-    r = await apiPost<ReponseStart>('/api/voice/start', {
-      itemId: p.itemId,
-      locale: p.locale,
-      brouillon: p.brouillon,
-      filtres: await filtresDuFlux(),
-    });
-  } catch (e) {
-    poser({ etape: 'fin', erreur: message(e) });
-    return;
-  }
+    const session = await demarrerOpenAI({
+      route: '/api/voice/start',
+      corps: {
+        itemId: p.itemId,
+        locale: p.locale,
+        brouillon: p.brouillon,
+        filtres: await filtresDuFlux(),
+      },
 
-  try {
-    // `require` et non `import` en tête : si le module natif manquait, l'écran
-    // du mail planterait au montage, avant même d'avoir affiché le mail.
-    const mod = require('@vapi-ai/react-native');
-    const Vapi = mod?.default ?? mod;
-    vapi = new Vapi(r.jetonVapi);
-    brancher(r.session);
-    const appel = await vapi.start(r.assistantId, {
-      // La voix n'est posée QUE si le serveur en demande une. Sans ce garde, une
-      // réponse sans `voix` enverrait `undefined` chez Vapi.
-      ...(r.voix ? { voice: r.voix } : {}),
-      variableValues: {
-        session: r.session,
-        objet: r.contexte.objet,
-        expediteur: r.contexte.expediteur,
-        resume: r.contexte.resume || "Je n'ai pas encore de résumé pour ce mail.",
-        brouillon: r.contexte.brouillon || '',
-        langue: r.contexte.langue === 'en' ? 'English' : 'français',
+      // Les étapes du démarrage ne s'affichent pas à l'utilisateur : elles
+      // servent au diagnostic quand quelqu'un dit « ça ne marche pas ».
+      surEtape: (t) => console.log('[voix]', t),
+      surTicket: (t) => {
+        ticketCourant = t;
+      },
+
+      surParole: (qui) => poser({ quiParle: qui }),
+      surTexte: (t) => poser({ phrase: t, quiParle: 'assistant' }),
+      surErreur: (m) => poser({ erreur: m }),
+
+      /**
+       * ⚠️ L'ÉCRAN SUIT LA VOIX SANS DEVINER — 18/09, deuxième version.
+       *
+       * Chez Vapi, l'app apprenait le changement de mail en interrogeant
+       * /api/voice/etat à l'aveugle, avec des relectures à 0,5 s et 1,5 s « au
+       * cas où ». Ici c'est l'app qui exécute l'outil : le serveur lui rend le
+       * nouveau mail dans la même réponse. Plus de relectures spéculatives,
+       * plus de fenêtre pendant laquelle l'écran ment.
+       */
+      surMail: (id) => poser({ itemId: id }),
+
+      /**
+       * APRÈS CHAQUE OUTIL, ON RELIT L'ÉTAT DE LA CONVERSATION.
+       *
+       * Le RÉSULTAT d'un outil va au modèle, pas à nous : c'est le serveur qui
+       * détient le nouveau brouillon et l'état de l'envoi. On le relit donc —
+       * mais une seule fois, et au bon moment, puisqu'on sait exactement quand
+       * l'outil a fini.
+       */
+      surOutil: () => {
+        if (ticketCourant) void rafraichir(ticketCourant);
+      },
+
+      // La liaison est tombée : on le montre. Un micro allumé sur une
+      // conversation morte est pire qu'un écran qui dit « terminé ».
+      surFin: () => {
+        if (etat.etape === 'en_cours') poser({ etape: 'fin', quiParle: null });
       },
     });
-    poser({ etape: 'en_cours', session: r.session, debutMs: Date.now() });
-    // Sans attendre : le rattachement ne doit pas retarder la conversation.
-    void rattacherAppel(r.session, appel);
+
+    appel = session;
+    poser({ etape: 'en_cours', session: session.ticket, debutMs: Date.now() });
+    // Le premier outil a pu partir avant ce point : on relit l'état une fois,
+    // pour ne pas afficher un brouillon d'avant la première action.
+    if (ticketCourant) void rafraichir(ticketCourant);
   } catch (e) {
     poser({ etape: 'fin', erreur: message(e) });
-    await arreterVoix();
+    try {
+      appel?.arreter('echec_demarrage');
+    } catch {
+      // Rien à rattraper : l'erreur affichée est celle du démarrage.
+    }
+    appel = null;
   }
 }
 
-/**
- * DIT AU SERVEUR QUEL APPEL VAPI CORRESPOND À CETTE CONVERSATION. 18/09/2026.
- *
- * ⚠️ POURQUOI L'APP, ET DÈS LA PREMIÈRE SECONDE. Avant, le serveur n'apprenait
- * l'identifiant de l'appel qu'au PREMIER OUTIL utilisé. Un appel où l'on se
- * contente d'écouter n'était donc rattaché à personne : à la fin, le rapport de
- * coût de Vapi arrivait et ne pouvait être écrit nulle part. Mesuré le 18/09 :
- * trois appels disparus du suivi. Des minutes consommées, un coût invisible.
- * L'app est la SEULE à connaître à la fois le jeton de session et l'identifiant
- * d'appel dès le départ — `vapi.start()` lui rend l'appel.
- *
- * ⚠️ POURQUOI L'ÉCHEC NE S'AFFICHE PAS À L'ÉCRAN, alors qu'on n'avale jamais une
- * panne : celle-ci ne touche PAS la conversation, seulement notre comptabilité.
- * Alarmer quelqu'un en pleine conversation pour un défaut qui ne le concerne pas
- * serait pire. Elle reste visible deux fois : dans la console, et dans les
- * données — le serveur écrit alors une ligne de coût SANS utilisateur, qui se
- * remarque au premier coup d'œil.
- */
-async function rattacherAppel(session: string, appel: unknown): Promise<void> {
-  try {
-    const id = String((appel as { id?: string } | null | undefined)?.id || '').trim();
-    if (!id) {
-      console.error("[voix] vapi.start n'a pas rendu d'identifiant d'appel : coût non rattaché");
-      return;
-    }
-    await apiPost('/api/voice/etat', { session, callId: id });
-  } catch (e) {
-    console.error('[voix] appel non rattaché à la conversation', message(e));
-  }
-}
-
-function brancher(session: string) {
-  if (!vapi) return;
-
-  vapi.on('call-start', () => poser({ etape: 'en_cours', debutMs: Date.now() }));
-  vapi.on('call-end', () => {
-    poser({ etape: 'fin', quiParle: null });
-    vapi = null;
-  });
-  vapi.on('speech-start', () => poser({ quiParle: 'assistant' }));
-  vapi.on('speech-end', () => poser({ quiParle: null }));
-  vapi.on('error', (e: unknown) => poser({ erreur: message(e) }));
-
-  vapi.on('message', (m: Record<string, unknown>) => {
-    const type = String(m?.type || '');
-
-    if (type === 'transcript') {
-      const texte = String(m.transcript || '').trim();
-      const role = String(m.role || '');
-      if (texte) {
-        poser({ phrase: texte, quiParle: role === 'assistant' ? 'assistant' : 'vous' });
-      }
-      return;
-    }
-
-    if (type === 'tool-calls' || type === 'tool-calls-result') {
-      // Le RÉSULTAT d'un outil va au modèle, pas à nous : c'est le serveur qui
-      // détient le nouveau brouillon et le mail courant. On va donc les relire.
-      //
-      // ⚠️ LE DÉFAUT CORRIGÉ LE 18/09 — HA : « quand on passe au mail suivant,
-      // il faut que l'écran passe aussi ». On ne relisait que sur `tool-calls`,
-      // qui est émis quand le modèle DEMANDE l'outil, pas quand notre serveur l'a
-      // exécuté. On relisait donc l'ancien mail, une fois, et plus jamais :
-      // l'écran restait sur le mail précédent pendant que la voix parlait du
-      // suivant. `tool-calls-result` arrive APRÈS la réponse de l'outil.
-      //
-      // Les deux relectures sont gardées : la première rafraîchit tout de suite
-      // ce qui n'a pas changé, la seconde apporte le vrai résultat. Et un dernier
-      // filet à 1,5 s, au cas où `tool-calls-result` ne viendrait pas — mieux
-      // vaut une relecture de trop qu'un écran qui ment.
-      void rafraichir(session);
-      if (type === 'tool-calls') {
-        // ⚠️ CES RELECTURES SONT UTILES, PAS DÉCORATIVES. C'est la bascule de
-        // l'écran qui déclenche la fabrication du résumé du mail suivant (un
-        // écran de mail demande toujours son résumé en s'ouvrant), et c'est ce
-        // résumé que l'outil attend pour le faire lire à voix haute. Plus tôt
-        // l'écran bascule, plus tôt l'assistant a quelque chose à dire.
-        setTimeout(() => void rafraichir(session), 500);
-        setTimeout(() => void rafraichir(session), 1500);
-      }
-      return;
-    }
-
-    if (type === 'status-update' && String(m.status || '') === 'ended') {
-      poser({ etape: 'fin', quiParle: null });
-    }
-  });
-}
-
-/** Relit l'état de la conversation côté serveur (brouillon, mail courant). */
+/** Relit l'état de la conversation côté serveur (brouillon, envoi préparé). */
 async function rafraichir(session: string) {
   try {
     const r = await apiGet<{
@@ -344,18 +279,19 @@ async function rafraichir(session: string) {
 
 export async function arreterVoix(): Promise<void> {
   try {
-    vapi?.stop?.();
+    appel?.arreter('termine_par_utilisateur');
   } catch {
     // On coupe quand même l'affichage : un « Terminer » qui ne termine rien
     // serait pire que tout.
   }
-  vapi = null;
+  appel = null;
+  ticketCourant = null;
   poser({ etape: 'fin', quiParle: null, confirmation: false });
 }
 
 export function couperMicro(muet: boolean): void {
   try {
-    vapi?.setMuted?.(muet);
+    appel?.couperMicro(muet);
     poser({ muet });
   } catch (e) {
     poser({ erreur: message(e) });
