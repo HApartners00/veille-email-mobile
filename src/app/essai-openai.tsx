@@ -4,7 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconChevronLeft } from '@/components/icons';
-import { apiPost } from '@/lib/api';
+import { demarrerOpenAI, type AppelOutilVu, type SessionOpenAI, type Usage } from '@/lib/voix-openai';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 /**
@@ -22,8 +22,17 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
  * ⚠️ IL NE REMPLACE RIEN. Le bouton « Assistant » continue de passer par Vapi.
  * Rien ici n'est branché sur les vrais appels.
  *
- * ⚠️ PAS D'OUTILS ICI. Ni envoyer, ni ranger, ni mail suivant. On répond à deux
- * questions : est-ce que la voix convient, et combien ça coûte vraiment.
+ * ⚠️ LES SEPT OUTILS SONT LÀ DEPUIS LE 18/09, DEUXIÈME PASSE. Le banc n'en avait
+ * aucun au départ : il ne posait que deux questions, la voix et le prix. Les
+ * deux ont leur réponse — HA a écouté les dix voix et choisi `cedar` ; la mesure
+ * donne 0,0193 $/min contre 0,0898 chez Vapi, soit −78 %.
+ *
+ * Restait la seule chose qui compte : un assistant qui ne peut ni envoyer, ni
+ * ranger, ni passer au mail suivant ne sert à rien, quel que soit son prix.
+ *
+ * ⚠️ LA MÉCANIQUE N'EST PLUS DANS CET ÉCRAN. Elle vit dans `lib/voix-openai.ts`,
+ * écrite comme un module — c'est le même code qui servira le jour de la
+ * bascule. Un banc qui mesure autre chose que ce qu'on livrera ne mesure rien.
  *
  * ⚠️ RIEN EN SILENCE. Chaque panne s'affiche BRUTE. Un banc qui dit « échec »
  * sans dire lequel ne sert à rien — c'est la leçon de l'écran de diagnostic.
@@ -46,14 +55,8 @@ const COUT_VAPI_MINUTE = 0.0898;
 
 const VOIX = ['marin', 'cedar', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
 
-type Compteurs = {
-  audioIn: number;
-  audioCache: number;
-  audioOut: number;
-  texteIn: number;
-  texteCache: number;
-  texteOut: number;
-};
+/** Les compteurs sont ceux du module : une seule définition, pas deux. */
+type Compteurs = Usage;
 
 const ZERO: Compteurs = { audioIn: 0, audioCache: 0, audioOut: 0, texteIn: 0, texteCache: 0, texteOut: 0 };
 
@@ -91,9 +94,13 @@ export default function EssaiOpenAI() {
   const [debutMs, setDebutMs] = useState<number | null>(null);
   const [, retracer] = useState(0);
   const [contexte, setContexte] = useState<{ objet?: string; aUnResume?: boolean } | null>(null);
+  // ⚠️ CE QUE LE BANC DOIT MONTRER EN PLUS DU PRIX : chaque outil appelé, son
+  // résultat et son TEMPS. Un outil lent ne se voit pas — il s'entend comme un
+  // silence, et on accuse la voix.
+  const [outils, setOutils] = useState<AppelOutilVu[]>([]);
+  const [dernierDit, setDernierDit] = useState<string>('');
 
-  const pcRef = useRef<unknown>(null);
-  const fluxRef = useRef<unknown>(null);
+  const sessionRef = useRef<SessionOpenAI | null>(null);
 
   // Le compteur avance à l'horloge. Sans lui, impossible de rapporter la
   // consommation à une durée — et c'est le coût PAR MINUTE qui nous intéresse.
@@ -108,127 +115,57 @@ export default function EssaiOpenAI() {
   }, []);
 
   const arreter = useCallback(() => {
-    try {
-      const flux = fluxRef.current as { getTracks?: () => { stop: () => void }[] } | null;
-      flux?.getTracks?.().forEach((t) => t.stop());
-    } catch (e) {
-      noter(`arrêt du micro : ${message(e)}`);
-    }
-    try {
-      (pcRef.current as { close?: () => void } | null)?.close?.();
-    } catch (e) {
-      noter(`fermeture : ${message(e)}`);
-    }
-    pcRef.current = null;
-    fluxRef.current = null;
+    sessionRef.current?.arreter();
+    sessionRef.current = null;
     setEtape('fin');
-  }, [noter]);
+  }, []);
 
   useEffect(() => () => arreter(), [arreter]);
 
   const demarrer = useCallback(async () => {
     setErreur(null);
     setJournal([]);
+    setOutils([]);
+    setDernierDit('');
     setCompteurs(ZERO);
     setEtape('demarrage');
 
     try {
-      // 1. Le jeton court. La vraie clé OpenAI ne quitte jamais le serveur.
-      noter('1. demande du jeton au serveur…');
-      const r = await apiPost<{
-        ok?: boolean;
-        jeton?: string;
-        modele?: string;
-        voix?: string;
-        contexte?: { objet?: string; aUnResume?: boolean; longueurInstructions?: number };
-        error?: string;
-      }>('/api/voice/essai-openai', { voix, modele, locale: 'fr' });
-      if (!r?.jeton) throw new Error(r?.error || 'Le serveur n\'a pas renvoyé de jeton.');
-      setContexte(r.contexte || null);
-      noter(`   jeton reçu · modèle ${r.modele} · voix ${r.voix}`);
-      noter(`   mail : ${r.contexte?.objet || '(sans objet)'} · résumé : ${r.contexte?.aUnResume ? 'oui' : 'NON'}`);
-
-      // 2. Le module natif. `require` et non `import` en tête : si le module
-      //    manquait, l'écran planterait au montage au lieu de le DIRE.
-      noter('2. chargement du module WebRTC…');
-      const webrtc = require('@daily-co/react-native-webrtc');
-      const { RTCPeerConnection, mediaDevices } = webrtc;
-      if (!RTCPeerConnection) throw new Error('RTCPeerConnection introuvable dans le module.');
-
-      // 3. Le micro.
-      noter('3. ouverture du micro…');
-      const flux = await mediaDevices.getUserMedia({ audio: true, video: false });
-      fluxRef.current = flux;
-
-      // 4. La liaison directe avec OpenAI. Aucun serveur média au milieu :
-      //    c'est précisément ce qui fait disparaître le péage.
-      noter('4. ouverture de la liaison…');
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pcRef.current = pc;
-      flux.getTracks().forEach((t: unknown) => pc.addTrack(t, flux));
-
-      // Le canal d'événements : c'est par là que passent la consommation et,
-      // un jour, les appels d'outils.
-      const canal = pc.createDataChannel('oai-events');
-      canal.onmessage = (ev: { data: string }) => {
-        try {
-          const m = JSON.parse(ev.data) as {
-            type?: string;
-            response?: { usage?: Record<string, unknown> };
-            error?: { message?: string };
-          };
-          if (m.type === 'error') {
-            setErreur(String(m.error?.message || JSON.stringify(m)));
-            return;
-          }
-          if (m.type === 'response.done' && m.response?.usage) {
-            const u = m.response.usage as {
-              input_token_details?: { audio_tokens?: number; text_tokens?: number; cached_tokens_details?: { audio_tokens?: number; text_tokens?: number } };
-              output_token_details?: { audio_tokens?: number; text_tokens?: number };
-            };
-            const ein = u.input_token_details || {};
-            const cache = ein.cached_tokens_details || {};
-            const eout = u.output_token_details || {};
-            setCompteurs((c) => ({
-              // Les jetons mis en cache sont facturés à part, TRÈS en dessous :
-              // les compter au plein tarif gonflerait la note d'un facteur 30 et
-              // ferait rater la décision.
-              audioIn: c.audioIn + Math.max(0, (ein.audio_tokens || 0) - (cache.audio_tokens || 0)),
-              audioCache: c.audioCache + (cache.audio_tokens || 0),
-              audioOut: c.audioOut + (eout.audio_tokens || 0),
-              texteIn: c.texteIn + Math.max(0, (ein.text_tokens || 0) - (cache.text_tokens || 0)),
-              texteCache: c.texteCache + (cache.text_tokens || 0),
-              texteOut: c.texteOut + (eout.text_tokens || 0),
-            }));
-          }
-        } catch {
-          // Un message illisible ne doit pas couper la conversation.
-        }
-      };
-      canal.onopen = () => noter('   canal ouvert');
-
-      const offre = await pc.createOffer({});
-      await pc.setLocalDescription(offre);
-
-      noter('5. négociation avec OpenAI…');
-      const rep = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(r.modele || modele)}`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${r.jeton}`, 'content-type': 'application/sdp' },
-        body: offre.sdp,
+      const session = await demarrerOpenAI({
+        voix,
+        modele,
+        locale: 'fr',
+        surEtape: noter,
+        // Les compteurs s'ADDITIONNENT : le module rend la consommation de
+        // CHAQUE réponse, pas un cumul. Les remplacer ferait afficher le coût
+        // de la dernière phrase comme s'il était celui de l'appel entier.
+        surUsage: (u) =>
+          setCompteurs((c) => ({
+            audioIn: c.audioIn + u.audioIn,
+            audioCache: c.audioCache + u.audioCache,
+            audioOut: c.audioOut + u.audioOut,
+            texteIn: c.texteIn + u.texteIn,
+            texteCache: c.texteCache + u.texteCache,
+            texteOut: c.texteOut + u.texteOut,
+          })),
+        surOutil: (a) => setOutils((l) => [...l, a]),
+        surTexte: (t) => setDernierDit(t),
+        // RIEN EN SILENCE : une panne pendant la conversation s'affiche, elle
+        // ne se contente pas d'arrêter la voix.
+        surErreur: (m) => setErreur(m),
+        surMail: (id) => noter(`   → la conversation passe au mail ${id.slice(0, 8)}…`),
       });
-      const sdp = await rep.text();
-      if (!rep.ok) throw new Error(`OpenAI a refusé la liaison (${rep.status}) : ${sdp.slice(0, 300)}`);
-      await pc.setRemoteDescription({ type: 'answer', sdp });
-
-      noter('6. liaison établie — parle.');
+      sessionRef.current = session;
+      setContexte(session.contexte);
       setDebutMs(Date.now());
       setEtape('en_cours');
     } catch (e) {
       setErreur(message(e));
       setEtape('fin');
-      arreter();
+      sessionRef.current?.arreter();
+      sessionRef.current = null;
     }
-  }, [voix, modele, noter, arreter]);
+  }, [voix, modele, noter]);
 
   const secondes = debutMs ? Math.max(1, Math.round((Date.now() - debutMs) / 1000)) : 0;
   const total = cout(compteurs, modele);
@@ -248,7 +185,8 @@ export default function EssaiOpenAI() {
       <ScrollView contentContainerStyle={styles.corps}>
         <Text style={styles.intro}>
           Banc de mesure. Vapi continue de servir les vrais appels : rien ici ne les touche.
-          Deux questions seulement — comment sonne la voix, et combien ça coûte.
+          Les sept outils sont branchés — essaie « résume-moi ce mail », « réponds que je suis
+          d&apos;accord », « archive-le », « mail suivant ».
         </Text>
 
         {/* ------------------------------------------------------ la voix */}
@@ -304,6 +242,44 @@ export default function EssaiOpenAI() {
               Calculé sur les tarifs publiés d&apos;OpenAI, pas sur une facture. À recouper avec leur
               tableau de bord avant de trancher.
             </Text>
+          </View>
+        ) : null}
+
+        {/* ---------------------------------------------------- les outils */}
+        {outils.length ? (
+          <View style={styles.mesure}>
+            <Text style={styles.mesureTitre}>OUTILS APPELÉS ({outils.length})</Text>
+            {outils.map((o, i) => (
+              <View key={i} style={styles.outil}>
+                <View style={styles.ligne}>
+                  <Text style={[styles.ligneLibelle, o.erreur ? styles.outilRate : styles.outilOk]}>
+                    {o.erreur ? '✕' : '✓'} {o.nom}
+                  </Text>
+                  <Text style={styles.ligneValeur}>
+                    {o.ms} ms{typeof o.msServeur === 'number' ? ` (dont ${o.msServeur} serveur)` : ''}
+                  </Text>
+                </View>
+                {Object.keys(o.args).length ? (
+                  <Text style={styles.outilArgs}>{JSON.stringify(o.args)}</Text>
+                ) : null}
+                {/* RIEN EN SILENCE : on montre la réponse ENTIÈRE, pas un « ok ».
+                    C'est elle que l'assistant a lue — si elle est fausse, on doit
+                    pouvoir le voir sans rouvrir les journaux du serveur. */}
+                <Text style={[styles.outilResultat, o.erreur && styles.outilRate]}>{o.resultat}</Text>
+              </View>
+            ))}
+            <Text style={styles.avertissement}>
+              Le temps affiché est celui vu par le téléphone. La part « serveur » est celle que le
+              serveur rapporte : la différence est le réseau.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* ------------------------------------------------ ce qu'il vient de dire */}
+        {dernierDit ? (
+          <View style={styles.mesure}>
+            <Text style={styles.mesureTitre}>DERNIÈRE PHRASE</Text>
+            <Text style={styles.outilResultat}>{dernierDit}</Text>
           </View>
         ) : null}
 
@@ -412,6 +388,17 @@ const styles = StyleSheet.create({
   ligneValeur: { fontFamily: fonts.sans, fontSize: 13, color: colors.onDark },
   ligneFort: { fontFamily: fonts.sansSemibold, color: colors.onDark },
   trait: { height: 1, backgroundColor: colors.charline, marginVertical: 4 },
+  outil: {
+    borderTopWidth: 1,
+    borderTopColor: colors.charline,
+    paddingTop: 8,
+    marginTop: 4,
+    gap: 4,
+  },
+  outilOk: { fontFamily: fonts.sansSemibold, color: colors.sage },
+  outilRate: { fontFamily: fonts.sansSemibold, color: colors.danger },
+  outilArgs: { fontFamily: fonts.sans, fontSize: 11, color: colors.onDarkMuted },
+  outilResultat: { fontFamily: fonts.sans, fontSize: 12.5, lineHeight: 18, color: colors.onDark },
   verdict: { fontFamily: fonts.sansBold, fontSize: 15, marginTop: 6 },
   verdictBon: { color: colors.sage },
   verdictMauvais: { color: colors.danger },

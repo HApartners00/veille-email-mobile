@@ -1,0 +1,175 @@
+LES SEPT OUTILS PASSENT AUSSI PAR OPENAI
+=========================================
+(18/09/2026 — serveur web + app par `eas update`. Aucun build.)
+
+
+⚠️ L'ORDRE COMPTE. L'app appelle des routes qui n'existent pas encore en ligne.
+Si tu pousses l'app avant que Vercel ait fini, les sept outils repondront 404.
+
+
+1) LE SERVEUR — D'ABORD, ET SEUL
+---------------------------------
+
+cd "C:\Users\hamza\Desktop\Projets Claude\Veille Email"
+
+git add apps/web/src/lib/resume-mail.ts
+git add apps/web/src/lib/voix-outils.ts
+git add apps/web/src/lib/voix-assistant.ts
+git add apps/web/src/app/api/summary/route.ts
+git add apps/web/src/app/api/voice/tools/route.ts
+git add apps/web/src/app/api/voice/outil-app/route.ts
+git add apps/web/src/app/api/voice/essai-openai/route.ts
+git add COMMIT-outils-openai.txt
+git commit -F COMMIT-outils-openai.txt
+git push origin main
+
+PUIS ATTENDS QUE VERCEL AIT FINI. Ne lance pas l'etape 2 avant.
+
+
+2) L'APP — APRES LE DEPLOIEMENT
+--------------------------------
+
+cd "C:\Users\hamza\Desktop\Projets Claude\veille-email-mobile"
+
+git add src/lib/voix-openai.ts
+git add src/app/essai-openai.tsx
+git add COMMIT-outils-openai-app.txt
+git commit -F COMMIT-outils-openai-app.txt
+git push origin main
+
+npx eas update --branch production --message "essai openai : les sept outils"
+
+Puis DEUX fermetures/reouvertures de l'app.
+
+
+3) RIEN A RENVOYER CHEZ VAPI
+-----------------------------
+
+Les definitions des sept outils sont desormais lues depuis le catalogue commun,
+mais elles produisent EXACTEMENT le meme texte qu'avant. Les instructions n'ont
+pas bouge non plus. L'assistant Vapi n'a donc pas besoin d'etre renvoye.
+
+Si tu veux t'en assurer : GET /api/voice/assistant doit repondre
+`instructions.aJour: true`.
+
+
+4) CE QUE TU TESTES — Reglages > Essai OpenAI (cout)
+----------------------------------------------------
+
+Voix `cedar`, modele `realtime-mini`.
+
+Dis-lui, dans cet ordre :
+  a. « resume-moi ce mail »            -> il lit le resume de l'app, mot pour mot
+  b. « reponds que je suis d'accord »  -> reecrire_brouillon, il lit le texte
+  c. « envoie »                        -> il doit RELIRE le destinataire et
+                                          ATTENDRE ton oui avant d'envoyer
+  d. « archive-le »                    -> ranger
+  e. « mail suivant »                  -> il annonce, puis lit le resume du suivant
+
+Le panneau OUTILS APPELES montre chaque appel, son resultat entier et son temps.
+
+⚠️ CE QUI DOIT T'ALERTER
+  - un outil en rouge  -> la reponse exacte du serveur est affichee dessous
+  - « mail suivant » qui dit « resume pas fabrique » -> dis-le-moi, c'est neuf
+  - un compteur d'outils qui grimpe tout seul -> le modele boucle, coupe l'appel
+
+
+MESSAGE
+=======
+
+Les sept outils de l'assistant passent aussi par OpenAI
+
+CE QUI A ETE DECIDE, ET SUR QUOI.
+HA a ecoute les dix voix d'OpenAI et retenu `cedar`. La mesure d'un appel reel de
+49 secondes donne 0,0193 $/min contre 0,0898 chez Vapi, soit −78 %. Les deux
+questions du banc ont donc leur reponse.
+
+Restait la seule qui compte : un assistant qui ne peut ni envoyer, ni ranger, ni
+passer au mail suivant ne sert a rien, quel que soit son prix. Le banc n'avait
+aucun outil. Il les a tous.
+
+UN SEUL TRAVAIL, DEUX CHEMINS
+Chez Vapi, l'appel d'outil va de serveur a serveur. Chez OpenAI il n'y a personne
+au milieu — c'est precisement ce qui fait tomber le prix — donc l'appel redescend
+dans l'app, qui vient le faire executer.
+
+Les sept outils et leur catalogue vivent maintenant dans `lib/voix-outils.ts`,
+une seule fois. `/api/voice/tools` (Vapi) et `/api/voice/outil-app` (l'app) n'ont
+plus que ce qui leur est propre : comment on verifie QUI appelle.
+
+⚠️ LE CORPS DES OUTILS N'A PAS ETE REECRIT, IL A ETE DEPLACE — au caractere pres,
+par decoupage du fichier d'origine. Deux copies des sept outils, c'est la
+certitude qu'elles divergeront, et la divergence resterait invisible tant qu'on
+n'ecoute pas les deux assistants.
+
+LE GENERATEUR DE RESUME SORT DE SA ROUTE
+`mail_suivant` ne fabriquait pas le resume : il ATTENDAIT jusqu'a 9 secondes que
+l'ecran de l'app le fasse. C'etait ecrit comme fragile : « ecran verrouille, app
+trop ancienne, bascule ratee — dans ces cas le resume n'est fabrique par
+personne. La vraie solution — sortir le generateur de sa route — reste a faire si
+ce cas se revele frequent. »
+
+Le banc OpenAI parle SANS ecran de mail monte. Le cas est devenu la regle.
+
+Le moteur de `/api/summary` vit donc dans `lib/resume-mail.ts`, appelable par le
+serveur lui-meme. La route n'est plus qu'une enveloppe d'authentification :
+memes parametres, memes codes de reponse, meme cache, meme texte.
+
+GAIN POUR VAPI AUSSI : les 9 secondes d'attente disparaissent. Le cache repond
+instantanement, une vraie fabrication prend quelques secondes.
+
+DEUX GARDE-FOUS AJOUTES, ET POURQUOI
+· LES OUTILS S'EXECUTENT UN PAR UN. Le modele peut en demander plusieurs d'un
+  coup ; ils agissent sur le MEME ticket. `reecrire_brouillon` et `preparer_envoi`
+  lances ensemble prepareraient l'envoi d'un texte deja remplace. Le serveur
+  refuse ce cas, mais mieux vaut ne pas le creer.
+· ON NE RELANCE LE MODELE QU'UNE FOIS TOUS LES RESULTATS DEPOSES. Relance trop
+  tot, il parle SANS eux et improvise « c'est fait » alors que rien ne l'est.
+  C'est le pire echec possible pour un assistant qui envoie des mails.
+
+VERROUS DE LA NOUVELLE ROUTE — PLUS STRICTS QUE CHEZ VAPI
+Session Supabase de l'utilisateur, ET ticket de conversation, ET les deux doivent
+designer la MEME personne. Sans la troisieme verification, un ticket ramasse
+ailleurs permettrait d'agir sur la boite d'autrui.
+
+AU PASSAGE : UNE ERREUR DE TYPE PARTIE EN PRODUCTION
+`VOIX_EN[VOIX_EN_PAR_DEFAUT]` rendait `string | undefined` la ou un `string` est
+exige (`noUncheckedIndexedAccess`). Ecrite hier avec la voix anglaise, partie en
+production sans que rien ne bronche. Corrigee par `satisfies`.
+
+⚠️ CE QUI L'A LAISSEE PASSER, ET QUI CONCERNE TOUT LE DEPOT : `next.config` porte
+`ignoreBuildErrors: true`, donc Vercel ne bloque JAMAIS sur une erreur
+TypeScript. Le commentaire a cote dit « le typecheck reste actif en local » — il
+ne l'est pas : `react`, `next` et `@types/node` ne sont pas installes dans
+apps/web, la commande ne peut pas tourner. Un deploiement reussi ne prouve donc
+rien sur les types. A traiter, separement.
+
+
+CE QUI N'EST PAS VERIFIE
+========================
+
+- AUCUN OUTIL N'A ETE ESSAYE A LA VOIX chez OpenAI. Le code compile des deux
+  cotes, sans une erreur dans les fichiers touches ; personne n'a encore entendu
+  l'assistant archiver un mail par ce chemin. C'est l'objet du test ci-dessus.
+
+- LE COUT AVEC OUTILS EST INCONNU. La mesure de −78 % a ete prise SANS outils.
+  Chaque resultat d'outil rentre dans le contexte et se paie en jetons : le prix
+  reel sera plus haut. De combien : NON MESURE.
+
+- LA PREMIERE PRISE DE PAROLE. On demande maintenant a OpenAI de parler en
+  premier (Vapi le faisait seul). Si les premiers mots sont coupes, c'est ce
+  `response.create` envoye a l'ouverture du canal qu'il faudra retarder. NON
+  MESURE.
+
+- LE COMPORTEMENT SI LE MODELE BOUCLE. Aucun plafond n'a ete pose : un plafond
+  arreterait l'assistant en silence, ce qui est pire. Le compteur du panneau
+  OUTILS rend la boucle visible tout de suite. A revoir si ca arrive.
+
+- LES DEUX ROUTES NE SONT PAS TYPEES FINEMENT sur Supabase : les clients sont en
+  `any`, comme avant l'extraction. Le controle de types prouve la forme du code,
+  pas la justesse de chaque requete.
+
+- LE RESTE DU DEPOT WEB N'EST PAS PROPRE. Un controle monte a part montre des
+  erreurs de types dans des fichiers non touches (personalization, priority,
+  fil, sort-features). Une partie vient peut-etre de mon montage reduit, une
+  partie non. NON DEMELE — a regarder avec une vraie installation.
