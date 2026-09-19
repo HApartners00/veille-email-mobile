@@ -513,13 +513,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const email = session?.user?.email ?? '—';
-  // 17/09/2026 — rangee « Diagnostic voix », VISIBLE PAR MOI SEUL. Elle ouvre un
-  // ecran jetable qui verifie que le moteur audio du futur assistant vocal se
-  // charge sur un vrai iPhone. Meme adresse que le tableau de bord admin du web.
-  // A RETIRER avec l'ecran `app/diagnostic-voix.tsx` quand l'assistant sera en
-  // production.
-  const estAdmin = (session?.user?.email ?? '').toLowerCase() === 'ha.partners00@gmail.com';
-
   const [loading, setLoading] = useState(true);
   const [hasAccounts, setHasAccounts] = useState(false);
   const [hour, setHour] = useState(7);
@@ -906,25 +899,17 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               ) : null}
             </View>
 
-            {estAdmin ? (
-              <>
-                <Text style={styles.groupTitle}>Diagnostic</Text>
-                <View style={styles.list}>
-                  <NavRow
-                    label="Diagnostic voix"
-                    onPress={() => router.push('/diagnostic-voix' as never)}
-                  />
-                  {/* 18/09/2026 — banc de mesure du coût vocal. Il ne touche PAS
-                      l'assistant : Vapi continue de servir tous les vrais appels.
-                      À RETIRER avec `app/essai-openai.tsx` une fois la décision
-                      prise (rester chez Vapi, ou basculer sur OpenAI). */}
-                  <NavRow
-                    label="Essai OpenAI (coût)"
-                    onPress={() => router.push('/essai-openai' as never)}
-                  />
-                </View>
-              </>
-            ) : null}
+            {/* 19/09/2026 — DEUX ÉCRANS D'ADMINISTRATION RETIRÉS D'ICI.
+                « Diagnostic voix » vérifiait que la pile native de Vapi se
+                chargeait sur un vrai iPhone ; Vapi n'existe plus. « Essai
+                OpenAI » mesurait le coût à la voix et au modèle ; sa question
+                est tranchée.
+
+                ⚠️ RETIRÉS POUR LA SOUMISSION, PAS PAR MÉNAGE. Apple refuse les
+                fonctions cachées dans un binaire soumis, et ces deux écrans
+                l'étaient : masqués derrière une adresse mail écrite en dur.
+
+                Ils restent dans git. Les remettre est une commande. */}
 
             <View style={styles.card}>
               <Text style={styles.label}>{t.settings.connectedAs}</Text>

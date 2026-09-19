@@ -1,0 +1,50 @@
+Menage avant la soumission : les deux ecrans cachés et le paquet Vapi
+
+POURQUOI MAINTENANT. Mesure du 19/09 sur la fiche App Store publique :
+version 1.0, publiee le 08/09. Le telephone de HA est en 1.2.0. Les mises a jour
+`eas update` ne partent que vers la 1.2.0 : tout ce qui a ete fait dans l'app
+depuis onze jours — l'assistant vocal entier, sa bascule sur OpenAI, la sortie
+audio — n'existe que sur son appareil. Il faut un build.
+
+LES DEUX ECRANS D'ADMINISTRATION PARTENT
+- `app/diagnostic-voix.tsx` verifiait que la pile native de Vapi se chargeait sur
+  un vrai iPhone. Vapi n'existe plus dans ce code depuis le 18/09.
+- `app/essai-openai.tsx` mesurait le cout a la voix et au modele. Sa question est
+  tranchee : `cedar`, 0,0193 $/min, −78 %.
+
+⚠️ RETIRES POUR LA SOUMISSION, PAS PAR MENAGE. Apple refuse les fonctions
+cachees dans un binaire soumis, et ces deux ecrans l'etaient : masques derriere
+une adresse mail ecrite en dur. Sur une fiche deja vieille de trois semaines, ce
+n'est pas le moment de donner un motif de refus.
+
+Ils restent dans git. Les remettre est une commande.
+
+LE PAQUET VAPI SORT DU BINAIRE
+`@vapi-ai/react-native` n'avait plus un seul appelant hors l'ecran de diagnostic.
+Il ne pouvait pas partir par `eas update` — c'est du code NATIF, il fallait
+attendre un build. C'est ce build.
+
+⚠️ CE QUI RESTE, ET POURQUOI ON N'Y TOUCHE PAS.
+`@daily-co/react-native-webrtc` porte TOUTE la liaison avec OpenAI : sans lui,
+plus d'assistant. Et c'est lui qui expose `setAudioDevice`, le reglage qui envoie
+le son dans le haut-parleur.
+`@daily-co/react-native-daily-js` n'est plus importe par personne une fois le
+diagnostic parti — mais son greffon natif est declare dans app.json, a cote de
+celui de WebRTC. Retirer un greffon natif juste avant une soumission, pour gagner
+quelques kilo-octets, c'est le genre de decision qui casse un build sans dire
+pourquoi. LAISSE TRANQUILLE, exprès.
+
+LA VERSION NE BOUGE PAS : 1.2.0
+`runtimeVersion` suit la version de l'app. En gardant 1.2.0, le telephone de HA
+et la future version publique partagent le meme socle : une mise a jour poussee
+les atteindra tous les deux. Monter a 1.3.0 rendrait caduques toutes les mises a
+jour deja publiees.
+
+CE QUI N'EST PAS VERIFIE
+- Aucun build n'a ete lance. Le code compile (19 erreurs de types, toutes
+  anterieures et dans des fichiers du modele Expo, aucune dans ce qui est touche
+  ici), mais compiler n'est pas construire.
+- L'etat de la 1.2.0 dans App Store Connect est INCONNU au moment d'ecrire ceci :
+  jamais soumise, en attente, ou refusee. A verifier avant de soumettre.
+- Les 5 captures de la fiche App Store montrent une app d'il y a trois semaines.
+  Elles ne sont PAS traitees ici.
