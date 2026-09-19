@@ -1,0 +1,47 @@
+L'app ne plante plus a l'ouverture de l'assistant vocal
+
+CONSTAT DE HA, sur le build du jour : « des que je l'active l'application se
+ferme, la ca l'a fait 5 fois d'affilee ».
+
+REGRESSION INTRODUITE CE MATIN, par le correctif qui envoie le son dans le
+haut-parleur. Elle n'existait pas hier.
+
+LA CAUSE, LUE DANS LE MODULE, PAS DEVINEE
+La methode native est declaree :
+
+  RCT_EXPORT_METHOD(enumerateDevices:(RCTResponseSenderBlock)callback)
+
+Elle attend une FONCTION DE RAPPEL en argument. Je l'appelais sans rien, comme si
+elle rendait une promesse. Le code natif tentait alors d'appeler un rappel
+inexistant : plantage, application fermee. Cela se produisait a chaque ouverture
+de l'assistant, d'ou les cinq fois d'affilee.
+
+Le module fournit deja la bonne facon d'appeler :
+
+  mediaDevices.enumerateDevices()   // enveloppe le rappel dans une promesse
+
+C'est desormais ce qui est utilise. On ne touche plus la methode native en
+direct.
+
+⚠️ ET MON GARDE-FOU NE GARDAIT RIEN
+L'appel etait entoure d'un `try/catch`, ce qui m'avait donne le sentiment d'etre
+couvert. UN PLANTAGE NATIF NE SE RATTRAPE PAS EN JAVASCRIPT. Le filet ne tenait
+rien. C'est exactement le genre de protection qui rassure sans proteger, et qui
+fait chercher la panne ailleurs.
+
+LES DEUX AUTRES APPELS NATIFS ONT ETE VERIFIES, un par un, dans le source du
+module :
+  · getAudioDevice  -> declaree resolve/reject, donc une promesse : correct
+  · setAudioDevice  -> un argument texte, sans rappel : correct
+Seul `enumerateDevices` etait faux.
+
+CE QUI N'EST PAS VERIFIE
+- Le correctif n'a pas encore tourne sur un telephone. Il compile, et la cause
+  est certaine ; le fait qu'il n'y ait plus de plantage ne le sera qu'apres un
+  essai reel.
+- Le comportement avec un casque ou du Bluetooth reste non essaye : c'est
+  justement ce que `enumerateDevices` sert a detecter, et il n'a jamais pu
+  s'executer jusqu'ici.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011U9HEzwiC758WVopQr2KZJ

@@ -138,10 +138,35 @@ function message(e: unknown): string {
 const HAUT_PARLEUR = 'SPEAKERPHONE';
 
 type PontAudio = {
-  enumerateDevices?: () => Promise<unknown>;
+  /**
+   * ⚠️ PROMESSE, celle-ci. Déclarée `resolve`/`reject` côté natif.
+   * (`RCT_EXPORT_METHOD(getAudioDevice:(RCTPromiseResolveBlock)resolve ...)`)
+   */
   getAudioDevice?: () => Promise<string>;
+  /** Sans retour : le natif ne rend rien. On relit avec `getAudioDevice`. */
   setAudioDevice?: (id: string) => void;
 };
+
+/**
+ * ⚠️ `enumerateDevices` N'EST PAS UNE PROMESSE, ET ÇA A FAIT PLANTER L'APP.
+ * 19/09/2026.
+ *
+ * Constat de HA : « dès que je l'active l'application se ferme, là ça l'a fait
+ * 5 fois d'affilée ».
+ *
+ * Cause, lue dans le module : la méthode native est déclarée
+ * `RCT_EXPORT_METHOD(enumerateDevices:(RCTResponseSenderBlock)callback)` — elle
+ * attend une FONCTION DE RAPPEL en argument. Je l'appelais sans rien, comme si
+ * elle rendait une promesse. Le natif tentait alors d'appeler un rappel
+ * inexistant : plantage, application fermée.
+ *
+ * ⚠️ ET MON `try/catch` NE SERVAIT À RIEN. Un plantage natif ne se rattrape pas
+ * en JavaScript. Le filet que je croyais avoir tendu ne tenait rien — c'est
+ * précisément le genre de garde-fou qui rassure sans protéger.
+ *
+ * On passe donc par le wrapper du module (`mediaDevices.enumerateDevices()`),
+ * qui enveloppe le rappel correctement et ne peut pas dériver.
+ */
 
 function pontAudio(): PontAudio | null {
   try {
@@ -162,7 +187,10 @@ type PeripheriqueAudio = { deviceId?: string; label?: string; kind?: string };
  * on afficherait « haut-parleur » sans savoir si ça a pris. Un « c'est corrigé »
  * qu'on n'a pas vérifié est exactement ce qui fait perdre une heure plus tard.
  */
-async function reglerSortieAudio(forcer?: boolean): Promise<SortieAudio> {
+async function reglerSortieAudio(
+  mediaDevices: { enumerateDevices?: () => Promise<unknown> } | null,
+  forcer?: boolean,
+): Promise<SortieAudio> {
   const pont = pontAudio();
   if (!pont?.setAudioDevice || !pont?.getAudioDevice) {
     return {
@@ -175,7 +203,8 @@ async function reglerSortieAudio(forcer?: boolean): Promise<SortieAudio> {
   let casqueFilaire = false;
   let bluetooth = false;
   try {
-    const liste = (await pont.enumerateDevices?.()) as PeripheriqueAudio[] | undefined;
+    // Le wrapper du module, jamais la méthode native en direct (voir ci-dessus).
+    const liste = (await mediaDevices?.enumerateDevices?.()) as PeripheriqueAudio[] | undefined;
     for (const d of Array.isArray(liste) ? liste : []) {
       if (d?.kind !== 'audio') continue;
       if (d.deviceId === 'BLUETOOTH') bluetooth = true;
@@ -589,19 +618,19 @@ export async function demarrerOpenAI(
    * finirait par masquer un module qui ne répond pas. Après la reprise, ce
    * qu'on rapporte est ce que l'appareil dit vraiment — même si c'est l'écouteur.
    */
-  sortieSon = await reglerSortieAudio();
+  sortieSon = await reglerSortieAudio(mediaDevices);
   noter(`   son : ${sortieSon.obtenu} (${sortieSon.raison})`);
   params.surSortieAudio?.(sortieSon);
 
   setTimeout(() => {
     if (ferme) return;
     void (async () => {
-      const revu = await reglerSortieAudio();
+      const revu = await reglerSortieAudio(mediaDevices);
       // On ne réapplique que si la sortie a dérivé vers l'écouteur alors qu'on
       // voulait le haut-parleur.
       if (sortieSon?.voulu && revu.obtenu !== sortieSon.voulu) {
         noter(`   son revenu sur ${revu.obtenu} — nouvelle tentative`);
-        const encore = await reglerSortieAudio(true);
+        const encore = await reglerSortieAudio(mediaDevices, true);
         sortieSon = encore;
         params.surSortieAudio?.(encore);
         if (encore.obtenu !== HAUT_PARLEUR) {
@@ -680,7 +709,7 @@ export async function demarrerOpenAI(
     mettreSurHautParleur: async (oui: boolean) => {
       // `false` ne force rien : il rend la main à l'appareil, qui reprendra son
       // choix par défaut (casque, Bluetooth, ou écouteur).
-      const r = await reglerSortieAudio(oui);
+      const r = await reglerSortieAudio(mediaDevices, oui);
       sortieSon = r;
       params.surSortieAudio?.(r);
     },
