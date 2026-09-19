@@ -1,0 +1,24 @@
+L'app retire la section d'ouverture des instructions apres la premiere reponse
+
+Constat de HA, quatrieme fois : « il me redit bonjour a chaque nouveau mail ».
+Trois consignes successives cote prompt n'y ont rien change.
+
+La cause n'etait pas la formulation : les instructions sont figees pour tout
+l'appel, et le modele relit a chaque prise de parole un texte qui decrit une
+ouverture avec une salutation dedans. On ne gagne pas une discussion contre son
+propre contexte.
+
+Des que la premiere reponse est terminee, l'app envoie `session.update` avec la
+version des instructions que le serveur lui a donnee en meme temps que le jeton
+(`instructionsSuite`) : la section d'ouverture n'y existe plus.
+
+UNE SEULE FOIS, et jamais si le serveur n'a pas fourni ce texte — reecrire les
+instructions a chaque tour couterait cher et risquerait d'en perdre un morceau.
+
+⚠️ SI OPENAI REFUSE LA MISE A JOUR, il repond par un evenement `error`, que l'app
+affiche deja. L'echec sera visible, pas silencieux. La forme exacte attendue
+n'ayant jamais ete essayee sur ce projet, c'est le point a surveiller au premier
+appel.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011U9HEzwiC758WVopQr2KZJ

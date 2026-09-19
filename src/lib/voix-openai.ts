@@ -299,6 +299,8 @@ export async function demarrerOpenAI(
     session?: string | null;
     sessionEchec?: string | null;
     outils?: string[];
+    /** Les instructions SANS section d'ouverture. Voir `retirerOuverture`. */
+    instructionsSuite?: string;
     contexte?: ContexteAppel;
     error?: string;
   }>(params.route, params.corps);
@@ -373,6 +375,35 @@ export async function demarrerOpenAI(
    * D'où le filet de securite : si la fin de lecture n'est pas annoncee dans les
    * 1,5 s qui suivent la fin de la reponse, on rouvre quand meme.
    */
+  /**
+   * ⚠️ ON RETIRE L'OUVERTURE DU CONTEXTE APRÈS LA PREMIÈRE RÉPONSE — 19/09/2026.
+   *
+   * Constat de HA, trois fois : « il me redit bonjour à chaque nouveau mail ».
+   * Trois consignes différentes n'y ont rien changé, et ce n'était pas une
+   * question de formulation : les instructions sont FIGÉES pour tout l'appel.
+   * À chaque prise de parole, le modèle relit un texte qui décrit une ouverture
+   * avec une salutation dedans. Lui demander de se souvenir qu'il a déjà salué,
+   * c'est lui demander de résister à ce qu'il a sous les yeux.
+   *
+   * On ne lui demande plus rien : dès sa première réponse terminée, on REMPLACE
+   * ses instructions (`session.update`) par une version où la section
+   * d'ouverture n'existe plus. Le mot disparaît de son contexte.
+   *
+   * ⚠️ UNE SEULE FOIS, et jamais si le serveur n'a pas fourni le texte de
+   * rechange : réécrire les instructions à chaque tour coûterait cher et
+   * risquerait d'en perdre un bout. Si OpenAI refuse la mise à jour, il répond
+   * par un événement `error`, que l'on affiche déjà — ça ne se perdra pas.
+   */
+  const instructionsSuite = String(r.instructionsSuite || '');
+  let ouvertureRetiree = false;
+
+  const retirerOuverture = () => {
+    if (ouvertureRetiree || ferme || !instructionsSuite) return;
+    ouvertureRetiree = true;
+    envoyer({ type: 'session.update', session: { type: 'realtime', instructions: instructionsSuite } });
+    noter("   ouverture retirée des instructions");
+  };
+
   let assistantParle = false;
   let muetParUtilisateur = false;
   let filetMicro: ReturnType<typeof setTimeout> | null = null;
@@ -565,6 +596,10 @@ export async function demarrerOpenAI(
 
     // ------------------------------------------------------ la réponse est finie
     if (m.type === 'response.done') {
+      // La première réponse est finie : la salutation a eu lieu, on retire la
+      // section d'ouverture de ses instructions.
+      retirerOuverture();
+
       if (m.response?.usage) {
         const u = m.response.usage as {
           input_token_details?: {
