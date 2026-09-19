@@ -1,0 +1,51 @@
+Le son sort du haut-parleur, plus de l'ecouteur
+
+CONSTAT DE HA, premier appel reel apres la bascule : « le son sort du
+haut-parleur du haut de l'iPhone, comme un appel, au lieu du vrai haut-parleur
+en bas ».
+
+LA CAUSE, LUE DANS LE CODE DU MODULE, PAS DEVINEE
+Ce n'est pas un reglage oublie : c'est le comportement d'iOS. Une liaison WebRTC
+ouvre une session audio de type conversation, dont la sortie par defaut est
+l'ECOUTEUR — celui qu'on colle a l'oreille. Vapi appelait le reglage pour nous ;
+en passant en direct, plus personne ne le faisait.
+
+POURQUOI C'EST REPARABLE SANS BUILD
+Le module de Daily expose deja `setAudioDevice`, `getAudioDevice` et
+`enumerateDevices` sur le pont natif — ils sont DANS le binaire — mais ne les
+rend pas par son interface JavaScript. On passe donc par `NativeModules`.
+Les identifiants (`SPEAKERPHONE`, `WIRED_OR_EARPIECE`, `BLUETOOTH`) ont ete lus
+dans `WebRTCModule+DailyDevicesManager.m`, et sont les memes cote Android.
+
+⚠️ ON NE FORCE PAS LE HAUT-PARLEUR AVEUGLEMENT
+Le code natif, lui, le force meme quand un casque est branche — c'est ecrit dans
+son propre commentaire. Quelqu'un avec des AirPods s'entendrait soudain diffuse
+dans la piece. On regarde donc d'abord ce qui est branche :
+  · Bluetooth connecte       -> on ne touche a rien
+  · casque filaire branche   -> on ne touche a rien
+  · rien de branche          -> haut-parleur
+
+⚠️ ON RELIT CE QUE L'APPAREIL A FAIT
+`setAudioDevice` ne rend rien. Sans relecture, on afficherait « haut-parleur »
+sans savoir si ca a pris. On relit donc apres coup, puis une seconde fois a
+1,2 s — parce que la session audio peut etre reconfiguree quand le premier son
+arrive — et on reapplique UNE fois si ca a derive.
+
+UNE SEULE REPRISE, PAS UNE BOUCLE. Une boucle qui rattrape sans fin finirait par
+masquer un module qui ne repond pas. Apres la reprise, ce qu'on rapporte est ce
+que l'appareil dit vraiment, meme si c'est l'ecouteur — et la console le dit.
+
+AU PASSAGE : UN PIEGE EVITE
+La variable qui retient l'etat de la sortie s'appelait d'abord `sortie`, nom
+deja pris dans `executer()` pour le texte rendu par un outil. Deux variables du
+meme nom dont une masque l'autre, c'est un defaut qui attend son heure. Renommee
+`sortieSon`.
+
+CE QUI N'EST PAS VERIFIE
+- Le comportement avec des AirPods ou un casque filaire : la decision est prise
+  sur la liste que rend le module, jamais essayee sur un vrai casque.
+- Le delai de 1,2 s avant la relecture est un choix, pas une mesure. Si le son
+  part bien dans le haut-parleur puis revient a l'ecouteur au bout de deux
+  secondes, c'est ce delai qu'il faudra allonger.
+- `mettreSurHautParleur` est expose sur la session mais n'est branche sur aucun
+  bouton. Il servira le jour ou l'on voudra offrir le choix.

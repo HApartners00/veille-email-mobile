@@ -4,7 +4,13 @@ import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconChevronLeft } from '@/components/icons';
-import { demarrerOpenAI, type AppelOutilVu, type SessionOpenAI, type Usage } from '@/lib/voix-openai';
+import {
+  demarrerOpenAI,
+  type AppelOutilVu,
+  type SessionOpenAI,
+  type SortieAudio,
+  type Usage,
+} from '@/lib/voix-openai';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 /**
@@ -106,6 +112,9 @@ export default function EssaiOpenAI() {
   // silence, et on accuse la voix.
   const [outils, setOutils] = useState<AppelOutilVu[]>([]);
   const [dernierDit, setDernierDit] = useState<string>('');
+  // Où sort le son. Sur un banc, ça doit se VOIR : c'est le genre de défaut
+  // qu'on met vingt minutes à croire quand on ne peut que l'entendre.
+  const [son, setSon] = useState<SortieAudio | null>(null);
 
   const sessionRef = useRef<SessionOpenAI | null>(null);
 
@@ -134,6 +143,7 @@ export default function EssaiOpenAI() {
     setJournal([]);
     setOutils([]);
     setDernierDit('');
+    setSon(null);
     setCompteurs(ZERO);
     setEtape('demarrage');
 
@@ -164,6 +174,7 @@ export default function EssaiOpenAI() {
         surErreur: (m) => setErreur(m),
         surMail: (id) => noter(`   → la conversation passe au mail ${id.slice(0, 8)}…`),
         surFin: () => setEtape('fin'),
+        surSortieAudio: (x) => setSon(x),
       });
       sessionRef.current = session;
       setContexte(session.contexte);
@@ -236,6 +247,7 @@ export default function EssaiOpenAI() {
           <View style={styles.mesure}>
             <Text style={styles.mesureTitre}>MESURE</Text>
             <Ligne libelle="durée" valeur={`${secondes} s`} />
+            {son ? <Ligne libelle="sortie du son" valeur={`${son.obtenu} — ${son.raison}`} /> : null}
             <Ligne libelle="audio entrant" valeur={`${compteurs.audioIn} jetons`} />
             <Ligne libelle="audio en cache" valeur={`${compteurs.audioCache} jetons`} />
             <Ligne libelle="audio sortant" valeur={`${compteurs.audioOut} jetons`} />

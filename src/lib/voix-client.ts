@@ -203,6 +203,20 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
         ticketCourant = t;
       },
 
+      /**
+       * OÙ SORT LE SON — 19/09/2026.
+       *
+       * Constat de HA au premier appel réel : « le son sort du haut-parleur du
+       * haut de l'iPhone, comme un appel ». C'est le comportement d'iOS pour une
+       * liaison WebRTC ; Vapi posait le réglage pour nous. Le module s'en charge
+       * désormais et RELIT ce que l'appareil a fait.
+       *
+       * On le journalise sans l'afficher : une sortie audio mal placée
+       * s'entend — inutile d'ajouter un bandeau à quelqu'un qui a déjà compris.
+       * Mais quand il faudra en parler, la trace sera là.
+       */
+      surSortieAudio: (son) => console.log('[voix] son :', son.obtenu, '—', son.raison),
+
       surParole: (qui) => poser({ quiParle: qui }),
       surTexte: (t) => poser({ phrase: t, quiParle: 'assistant' }),
       surErreur: (m) => poser({ erreur: m }),

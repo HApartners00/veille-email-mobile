@@ -70,6 +70,15 @@ export type ContexteAppel = {
   longueurInstructions?: number;
 };
 
+export type SortieAudio = {
+  /** Ce qu'on a demandé, ou `null` quand on a volontairement laissé faire. */
+  voulu: string | null;
+  /** Ce que l'appareil fait réellement, relu après coup. */
+  obtenu: string;
+  /** Pourquoi on a fait ça. Lisible par un humain. */
+  raison: string;
+};
+
 export type SessionOpenAI = {
   /** Coupe le micro et la liaison, et rapporte le coût. Idempotent. */
   arreter: (raison?: string) => void;
@@ -84,6 +93,10 @@ export type SessionOpenAI = {
   contexte: ContexteAppel | null;
   /** Le ticket de conversation. Absent = les outils ne marcheront pas, et on le dit. */
   ticket: string | null;
+  /** Où sort le son, tel que l'appareil le rapporte. Pour l'affichage et le diagnostic. */
+  sortieAudio: () => SortieAudio | null;
+  /** Forcer le haut-parleur, ou rendre la main à l'appareil. */
+  mettreSurHautParleur: (oui: boolean) => Promise<void>;
 };
 
 function message(e: unknown): string {
@@ -94,6 +107,113 @@ function message(e: unknown): string {
   } catch {
     return String(e);
   }
+}
+
+/**
+ * OÙ SORT LE SON. 19/09/2026.
+ *
+ * ⚠️ LE DÉFAUT QUE ÇA CORRIGE, constaté par HA au premier appel réel : « le son
+ * sort du haut-parleur du haut de l'iPhone, comme un appel, au lieu du vrai
+ * haut-parleur en bas ».
+ *
+ * Ce n'est pas un réglage oublié, c'est le comportement d'iOS : une liaison
+ * WebRTC ouvre une session audio de type conversation, dont la sortie par défaut
+ * est l'ÉCOUTEUR — celui qu'on colle à l'oreille. Vapi appelait le réglage pour
+ * nous ; en passant en direct, plus personne ne le fait.
+ *
+ * ⚠️ LE RÉGLAGE EXISTE DÉJÀ DANS LE BINAIRE, et c'est ce qui permet de corriger
+ * sans build. Le module de Daily expose `setAudioDevice` / `getAudioDevice` /
+ * `enumerateDevices` sur le pont natif, mais ne les rend pas par son interface
+ * JavaScript. On passe donc par `NativeModules`. Lu dans le code du module
+ * (`WebRTCModule+DailyDevicesManager.m`), pas deviné : les identifiants sont
+ * `SPEAKERPHONE`, `WIRED_OR_EARPIECE` et `BLUETOOTH`, et ils sont les mêmes côté
+ * Android.
+ *
+ * ⚠️ ON NE FORCE PAS LE HAUT-PARLEUR AVEUGLÉMENT. Le code natif, lui, le force
+ * même quand un casque est branché (c'est écrit dans son commentaire). Quelqu'un
+ * avec des AirPods dans les oreilles s'entendrait soudain diffusé dans la pièce.
+ * On regarde donc d'abord CE QUI EST BRANCHÉ, et on ne touche à rien s'il y a un
+ * casque ou du Bluetooth.
+ */
+const HAUT_PARLEUR = 'SPEAKERPHONE';
+
+type PontAudio = {
+  enumerateDevices?: () => Promise<unknown>;
+  getAudioDevice?: () => Promise<string>;
+  setAudioDevice?: (id: string) => void;
+};
+
+function pontAudio(): PontAudio | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { NativeModules } = require('react-native');
+    return (NativeModules?.WebRTCModule as PontAudio) || null;
+  } catch {
+    return null;
+  }
+}
+
+type PeripheriqueAudio = { deviceId?: string; label?: string; kind?: string };
+
+/**
+ * Décide où envoyer le son, l'applique, PUIS relit ce que l'appareil a fait.
+ *
+ * ⚠️ LA RELECTURE N'EST PAS DU ZÈLE. `setAudioDevice` ne rend rien : sans relire,
+ * on afficherait « haut-parleur » sans savoir si ça a pris. Un « c'est corrigé »
+ * qu'on n'a pas vérifié est exactement ce qui fait perdre une heure plus tard.
+ */
+async function reglerSortieAudio(forcer?: boolean): Promise<SortieAudio> {
+  const pont = pontAudio();
+  if (!pont?.setAudioDevice || !pont?.getAudioDevice) {
+    return {
+      voulu: null,
+      obtenu: 'inconnu',
+      raison: "le module natif n'expose pas le réglage de sortie audio",
+    };
+  }
+
+  let casqueFilaire = false;
+  let bluetooth = false;
+  try {
+    const liste = (await pont.enumerateDevices?.()) as PeripheriqueAudio[] | undefined;
+    for (const d of Array.isArray(liste) ? liste : []) {
+      if (d?.kind !== 'audio') continue;
+      if (d.deviceId === 'BLUETOOTH') bluetooth = true;
+      // Le module nomme cette entrée « Wired headset » quand un casque est
+      // branché, et « Phone earpiece » sinon. C'est le seul signal qu'il donne.
+      if (d.deviceId === 'WIRED_OR_EARPIECE' && String(d.label || '').toLowerCase().includes('wired')) {
+        casqueFilaire = true;
+      }
+    }
+  } catch {
+    // Liste illisible : on continue, la décision se fera sans elle.
+  }
+
+  const laisserFaire = !forcer && (bluetooth || casqueFilaire);
+  if (!laisserFaire) {
+    try {
+      pont.setAudioDevice(HAUT_PARLEUR);
+    } catch {
+      // On relit quand même juste après : c'est la relecture qui fait foi.
+    }
+  }
+
+  let obtenu = 'inconnu';
+  try {
+    obtenu = String((await pont.getAudioDevice()) || 'inconnu');
+  } catch {
+    // Relecture impossible : on le dit, on ne prétend pas que c'est réglé.
+  }
+
+  return {
+    voulu: laisserFaire ? null : HAUT_PARLEUR,
+    obtenu,
+    raison: bluetooth
+      ? 'Bluetooth connecté — on ne touche à rien'
+      : casqueFilaire
+        ? 'casque filaire branché — on ne touche à rien'
+        : 'rien de branché — haut-parleur',
+  };
 }
 
 type Rappels = {
@@ -122,6 +242,8 @@ type Rappels = {
    * ne saurait pas quoi relire.
    */
   surTicket?: (ticket: string | null) => void;
+  /** Où sort le son, une fois la liaison ouverte et le réglage vérifié. */
+  surSortieAudio?: (s: SortieAudio) => void;
 };
 
 export async function demarrerOpenAI(
@@ -192,6 +314,7 @@ export async function demarrerOpenAI(
 
   let itemId = typeof params.corps.itemId === 'string' ? (params.corps.itemId as string) : null;
   let ferme = false;
+  let sortieSon: SortieAudio | null = null;
   const debutMs = Date.now();
   let usage: Usage = { ...USAGE_ZERO };
 
@@ -455,6 +578,46 @@ export async function demarrerOpenAI(
   noter('6. liaison établie — parle.');
 
   /**
+   * ⚠️ ON RÈGLE LA SORTIE APRÈS L'ÉTABLISSEMENT, ET ON VÉRIFIE.
+   *
+   * Avant, iOS n'a pas encore de session audio active : le réglage n'aurait rien
+   * sur quoi s'appliquer. Et comme la session peut être reconfigurée quand le
+   * premier son arrive, on relit une seconde plus tard et on réapplique UNE
+   * fois si ça a bougé.
+   *
+   * ⚠️ UNE SEULE REPRISE, PAS UNE BOUCLE. Une boucle qui rattrape sans fin
+   * finirait par masquer un module qui ne répond pas. Après la reprise, ce
+   * qu'on rapporte est ce que l'appareil dit vraiment — même si c'est l'écouteur.
+   */
+  sortieSon = await reglerSortieAudio();
+  noter(`   son : ${sortieSon.obtenu} (${sortieSon.raison})`);
+  params.surSortieAudio?.(sortieSon);
+
+  setTimeout(() => {
+    if (ferme) return;
+    void (async () => {
+      const revu = await reglerSortieAudio();
+      // On ne réapplique que si la sortie a dérivé vers l'écouteur alors qu'on
+      // voulait le haut-parleur.
+      if (sortieSon?.voulu && revu.obtenu !== sortieSon.voulu) {
+        noter(`   son revenu sur ${revu.obtenu} — nouvelle tentative`);
+        const encore = await reglerSortieAudio(true);
+        sortieSon = encore;
+        params.surSortieAudio?.(encore);
+        if (encore.obtenu !== HAUT_PARLEUR) {
+          // RIEN EN SILENCE : on a essayé deux fois, ça ne prend pas. La
+          // personne entendra le son au mauvais endroit ; autant qu'elle sache
+          // que ce n'est pas elle qui a mal réglé son téléphone.
+          console.error('[voix] la sortie audio refuse le haut-parleur :', encore.obtenu);
+        }
+      } else {
+        sortieSon = revu;
+        params.surSortieAudio?.(revu);
+      }
+    })();
+  }, 1200);
+
+  /**
    * LE RAPPORT DE COÛT. 18/09/2026.
    *
    * ⚠️ POURQUOI IL EST ICI ET PAS DANS L'ÉCRAN. Vapi envoyait sa vraie facture à
@@ -513,6 +676,14 @@ export async function demarrerOpenAI(
     },
     itemIdCourant: () => itemId,
     usageTotal: () => ({ ...usage }),
+    sortieAudio: () => sortieSon,
+    mettreSurHautParleur: async (oui: boolean) => {
+      // `false` ne force rien : il rend la main à l'appareil, qui reprendra son
+      // choix par défaut (casque, Bluetooth, ou écouteur).
+      const r = await reglerSortieAudio(oui);
+      sortieSon = r;
+      params.surSortieAudio?.(r);
+    },
     modele,
     voix,
     contexte: r.contexte || null,
