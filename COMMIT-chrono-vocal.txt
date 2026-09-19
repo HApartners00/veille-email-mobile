@@ -1,0 +1,23 @@
+Le compteur de l'assistant vocal avance
+
+CONSTAT DE HA : « ca marche mais je l'ai laisse parler, le temps avance pas ».
+L'assistant repondait bien, le compteur restait a 0:00.
+
+⚠️ CAUSE NON TROUVEE PAR LA RELECTURE, et je ne vais pas pretendre le contraire.
+`lib/voix-client.ts` pose bien `debutMs` quand la liaison s'etablit, et le
+panneau le lisait. Sur le papier, ca devait marcher.
+
+CE QUI EST FAIT NE MASQUE PAS LA CAUSE : ca supprime la dependance. Le panneau
+note desormais l'heure a laquelle il s'ouvre et s'en sert si — et seulement si —
+`debutMs` manque. Quand la valeur arrive, c'est elle qui prime : elle demarre a
+la liaison, pas a l'affichage, donc elle est plus juste.
+
+AU PASSAGE : le compteur tourne aussi pendant « Connexion… ». Une attente qui ne
+se compte pas ressemble a une panne.
+
+⚠️ CE QUE CA NOUS APPRENDRA. Si le compteur reste a 0:00 malgre ca, c'est que le
+panneau ne se redessine pas du tout, et le defaut est ailleurs — dans
+l'abonnement de l'ecran, pas dans l'horloge. On saura ou chercher.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011U9HEzwiC758WVopQr2KZJ
