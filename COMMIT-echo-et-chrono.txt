@@ -1,0 +1,66 @@
+L'assistant ne se repond plus a lui-meme, et le compteur avance
+
+CONSTAT DE HA : « il repete trois fois bonjour, il passe directement au
+brouillon, y a rien qui va la » — et le compteur toujours a 0:00.
+
+======================================================================
+1. L'ASSISTANT SE REPONDAIT A LUI-MEME — ET C'EST MON CORRECTIF DU MATIN
+======================================================================
+
+Tant que le son sortait de l'ECOUTEUR, il etait trop faible pour revenir dans le
+micro. Depuis que je l'ai envoye dans le HAUT-PARLEUR, le micro reentend
+l'assistant. OpenAI, en detection de tour de parole cote serveur (`server_vad`),
+prend cette voix pour celle de l'utilisateur, detecte la fin de « sa phrase », et
+FABRIQUE une reponse tout seul.
+
+D'ou les trois bonjours, et le saut au brouillon : l'assistant repondait a son
+propre echo, en boucle.
+
+⚠️ LA REGRESSION EST DATEE ET ATTRIBUEE : elle n'existait pas hier, elle est
+apparue avec le correctif du haut-parleur de ce matin. C'est moi.
+
+CORRECTIF : le micro est FERME tant que l'assistant parle. Il ne peut plus
+s'entendre. On ne revient pas a l'ecouteur : un assistant mains libres ne se
+colle pas a l'oreille, et HA a raison de vouloir le haut-parleur.
+
+⚠️ CE QUE ÇA COÛTE, ASSUME : on ne peut plus couper l'assistant en parlant
+par-dessus, il faut attendre qu'il finisse. C'est le prix d'une conversation qui
+ne part pas en boucle — et ce manque-la se comprend tout de suite, alors qu'une
+boucle laisse la personne sans explication.
+
+⚠️ LE MICRO DOIT TOUJOURS REVENIR. Un micro reste ferme, c'est un assistant
+sourd et quelqu'un qui parle dans le vide. La reouverture se fait sur la fin de
+lecture ; si elle n'est pas annoncee dans les 1,5 s qui suivent la fin de la
+reponse, on rouvre quand meme.
+
+UN SEUL ENDROIT DECIDE DE L'ETAT DU MICRO. La coupure demandee par
+l'utilisateur et celle qui empeche l'echo passent par la meme fonction : deux
+chemins se seraient marches dessus.
+
+======================================================================
+2. LE COMPTEUR — DEUXIEME ESSAI, AUTRE METHODE
+======================================================================
+
+Le panneau tenait son propre `setInterval` et calculait la duree a l'affichage.
+Deux corrections, deux fois le meme constat de HA : « le temps avance pas ».
+
+⚠️ JE N'AI PAS TROUVE LA CAUSE EN RELISANT, et deux tentatives a l'aveugle, ca
+suffit. On change de methode plutot que de continuer a deviner : la duree n'est
+plus un calcul fait au moment du rendu, c'est une VALEUR poussee dans l'etat
+chaque seconde par `lib/voix-client.ts`. Le panneau ne fait plus que l'ecrire.
+
+Le compte demarre a l'appui sur le micro — l'attente de connexion compte aussi,
+parce qu'une attente qui ne se compte pas ressemble a une panne. Il s'arrete a la
+fin de l'appel mais garde sa derniere valeur affichee.
+
+⚠️ CE QUE ÇA NOUS APPRENDRA : si le compteur reste a 0:00 apres ca, c'est que
+l'ecran ne recoit plus rien du tout de ce module — et ce serait visible partout,
+pas seulement sur le chrono.
+
+CE QUI N'EST PAS VERIFIE
+- Aucun des deux correctifs n'a tourne sur un telephone.
+- La fermeture du micro pendant la lecture n'a pas ete essayee avec un casque ni
+  en Bluetooth.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011U9HEzwiC758WVopQr2KZJ

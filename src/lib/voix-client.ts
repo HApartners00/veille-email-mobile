@@ -50,6 +50,21 @@ export type EtatVoix = {
   muet: boolean;
   erreur: string | null;
   debutMs: number | null;
+  /**
+   * Secondes ecoulees depuis l'appui sur le micro, comptees ICI.
+   *
+   * ⚠️ POURQUOI LE MODULE COMPTE, ET PLUS LE PANNEAU — 19/09/2026. Le panneau
+   * tenait son propre `setInterval` et lisait `debutMs`. Deux essais de HA :
+   * « le temps avance pas », puis encore « le temps ne tourne toujours pas »
+   * apres une premiere correction. Je n'ai pas trouve pourquoi en relisant.
+   *
+   * On arrete de chercher a distance : le compteur n'est plus un calcul fait a
+   * l'affichage, c'est une VALEUR poussee dans l'etat chaque seconde. Le panneau
+   * ne fait plus que l'ecrire. S'il n'avance pas maintenant, c'est que l'ecran
+   * ne recoit plus rien du tout — et ce serait visible partout, pas seulement
+   * sur le chrono.
+   */
+  secondes: number;
 };
 
 const VIDE: EtatVoix = {
@@ -64,6 +79,7 @@ const VIDE: EtatVoix = {
   muet: false,
   erreur: null,
   debutMs: null,
+  secondes: 0,
 };
 
 let etat: EtatVoix = VIDE;
@@ -79,6 +95,23 @@ let appel: SessionOpenAI | null = null;
  * rare, donc impossible à retrouver.
  */
 let ticketCourant: string | null = null;
+let horloge: ReturnType<typeof setInterval> | null = null;
+
+function arreterHorloge() {
+  if (horloge) {
+    clearInterval(horloge);
+    horloge = null;
+  }
+}
+
+/** Compte a partir de l'appui sur le micro : l'attente de connexion compte aussi. */
+function demarrerHorloge() {
+  arreterHorloge();
+  const t0 = Date.now();
+  horloge = setInterval(() => {
+    poser({ secondes: Math.max(0, Math.round((Date.now() - t0) / 1000)) });
+  }, 1000);
+}
 
 function poser(partiel: Partial<EtatVoix>) {
   etat = { ...etat, ...partiel };
@@ -185,6 +218,7 @@ type Demarrage = {
 export async function demarrerVoix(p: Demarrage): Promise<void> {
   if (etat.etape === 'demarrage' || etat.etape === 'en_cours') return;
   poser({ ...VIDE, etape: 'demarrage', itemId: p.itemId, brouillon: p.brouillon });
+  demarrerHorloge();
 
   try {
     const session = await demarrerOpenAI({
@@ -257,6 +291,7 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
     // pour ne pas afficher un brouillon d'avant la première action.
     if (ticketCourant) void rafraichir(ticketCourant);
   } catch (e) {
+    arreterHorloge();
     poser({ etape: 'fin', erreur: message(e) });
     try {
       appel?.arreter('echec_demarrage');
@@ -292,6 +327,9 @@ async function rafraichir(session: string) {
 }
 
 export async function arreterVoix(): Promise<void> {
+  // Le compteur s'arrete, mais sa derniere valeur reste affichee : on veut voir
+  // combien a dure l'appel qu'on vient de terminer.
+  arreterHorloge();
   try {
     appel?.arreter('termine_par_utilisateur');
   } catch {
@@ -314,6 +352,7 @@ export function couperMicro(muet: boolean): void {
 
 /** Remet l'état à zéro quand l'écran a fini d'afficher la fin d'appel. */
 export function oublierVoix(): void {
+  arreterHorloge();
   etat = VIDE;
   for (const f of ecoutes) f(etat);
 }

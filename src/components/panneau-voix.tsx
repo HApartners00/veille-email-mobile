@@ -77,9 +77,13 @@ function Ondes({ actif }: { actif: boolean }) {
   );
 }
 
-function duree(debutMs: number | null): string {
-  if (!debutMs) return '0:00';
-  const s = Math.max(0, Math.round((Date.now() - debutMs) / 1000));
+/**
+ * Met en forme un nombre de secondes. Le panneau ne CALCULE plus la duree : il
+ * l'ecrit. Le compte est tenu par `lib/voix-client.ts`, qui le pousse dans
+ * l'etat chaque seconde (voir le commentaire de `secondes` la-bas).
+ */
+function duree(secondes: number): string {
+  const s = Math.max(0, Math.round(secondes || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
@@ -92,45 +96,6 @@ export default function PanneauVoix({
 }) {
   const t = locale === 'en' ? T.en : T.fr;
   const insets = useSafeAreaInsets();
-  const [, retracer] = useState(0);
-
-  /**
-   * ⚠️ LE PANNEAU TIENT SA PROPRE HORLOGE — 19/09/2026.
-   *
-   * Constat de HA, premier appel après la bascule sur OpenAI : « ça marche mais
-   * je l'ai laissé parler, le temps avance pas ».
-   *
-   * ⚠️ CAUSE NON TROUVÉE PAR LA RELECTURE. `lib/voix-client.ts` pose bien
-   * `debutMs` au moment où la liaison s'établit, et ce panneau le lisait. Sur le
-   * papier ça devait marcher ; sur le téléphone, non. Je n'ai pas su dire
-   * pourquoi en lisant, et je ne vais pas prétendre le contraire.
-   *
-   * Ce qui est fait ici ne masque pas la cause : ça SUPPRIME LA DÉPENDANCE. Le
-   * panneau note l'heure à laquelle il s'ouvre, et s'en sert si — et seulement
-   * si — `debutMs` manque. Quand la valeur arrive, c'est elle qui prime, parce
-   * qu'elle démarre à la liaison et non à l'affichage.
-   *
-   * Si le compteur reste à 0:00 malgré ça, c'est que le panneau ne se redessine
-   * pas du tout, et le défaut est ailleurs. On saura où chercher.
-   */
-  const [debutLocal, setDebutLocal] = useState<number | null>(null);
-  useEffect(() => {
-    if (etat.etape === 'inactif') {
-      setDebutLocal(null);
-      return;
-    }
-    setDebutLocal((d) => d ?? Date.now());
-  }, [etat.etape]);
-
-  // Le compteur avance : une seconde d'horloge, pas d'animation.
-  // Il tourne aussi pendant « Connexion… » : une attente qui ne se compte pas
-  // ressemble à une panne.
-  useEffect(() => {
-    if (etat.etape !== 'en_cours' && etat.etape !== 'demarrage') return;
-    const i = setInterval(() => retracer((n) => n + 1), 1000);
-    return () => clearInterval(i);
-  }, [etat.etape]);
-
   const parle = etat.quiParle === 'assistant';
   const titre =
     etat.etape === 'demarrage'
@@ -155,7 +120,7 @@ export default function PanneauVoix({
         <View style={styles.colonne}>
           <Text style={styles.titre}>{titre}</Text>
           <Text style={styles.sousTitre}>
-            {duree(etat.debutMs ?? debutLocal)}
+            {duree(etat.secondes)}
             {etat.muet ? ' · micro coupé' : ''}
           </Text>
         </View>

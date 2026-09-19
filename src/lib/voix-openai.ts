@@ -344,6 +344,69 @@ export async function demarrerOpenAI(
   let itemId = typeof params.corps.itemId === 'string' ? (params.corps.itemId as string) : null;
   let ferme = false;
   let sortieSon: SortieAudio | null = null;
+
+  /**
+   * ⚠️ LE MICRO SE FERME PENDANT QUE L'ASSISTANT PARLE — 19/09/2026.
+   *
+   * Constat de HA, juste apres le correctif du haut-parleur : « il repete trois
+   * fois bonjour, il passe directement au brouillon, y a rien qui va ».
+   *
+   * CAUSE : c'est mon propre correctif. Tant que le son sortait de l'ECOUTEUR,
+   * il etait trop faible pour revenir dans le micro. Depuis qu'il sort du
+   * HAUT-PARLEUR, le micro reentend l'assistant. OpenAI detecte la fin de ce
+   * qu'il prend pour une phrase de l'utilisateur (`server_vad`) et FABRIQUE une
+   * reponse tout seul. L'assistant se repond donc a lui-meme, en boucle : trois
+   * bonjours, puis n'importe quel outil.
+   *
+   * Le correctif n'est pas de revenir a l'ecouteur — HA veut le haut-parleur, et
+   * il a raison : un assistant mains libres ne se colle pas a l'oreille. On
+   * empeche simplement le micro d'entendre ce qu'on joue : il est FERME tant que
+   * l'assistant parle.
+   *
+   * ⚠️ CE QUE ÇA COÛTE, ET C'EST ASSUME : on ne peut plus couper l'assistant en
+   * parlant par-dessus. On attend qu'il ait fini. C'est le prix d'une
+   * conversation qui ne part pas en boucle, et ça se voit tout de suite quand
+   * ça manque — alors qu'une boucle, on ne comprend pas ce qui se passe.
+   *
+   * ⚠️ IL FAUT QUE LE MICRO REVIENNE, TOUJOURS. Un micro reste ferme, c'est un
+   * assistant sourd, et la personne parle dans le vide sans savoir pourquoi.
+   * D'où le filet de securite : si la fin de lecture n'est pas annoncee dans les
+   * 1,5 s qui suivent la fin de la reponse, on rouvre quand meme.
+   */
+  let assistantParle = false;
+  let muetParUtilisateur = false;
+  let filetMicro: ReturnType<typeof setTimeout> | null = null;
+
+  const appliquerMicro = () => {
+    const ouvert = !muetParUtilisateur && !assistantParle;
+    try {
+      flux.getAudioTracks().forEach((t: { enabled: boolean }) => {
+        t.enabled = ouvert;
+      });
+    } catch (e) {
+      dire(`micro : ${message(e)}`);
+    }
+  };
+
+  const assistantCommence = () => {
+    if (filetMicro) {
+      clearTimeout(filetMicro);
+      filetMicro = null;
+    }
+    if (assistantParle) return;
+    assistantParle = true;
+    appliquerMicro();
+  };
+
+  const assistantTermine = () => {
+    if (filetMicro) {
+      clearTimeout(filetMicro);
+      filetMicro = null;
+    }
+    if (!assistantParle) return;
+    assistantParle = false;
+    appliquerMicro();
+  };
   const debutMs = Date.now();
   let usage: Usage = { ...USAGE_ZERO };
 
@@ -463,10 +526,12 @@ export async function demarrerOpenAI(
       return;
     }
     if (m.type === 'output_audio_buffer.started' || m.type === 'response.output_audio.delta') {
+      assistantCommence();
       params.surParole?.('assistant');
       return;
     }
     if (m.type === 'output_audio_buffer.stopped') {
+      assistantTermine();
       params.surParole?.(null);
       return;
     }
@@ -534,6 +599,15 @@ export async function demarrerOpenAI(
         params.surUsage?.(pas);
       }
       params.surParole?.(null);
+
+      // Filet de securite : la fin de lecture (`output_audio_buffer.stopped`)
+      // est ce qui rouvre le micro. Si elle n'arrive pas, on rouvre quand meme.
+      if (assistantParle && !filetMicro) {
+        filetMicro = setTimeout(() => {
+          filetMicro = null;
+          assistantTermine();
+        }, 1500);
+      }
 
       /**
        * ⚠️ ON NE RELANCE LE MODÈLE QU'UNE FOIS TOUS LES OUTILS RENDUS.
@@ -693,15 +767,12 @@ export async function demarrerOpenAI(
       }
     },
     couperMicro: (muet: boolean) => {
-      try {
-        // On DÉSACTIVE la piste, on ne la coupe pas : une piste arrêtée ne se
-        // rallume pas, et « couper le micro » doit pouvoir se défaire.
-        flux.getAudioTracks().forEach((t: { enabled: boolean }) => {
-          t.enabled = !muet;
-        });
-      } catch (e) {
-        dire(`micro : ${message(e)}`);
-      }
+      // On DÉSACTIVE la piste, on ne la coupe pas : une piste arrêtée ne se
+      // rallume pas, et « couper le micro » doit pouvoir se défaire.
+      // ⚠️ Un seul endroit décide de l'état du micro : sinon la coupure de
+      // l'utilisateur et celle qui empêche l'écho se marchent dessus.
+      muetParUtilisateur = muet;
+      appliquerMicro();
     },
     itemIdCourant: () => itemId,
     usageTotal: () => ({ ...usage }),
