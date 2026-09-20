@@ -154,6 +154,11 @@ export default function MailHtml({ html }: { html: string }) {
      c'est la feuille elle-meme qui doit respirer, y compris pour les mails
      en tableaux qui ignorent tout ce qui les entoure. */
   body { padding:12px 14px; }
+  /* 20/09/2026 — HA, sur les captures iPad : « le texte des mails colle trop
+     les bords ». 14 px sur un iPhone de 390 pt font une marge visible ; les
+     memes 14 px sur une feuille de 1000 pt ne se voient plus. La marge suit
+     donc la largeur de la feuille au lieu d'etre la meme partout. */
+  @media (min-width: 700px) { body { padding:20px 32px; } }
   /* ⚠️ LA PAGE RESTE INVISIBLE JUSQU'A SA MISE A L'ECHELLE.
      Sans ça, le mail s'affiche une fraction de seconde à sa largeur d'origine
      (600 px sur un écran de 390) puis se réduit d'un coup : c'est le "flash"
