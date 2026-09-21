@@ -49,6 +49,10 @@ const fr = {
     createAccount: 'Connecter ma boîte Outlook',
     accountCreated: 'Boîte connectée, compte créé. Saisissez le code à 8 chiffres reçu par email.',
     trialOpenFailed: 'Impossible d’ouvrir la page. Réessayez.',
+    // 21/09/2026 — LE 429 N'EST PLUS MUET. Voir le commentaire de login.tsx.
+    tooSoon: 'Trop de demandes coup sur coup. Nouveau code dans {n} s.',
+    waitBtn: 'Nouveau code dans {n} s',
+    codeComing: 'Votre code arrive dans {n} s. Restez sur cet écran.',
   },
   home: {
     boxUpToDate: 'Boîte à jour — rien à traiter pour le moment.',
@@ -264,6 +268,33 @@ const fr = {
     errGeneric: 'L’opération n’a pas abouti. Réessayez dans quelques instants.',
     errEmpty: 'Un brouillon vide ne peut pas être envoyé.',
   },
+  // ─── DIDACTICIEL D'ACCUEIL — 21/09/2026 ──────────────────────────────────
+  // Cinq écrans pleine page, à la première connexion réussie. L'ordre suit ce
+  // qui distingue Vmail : d'abord le tri (ce qui se voit au premier coup
+  // d'œil), puis ce qu'on gagne à chaque email, puis la voix, puis le fait que
+  // l'outil apprend de vous. Le cinquième écran a été ajouté par HA lui-même.
+  tour: {
+    skip: 'Passer',
+    next: 'Suivant',
+    done: 'Commencer',
+    replay: 'Revoir le didacticiel',
+    step: '{i} sur {n}',
+    s1Title: 'Vos emails, triés en quatre',
+    s1Body:
+      'Urgent, important, à répondre, pour info. Les publicités sont mises de côté. Vous voyez d’abord ce qui compte.',
+    s2Title: 'Le résumé avant le mail',
+    s2Body:
+      'Chaque email est résumé en deux lignes. Vous savez de quoi il parle sans avoir à l’ouvrir.',
+    s3Title: 'La réponse est déjà écrite',
+    s3Body:
+      'Vmail rédige un brouillon dans votre style. Vous relisez, vous ajustez, vous envoyez.',
+    s4Title: 'Écoutez et répondez à la voix',
+    s4Body:
+      'L’assistant vocal vous lit vos emails et écrit vos réponses pendant que vous parlez.',
+    s5Title: 'Vous corrigez, il apprend',
+    s5Body:
+      'Un email mal classé ? Changez sa catégorie. Vmail retient votre choix et l’applique aux suivants.',
+  },
 };
 
 export type Dict = typeof fr;
@@ -310,6 +341,9 @@ const en: Dict = {
     createAccount: 'Connect my Outlook mailbox',
     accountCreated: 'Mailbox connected, account created. Enter the 8-digit code we just emailed you.',
     trialOpenFailed: 'Couldn’t open the page. Please try again.',
+    tooSoon: 'Too many requests in a row. New code in {n} s.',
+    waitBtn: 'New code in {n} s',
+    codeComing: 'Your code is on its way in {n} s. Stay on this screen.',
   },
   home: {
     boxUpToDate: 'Inbox clear — nothing to handle right now.',
@@ -525,6 +559,28 @@ const en: Dict = {
     errGeneric: 'That did not go through. Try again in a moment.',
     errEmpty: 'An empty draft cannot be sent.',
   },
+  tour: {
+    skip: 'Skip',
+    next: 'Next',
+    done: 'Get started',
+    replay: 'Replay the tour',
+    step: '{i} of {n}',
+    s1Title: 'Your mail, sorted into four',
+    s1Body:
+      'Urgent, important, needs a reply, for information. Promotions are kept aside. You see what matters first.',
+    s2Title: 'The summary before the mail',
+    s2Body:
+      'Every email is summarised in two lines. You know what it is about without opening it.',
+    s3Title: 'The reply is already written',
+    s3Body:
+      'Vmail drafts a reply in your own style. You read it, adjust it, send it.',
+    s4Title: 'Listen and reply by voice',
+    s4Body:
+      'The voice assistant reads your mail out loud and writes your replies while you speak.',
+    s5Title: 'You correct it, it learns',
+    s5Body:
+      'An email in the wrong place? Change its category. Vmail remembers and applies your choice to the next ones.',
+  },
 };
 
 const es: Dict = {
@@ -569,6 +625,9 @@ const es: Dict = {
     createAccount: 'Conectar mi buzón de Outlook',
     accountCreated: 'Buzón conectado y cuenta creada. Introduce el código de 8 cifras que te hemos enviado.',
     trialOpenFailed: 'No se pudo abrir la página. Inténtalo de nuevo.',
+    tooSoon: 'Demasiadas solicitudes seguidas. Nuevo código en {n} s.',
+    waitBtn: 'Nuevo código en {n} s',
+    codeComing: 'Tu código llega en {n} s. Quédate en esta pantalla.',
   },
   home: {
     boxUpToDate: 'Bandeja al día — nada que gestionar por ahora.',
@@ -784,6 +843,28 @@ const es: Dict = {
     errGeneric: 'La operación no se completó. Inténtelo de nuevo en unos instantes.',
     errEmpty: 'No se puede enviar un borrador vacío.',
   },
+  tour: {
+    skip: 'Omitir',
+    next: 'Siguiente',
+    done: 'Empezar',
+    replay: 'Volver a ver el tutorial',
+    step: '{i} de {n}',
+    s1Title: 'Tu correo, ordenado en cuatro',
+    s1Body:
+      'Urgente, importante, por responder, informativo. La publicidad se aparta. Ves primero lo que importa.',
+    s2Title: 'El resumen antes del correo',
+    s2Body:
+      'Cada correo se resume en dos líneas. Sabes de qué trata sin tener que abrirlo.',
+    s3Title: 'La respuesta ya está escrita',
+    s3Body:
+      'Vmail redacta un borrador con tu estilo. Lo revisas, lo ajustas, lo envías.',
+    s4Title: 'Escucha y responde con la voz',
+    s4Body:
+      'El asistente de voz te lee el correo y escribe tus respuestas mientras hablas.',
+    s5Title: 'Tú corriges, él aprende',
+    s5Body:
+      '¿Un correo mal clasificado? Cambia su categoría. Vmail recuerda tu elección y la aplica a los siguientes.',
+  },
 };
 
 const de: Dict = {
@@ -828,6 +909,9 @@ const de: Dict = {
     createAccount: 'Mein Outlook-Postfach verbinden',
     accountCreated: 'Postfach verbunden, Konto erstellt. Gib den 8-stelligen Code aus der E-Mail ein.',
     trialOpenFailed: 'Die Seite konnte nicht geöffnet werden. Bitte versuche es erneut.',
+    tooSoon: 'Zu viele Anfragen hintereinander. Neuer Code in {n} s.',
+    waitBtn: 'Neuer Code in {n} s',
+    codeComing: 'Ihr Code kommt in {n} s. Bleiben Sie auf diesem Bildschirm.',
   },
   home: {
     boxUpToDate: 'Postfach aktuell — gerade nichts zu erledigen.',
@@ -1043,6 +1127,28 @@ const de: Dict = {
     errGeneric: 'Das hat nicht geklappt. Versuchen Sie es gleich noch einmal.',
     errEmpty: 'Ein leerer Entwurf kann nicht gesendet werden.',
   },
+  tour: {
+    skip: 'Überspringen',
+    next: 'Weiter',
+    done: 'Loslegen',
+    replay: 'Einführung erneut ansehen',
+    step: '{i} von {n}',
+    s1Title: 'Ihre Mails, in vier sortiert',
+    s1Body:
+      'Dringend, wichtig, zu beantworten, zur Information. Werbung wird beiseitegelegt. Sie sehen zuerst, was zählt.',
+    s2Title: 'Die Zusammenfassung vor der Mail',
+    s2Body:
+      'Jede Mail wird in zwei Zeilen zusammengefasst. Sie wissen, worum es geht, ohne sie zu öffnen.',
+    s3Title: 'Die Antwort ist schon geschrieben',
+    s3Body:
+      'Vmail entwirft eine Antwort in Ihrem Stil. Sie lesen, passen an, senden.',
+    s4Title: 'Hören und per Stimme antworten',
+    s4Body:
+      'Der Sprachassistent liest Ihre Mails vor und schreibt Ihre Antworten, während Sie sprechen.',
+    s5Title: 'Sie korrigieren, er lernt',
+    s5Body:
+      'Eine Mail falsch einsortiert? Ändern Sie die Kategorie. Vmail merkt sich Ihre Wahl und wendet sie künftig an.',
+  },
 };
 
 const pt: Dict = {
@@ -1087,6 +1193,9 @@ const pt: Dict = {
     createAccount: 'Ligar a minha caixa Outlook',
     accountCreated: 'Caixa ligada e conta criada. Introduza o código de 8 dígitos recebido por email.',
     trialOpenFailed: 'Não foi possível abrir a página. Tente novamente.',
+    tooSoon: 'Demasiados pedidos seguidos. Novo código em {n} s.',
+    waitBtn: 'Novo código em {n} s',
+    codeComing: 'O seu código chega em {n} s. Fique neste ecrã.',
   },
   home: {
     boxUpToDate: 'Caixa em dia — nada a tratar de momento.',
@@ -1302,6 +1411,28 @@ const pt: Dict = {
     errGeneric: 'A operação não foi concluída. Tente novamente daqui a instantes.',
     errEmpty: 'Um rascunho vazio não pode ser enviado.',
   },
+  tour: {
+    skip: 'Saltar',
+    next: 'Seguinte',
+    done: 'Começar',
+    replay: 'Rever o tutorial',
+    step: '{i} de {n}',
+    s1Title: 'O seu correio, dividido em quatro',
+    s1Body:
+      'Urgente, importante, a responder, informativo. A publicidade é posta de lado. Vê primeiro o que conta.',
+    s2Title: 'O resumo antes do email',
+    s2Body:
+      'Cada email é resumido em duas linhas. Sabe do que se trata sem o abrir.',
+    s3Title: 'A resposta já está escrita',
+    s3Body:
+      'O Vmail escreve um rascunho no seu estilo. Relê, ajusta, envia.',
+    s4Title: 'Ouça e responda por voz',
+    s4Body:
+      'O assistente de voz lê-lhe os emails e escreve as suas respostas enquanto fala.',
+    s5Title: 'Você corrige, ele aprende',
+    s5Body:
+      'Um email mal classificado? Mude a categoria. O Vmail guarda a sua escolha e aplica-a aos seguintes.',
+  },
 };
 
 const it: Dict = {
@@ -1346,6 +1477,9 @@ const it: Dict = {
     createAccount: 'Collega la mia casella Outlook',
     accountCreated: 'Casella collegata, account creato. Inserisci il codice di 8 cifre ricevuto via email.',
     trialOpenFailed: 'Impossibile aprire la pagina. Riprova.',
+    tooSoon: 'Troppe richieste di seguito. Nuovo codice tra {n} s.',
+    waitBtn: 'Nuovo codice tra {n} s',
+    codeComing: 'Il tuo codice arriva tra {n} s. Resta su questa schermata.',
   },
   home: {
     boxUpToDate: 'Casella in ordine — niente da gestire al momento.',
@@ -1561,6 +1695,28 @@ const it: Dict = {
     errGeneric: 'L’operazione non è riuscita. Riprova tra un istante.',
     errEmpty: 'Una bozza vuota non può essere inviata.',
   },
+  tour: {
+    skip: 'Salta',
+    next: 'Avanti',
+    done: 'Iniziare',
+    replay: 'Rivedere il tutorial',
+    step: '{i} di {n}',
+    s1Title: 'La tua posta, divisa in quattro',
+    s1Body:
+      'Urgente, importante, da rispondere, per informazione. Le pubblicità vengono messe da parte. Vedi prima ciò che conta.',
+    s2Title: 'Il riassunto prima dell’email',
+    s2Body:
+      'Ogni email è riassunta in due righe. Sai di cosa parla senza aprirla.',
+    s3Title: 'La risposta è già scritta',
+    s3Body:
+      'Vmail scrive una bozza nel tuo stile. La rileggi, la modifichi, la invii.',
+    s4Title: 'Ascolta e rispondi con la voce',
+    s4Body:
+      'L’assistente vocale ti legge le email e scrive le tue risposte mentre parli.',
+    s5Title: 'Tu correggi, lui impara',
+    s5Body:
+      'Un’email nella categoria sbagliata? Cambiala. Vmail ricorda la tua scelta e la applica alle successive.',
+  },
 };
 
 const ar: Dict = {
@@ -1605,6 +1761,9 @@ const ar: Dict = {
     createAccount: 'ربط صندوق Outlook الخاص بي',
     accountCreated: 'تم ربط الصندوق وإنشاء الحساب. أدخل الرمز المكوّن من 8 أرقام الذي وصلك عبر البريد.',
     trialOpenFailed: 'تعذّر فتح الصفحة. حاول مجددًا.',
+    tooSoon: 'طلبات كثيرة متتالية. رمز جديد خلال {n} ث.',
+    waitBtn: 'رمز جديد خلال {n} ث',
+    codeComing: 'سيصل رمزك خلال {n} ث. ابقَ في هذه الشاشة.',
   },
   home: {
     boxUpToDate: 'البريد محدَّث — لا شيء للمعالجة الآن.',
@@ -1820,6 +1979,28 @@ const ar: Dict = {
     errGeneric: 'لم تكتمل العملية. أعد المحاولة بعد لحظات.',
     errEmpty: 'لا يمكن إرسال مسودّة فارغة.',
   },
+  tour: {
+    skip: 'تخطٍّ',
+    next: 'التالي',
+    done: 'لنبدأ',
+    replay: 'إعادة مشاهدة الشرح',
+    step: '{i} من {n}',
+    s1Title: 'بريدك مُصنَّف في أربع فئات',
+    s1Body:
+      'عاجل، مهم، بحاجة إلى رد، للعلم. وتُنحَّى الإعلانات جانبًا. ترى أولًا ما يهم.',
+    s2Title: 'الملخّص قبل البريد',
+    s2Body:
+      'يُلخَّص كل بريد في سطرين. تعرف موضوعه دون فتحه.',
+    s3Title: 'الرد مكتوب سلفًا',
+    s3Body:
+      'يكتب Vmail مسودة بأسلوبك. تراجعها، تعدّلها، ترسلها.',
+    s4Title: 'استمع وردّ بصوتك',
+    s4Body:
+      'يقرأ المساعد الصوتي بريدك ويكتب ردودك بينما تتحدث.',
+    s5Title: 'أنت تصحّح، وهو يتعلّم',
+    s5Body:
+      'بريد في الفئة الخطأ؟ غيّر فئته. يحتفظ Vmail باختيارك ويطبّقه على ما يليه.',
+  },
 };
 
 const ru: Dict = {
@@ -1864,6 +2045,9 @@ const ru: Dict = {
     createAccount: 'Подключить мой ящик Outlook',
     accountCreated: 'Ящик подключён, аккаунт создан. Введите 8-значный код из письма.',
     trialOpenFailed: 'Не удалось открыть страницу. Попробуйте ещё раз.',
+    tooSoon: 'Слишком много запросов подряд. Новый код через {n} с.',
+    waitBtn: 'Новый код через {n} с',
+    codeComing: 'Ваш код придёт через {n} с. Не закрывайте этот экран.',
   },
   home: {
     boxUpToDate: 'Почта в порядке — сейчас обрабатывать нечего.',
@@ -2078,6 +2262,28 @@ const ru: Dict = {
     confirmDelete: 'Удалить этот черновик из почты безвозвратно?',
     errGeneric: 'Не получилось. Повторите попытку через мгновение.',
     errEmpty: 'Пустой черновик отправить нельзя.',
+  },
+  tour: {
+    skip: 'Пропустить',
+    next: 'Далее',
+    done: 'Начать',
+    replay: 'Пересмотреть обучение',
+    step: '{i} из {n}',
+    s1Title: 'Ваша почта разложена на четыре',
+    s1Body:
+      'Срочное, важное, требует ответа, к сведению. Реклама убирается в сторону. Вы сразу видите главное.',
+    s2Title: 'Сначала краткий пересказ',
+    s2Body:
+      'Каждое письмо пересказано в двух строках. Вы понимаете, о чём оно, не открывая.',
+    s3Title: 'Ответ уже написан',
+    s3Body:
+      'Vmail готовит черновик в вашем стиле. Вы читаете, правите, отправляете.',
+    s4Title: 'Слушайте и отвечайте голосом',
+    s4Body:
+      'Голосовой помощник читает вам письма и пишет ответы, пока вы говорите.',
+    s5Title: 'Вы поправляете — он учится',
+    s5Body:
+      'Письмо попало не туда? Смените категорию. Vmail запомнит выбор и применит его к следующим.',
   },
 };
 

@@ -876,6 +876,14 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                 }
                 onPress={() => router.push('/settings/notifications')}
               />
+              <View style={styles.hubSep} />
+              {/* 21/09/2026 — le didacticiel d'accueil est REJOUABLE. Il ne se
+                  montre tout seul qu'une fois ; sans cette rangee, quelqu'un qui
+                  a appuye sur « Passer » n'aurait aucun moyen d'y revenir. */}
+              <NavRow
+                label={t.tour.replay}
+                onPress={() => router.push('/didacticiel')}
+              />
             </View>
 
             <Text style={styles.groupTitle}>{t.settings.groupAccount}</Text>

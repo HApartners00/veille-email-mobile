@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { useI18n } from '@/context/i18n';
+import { apiPost } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
@@ -29,9 +31,6 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 // le code a CETTE adresse (elle peut differer de celle tapee) et on passe a la
 // saisie du code.
 //
-// Aucun code n'a ete envoye avant ce moment (le lien de connexion du web est
-// fabrique sans email), donc la limite Supabase d'un envoi par minute ne gene pas.
-//
 // ⚠️ RISQUE APPLE ASSUME PAR HA le 17/09/2026 — voir la note de /essai
 // (apps/web/src/app/essai/page.tsx) et App-Store-Connect-notes.md.
 //
@@ -42,6 +41,37 @@ const PAGE_ESSAI = 'https://app.veille-email.fr/essai';
 // Meme adresse de retour que l'ecran Sources (sources.tsx).
 const RETOUR_CONNEXION = 'veilleemailmobile://connected';
 
+// ─── LE 429 N'EST PLUS MUET — 21/09/2026 ────────────────────────────────────
+//
+// CE QUI A ETE MESURE (journaux d'authentification Supabase, 20/09 22h15) :
+//   22:15:45  POST /admin/generate_link   200   <- la page web /essai
+//   22:15:47  POST /otp                   429   « after 58 seconds »
+//   22:15:51  POST /otp                   429   « after 54 seconds »
+//   22:15:57  POST /otp                   429   « after 48 seconds »
+//   22:16:01  POST /otp                   429   « after 44 seconds »
+//   22:17:01  POST /otp                   200
+//
+// ⚠️ LE COMMENTAIRE QUI ETAIT ICI DISAIT LE CONTRAIRE, ET IL AVAIT TORT.
+// Il affirmait : « Aucun code n'a ete envoye avant ce moment (le lien de
+// connexion du web est fabrique sans email), donc la limite Supabase d'un envoi
+// par minute ne gene pas. » La mesure dit l'inverse : `admin.generateLink()`
+// n'envoie effectivement AUCUN email, mais il CONSOMME quand meme la fenetre de
+// 60 secondes par adresse. Le 429 qui suit le retour de /essai n'est donc pas
+// un accident : il est GARANTI, pour tout compte cree en moins d'une minute.
+//
+// CE QU'ON FAIT DE CE CONSTAT :
+//   1. le delai reel, celui de la reponse, s'affiche — plus de bouton muet ;
+//   2. le bouton porte le compte a rebours au lieu d'etre gris sans raison ;
+//   3. AU RETOUR DE /essai SEULEMENT, l'app renvoie le code toute seule quand
+//      le delai est ecoule. La personne vient de connecter sa boite : lui
+//      demander de retaper quelque chose 58 secondes plus tard, c'est la perdre.
+//      Ailleurs (elle a appuye trop vite), c'est a elle de reappuyer.
+//
+// La correction de fond — ne pas demander de code a Supabase quand le web vient
+// d'en consommer la fenetre — se joue cote serveur, pas ici. Elle n'est PAS
+// faite : elle touche /api/connect/auto, qui marche.
+const DELAI_PAR_DEFAUT = 60;
+
 function adresseDuRetour(url: string): string | null {
   const m = /[?&]email=([^&#]*)/.exec(url);
   if (!m) return null;
@@ -50,6 +80,23 @@ function adresseDuRetour(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Le nombre de secondes a attendre, LU DANS LA REPONSE. Supabase repond
+ * « For security purposes, you can only request this after 58 seconds. » avec
+ * le code `over_email_send_rate_limit`. On ne devine pas : on lit. Si le texte
+ * change un jour et qu'on n'y trouve plus de nombre, on retombe sur 60 — la
+ * fenetre documentee — plutot que sur zero, qui relancerait une boucle d'echecs.
+ */
+function delaiDuRefus(err: unknown): number | null {
+  const e = err as { message?: string; code?: string; status?: number } | null;
+  const texte = `${e?.message || ''} ${e?.code || ''}`.toLowerCase();
+  const limite = e?.status === 429 || texte.includes('rate limit') || texte.includes('over_email_send');
+  if (!limite) return null;
+  const m = /(\d+)\s*second/.exec(texte);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : DELAI_PAR_DEFAUT;
 }
 
 export default function Login() {
@@ -64,6 +111,95 @@ export default function Login() {
   // la fenetre sans aller au bout.
   const [sansCompte, setSansCompte] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
+  // Secondes restantes avant de pouvoir redemander un code. 0 = pas d'attente.
+  const [attente, setAttente] = useState(0);
+  // Vrai uniquement au retour de /essai : l'app renverra le code toute seule.
+  const renvoiAuto = useRef(false);
+  const adresseEnAttente = useRef('');
+
+  // Le compte a rebours. Un `setTimeout` par seconde, annule au demontage.
+  useEffect(() => {
+    if (attente <= 0) return;
+    const id = setTimeout(() => setAttente((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [attente]);
+
+  const envoyerCode = useCallback(
+    async (adresse: string, auto: boolean): Promise<'ok' | 'inconnu' | 'attente' | 'echec'> => {
+      setLoading(true);
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: adresse,
+        // 🔴 shouldCreateUser: false — 27/08/2026.
+        // Avant, l'app iOS CREAIT le compte et demarrait l'essai gratuit. Apple a
+        // refuse le build 21 le 27/08 (regles 3.1.1 et 3.1.3(c)) : un service payant
+        // vendu a des particuliers doit passer par l'achat integre. L'app devient donc
+        // une app de CONNEXION pour des clients qui ont deja un compte ; la creation
+        // de compte se fait sur le web. Ne pas remettre `true` sans achat integre.
+        options: { shouldCreateUser: false },
+      });
+      setLoading(false);
+
+      if (!err) {
+        setError(null);
+        setAttente(0);
+        return 'ok';
+      }
+
+      console.error('signInWithOtp en echec :', err);
+
+      const delai = delaiDuRefus(err);
+      if (delai !== null) {
+        adresseEnAttente.current = adresse;
+        setAttente(delai);
+        setSansCompte(false);
+        if (auto) {
+          // Au retour de /essai : on annonce l'attente et on renverra tout seul.
+          renvoiAuto.current = true;
+          setError(null);
+          setInfo(f(t.login.codeComing, { n: delai }));
+          setStep('code');
+        } else {
+          // Pas de message fige ici : il est calcule au rendu a partir du
+          // compte a rebours. Capture du 21/09 : un texte fige a « 58 s » a
+          // cote d'un bouton qui disait « 54 s » — deux nombres, zero confiance.
+          setError(null);
+        }
+        return 'attente';
+      }
+
+      // Supabase repond « Signups not allowed for otp » quand l'adresse n'a pas de
+      // compte. C'est le cas NORMAL ici, pas une panne.
+      const brut = `${(err as { message?: string }).message || ''} ${
+        (err as { code?: string }).code || ''
+      }`.toLowerCase();
+      if (
+        brut.includes('signups not allowed') ||
+        brut.includes('otp_disabled') ||
+        brut.includes('user not found')
+      ) {
+        return 'inconnu';
+      }
+
+      setError((err as { message?: string }).message || t.login.errSend);
+      return 'echec';
+    },
+    [f, t],
+  );
+
+  // Renvoi automatique quand le compte a rebours du retour de /essai s'acheve.
+  useEffect(() => {
+    if (attente !== 0 || !renvoiAuto.current) return;
+    renvoiAuto.current = false;
+    const adresse = adresseEnAttente.current;
+    if (!adresse) return;
+    (async () => {
+      const r = await envoyerCode(adresse, false);
+      if (r === 'ok') {
+        setInfo(t.login.accountCreated);
+      }
+      // Les autres cas ont deja pose leur message : rien n'est avale.
+    })();
+  }, [attente, envoyerCode, t]);
 
   async function ouvrirEssai(adresseTapee: string) {
     setError(null);
@@ -88,63 +224,30 @@ export default function Login() {
     // Le compte porte l'adresse de la BOITE connectee, pas forcement celle tapee.
     const adresse = adresseDuRetour(res.url) || adresseTapee;
     setEmail(adresse);
-    setLoading(true);
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email: adresse,
-      options: { shouldCreateUser: false },
-    });
-    setLoading(false);
-    if (err) {
-      // On ne masque rien : la boite est connectee mais le code n'est pas parti.
-      console.error('signInWithOtp apres inscription en echec:', err);
-      setSansCompte(false);
-      setError(`${t.login.errSend} : ${err.message}`);
-      return;
-    }
     setCode('');
-    setError(null);
-    setSansCompte(false);
-    setInfo(t.login.accountCreated);
-    setStep('code');
+    const r = await envoyerCode(adresse, true);
+    if (r === 'ok') {
+      setError(null);
+      setSansCompte(false);
+      setInfo(t.login.accountCreated);
+      setStep('code');
+    } else if (r === 'inconnu' || r === 'echec') {
+      // On ne masque rien : la boite est connectee mais le code n'est pas parti.
+      setSansCompte(false);
+      if (r === 'inconnu') setError(t.login.errSend);
+    }
+    // 'attente' : le message et le compte a rebours sont deja poses.
   }
 
   async function sendCode() {
     const clean = email.trim().toLowerCase();
-    if (!clean) return;
-    setLoading(true);
+    if (!clean || attente > 0) return;
     setError(null);
     setInfo(null);
     setSansCompte(false);
-    // 🔴 shouldCreateUser: false — 27/08/2026.
-    // Avant, l'app iOS CREAIT le compte et demarrait l'essai gratuit. Apple a refuse
-    // le build 21 le 27/08 (regles 3.1.1 et 3.1.3(c)) : un service payant vendu a des
-    // particuliers doit passer par l'achat integre. L'app devient donc une app de
-    // CONNEXION pour des clients qui ont deja un compte ; la creation de compte se
-    // fait sur le web. Ne pas remettre `true` sans avoir ajoute l'achat integre.
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email: clean,
-      options: { shouldCreateUser: false },
-    });
-    setLoading(false);
-    if (err) {
-      console.error('signInWithOtp error:', err);
-      // Supabase repond « Signups not allowed for otp » quand l'adresse n'a pas de
-      // compte. C'est le cas NORMAL ici, pas une panne : on dit ou creer le compte
-      // plutot que d'afficher un message technique en anglais.
-      const brut = `${err.message || ''} ${(err as any)?.code || ''}`.toLowerCase();
-      const inconnu =
-        brut.includes('signups not allowed') ||
-        brut.includes('otp_disabled') ||
-        brut.includes('user not found');
-      if (inconnu) {
-        // Adresse sans compte : on ouvre directement la page d'essai.
-        await ouvrirEssai(clean);
-        return;
-      }
-      setError(err.message || JSON.stringify(err) || t.login.errSend);
-      return;
-    }
-    setStep('code');
+    const r = await envoyerCode(clean, false);
+    if (r === 'ok') setStep('code');
+    else if (r === 'inconnu') await ouvrirEssai(clean);
   }
 
   async function verify() {
@@ -162,8 +265,22 @@ export default function Login() {
       setError(err.message);
       return;
     }
+    // ─── EMAIL DE BIENVENUE — 21/09/2026 ────────────────────────────────────
+    // « Votre essai a commence » part ICI, a la premiere connexion REUSSIE, et
+    // pas a la creation du compte : le code de connexion part deja a ce
+    // moment-la, et deux mails coup sur coup noieraient le seul qui presse.
+    // La route est idempotente (index unique en base) : l'appeler a chaque
+    // connexion n'envoie qu'un mail, une fois, par compte.
+    // On n'attend PAS la reponse pour entrer dans l'app — mais un echec est dit
+    // dans la console, jamais avale.
+    void apiPost('/api/bienvenue', {}).catch((e) => {
+      console.error('Email de bienvenue non declenche :', e);
+    });
     router.replace('/(tabs)/accueil');
   }
+
+  const attenteEnCours = attente > 0;
+  const envoiBloque = !email || loading || attenteEnCours;
 
   return (
     <View style={styles.root}>
@@ -186,7 +303,10 @@ export default function Login() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
-          <View style={styles.container}>
+          <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.brandWrap}>
               <Text style={styles.brand}>
                 <Text style={styles.brandVeille}>V</Text>
@@ -213,14 +333,16 @@ export default function Login() {
                   editable={!loading}
                 />
                 <Pressable
-                  style={[styles.btn, (!email || loading) && styles.btnDisabled]}
+                  style={[styles.btn, envoiBloque && styles.btnDisabled]}
                   onPress={sendCode}
-                  disabled={!email || loading}
+                  disabled={envoiBloque}
                 >
                   {loading ? (
                     <ActivityIndicator color={colors.onDark} />
                   ) : (
-                    <Text style={styles.btnText}>{t.login.getCode}</Text>
+                    <Text style={styles.btnText}>
+                      {attenteEnCours ? f(t.login.waitBtn, { n: attente }) : t.login.getCode}
+                    </Text>
                   )}
                 </Pressable>
                 {sansCompte ? (
@@ -231,6 +353,15 @@ export default function Login() {
                   >
                     <Text style={styles.btnSecondaryText}>{t.login.createAccount}</Text>
                   </Pressable>
+                ) : null}
+                {/* 🔴 L'ERREUR EST DANS LA CARTE, PAS SOUS ELLE — 21/09/2026.
+                    Elle etait posee tout en bas de l'ecran, sous la carte : avec
+                    le clavier ouvert sur le champ email, c'est exactement la ou
+                    on ne la voit pas. « On appuie, rien ne s'affiche. » */}
+                {attenteEnCours ? (
+                  <Text style={styles.error}>{f(t.login.tooSoon, { n: attente })}</Text>
+                ) : error ? (
+                  <Text style={styles.error}>{error}</Text>
                 ) : null}
                 <Text style={styles.hint}>{t.login.emailHint}</Text>
                 {/* 03/09/2026 — la phrase « Votre compte se cree sur veille-email.fr »
@@ -244,7 +375,7 @@ export default function Login() {
                 <TextInput
                   style={[styles.input, styles.codeInput]}
                   value={code}
-                  onChangeText={(t) => setCode(t.replace(/[^0-9]/g, '').slice(0, 8))}
+                  onChangeText={(v) => setCode(v.replace(/[^0-9]/g, '').slice(0, 8))}
                   placeholder="00000000"
                   placeholderTextColor={colors.hint}
                   keyboardType="number-pad"
@@ -270,19 +401,25 @@ export default function Login() {
                     setCode('');
                     setError(null);
                     setInfo(null);
+                    renvoiAuto.current = false;
                   }}
                 >
                   <Text style={styles.linkText}>{t.login.changeEmail}</Text>
                 </Pressable>
-                {info ? <Text style={styles.info}>{info}</Text> : null}
+                {/* Le compte a rebours du retour de /essai, visible tant qu'il
+                    tourne : la personne sait que son code est en route. */}
+                {attenteEnCours ? (
+                  <Text style={styles.info}>{f(t.login.codeComing, { n: attente })}</Text>
+                ) : info ? (
+                  <Text style={styles.info}>{info}</Text>
+                ) : null}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
                 <Text style={styles.hint}>
                   {f(t.login.codeSentTo, { email: email.trim().toLowerCase() })}
                 </Text>
               </View>
             )}
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -293,7 +430,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.charcoal },
   safe: { flex: 1 },
   flex: { flex: 1 },
-  container: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
+  container: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
   brandWrap: { alignItems: 'center', marginBottom: spacing.xxl },
   brand: { fontFamily: fonts.sans, fontSize: 40 },
   brandVeille: { fontFamily: fonts.serif, color: colors.onDark },
@@ -341,5 +478,5 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
   linkText: { fontFamily: fonts.sans, color: colors.terracottaLight, textAlign: 'center', fontSize: 14 },
   hint: { fontFamily: fonts.sans, color: colors.onDarkMuted, fontSize: 12, textAlign: 'center' },
-  error: { fontFamily: fonts.sans, color: '#ff9b6b', fontSize: 13, textAlign: 'center', marginTop: spacing.md },
+  error: { fontFamily: fonts.sans, color: '#ff9b6b', fontSize: 13, textAlign: 'center' },
 });
