@@ -21,7 +21,7 @@ import { cleanText, formatDateCourte, senderInitials, senderName } from '@/lib/m
 import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
+import { IconCheck, IconMore, IconPlus, IconSearch, IconSparkle } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
@@ -654,12 +654,16 @@ export default function Feed() {
                   {/* Pieces jointes : un bouton, pas un onglet. C'est une RECHERCHE
                       qu'on lance avec une question en tete, pas un dossier qu'on
                       ouvre pour voir. Meme decision que sur le web (09/08/2026). */}
+                  {/* 21/09/2026 — « Pièces jointes » devient « Assistant » (choix de HA) :
+                      l'écran ne cherche plus seulement des pièces jointes, il répond à toute
+                      question sur les mails. Même pilule, même place ; l'étincelle dit l'IA. */}
                   <Pressable
                     style={styles.pjBtn}
-                    onPress={() => router.push('/attachments')}
+                    onPress={() => router.push('/assistant')}
                     hitSlop={6}
                   >
-                    <Text style={styles.pjBtnText}>{t.feed.attachments}</Text>
+                    <IconSparkle size={11} color={colors.terracottaLight} />
+                    <Text style={styles.pjBtnText}>{t.assistant.button}</Text>
                   </Pressable>
                   {/* ÉCRIRE UN MAIL — 13/08/2026, demande de HA. Le seul bouton
                       de cet écran qui CRÉE quelque chose plutôt que de filtrer ce
@@ -875,6 +879,9 @@ const styles = StyleSheet.create({
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pjBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill,

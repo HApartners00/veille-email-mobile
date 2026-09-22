@@ -29,6 +29,27 @@ export async function apiPost<T = any>(path: string, body: unknown): Promise<T> 
   return json as T;
 }
 
+/**
+ * POST qui ne lève PAS d'exception sur un statut d'erreur — 21/09/2026.
+ *
+ * `apiPost` jette `Error(json.error)` : le texte survit, le CODE et le statut
+ * sont perdus. L'assistant en a besoin pour dire la bonne chose (plafond
+ * quotidien, délai dépassé) au lieu d'afficher un message serveur en français
+ * à un utilisateur anglophone. Une panne réseau, elle, jette toujours.
+ */
+export async function apiPostBrut<T = any>(
+  path: string,
+  body: unknown,
+): Promise<{ ok: boolean; status: number; json: T }> {
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => ({}))) as T;
+  return { ok: res.ok, status: res.status, json };
+}
+
 export async function apiDelete<T = any>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, {
     method: 'DELETE',

@@ -19,7 +19,7 @@ import { marqueurDe } from '@/lib/mail-state';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconRefresh } from '@/components/icons';
+import { IconRefresh, IconSparkle } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
@@ -257,13 +257,17 @@ export default function Accueil() {
                 (tabs)/index.tsx) : pilule bordée et libellé en toutes lettres, à la
                 place du trombone seul. Les deux écrans lisent le MÊME libellé
                 `t.feed.attachments`, donc les 8 langues restent alignées. */}
+            {/* 21/09/2026 — « Pièces jointes » devient « Assistant » (choix de HA) :
+                l'écran ne cherche plus seulement des pièces jointes, il répond à toute
+                question sur les mails. Même pilule, même place ; l'étincelle dit l'IA. */}
             <Pressable
               style={styles.pjBtn}
-              onPress={() => router.push('/attachments')}
-              accessibilityLabel={t.feed.attachments}
+              onPress={() => router.push('/assistant')}
+              accessibilityLabel={t.assistant.button}
               hitSlop={6}
             >
-              <Text style={styles.pjBtnText}>{t.feed.attachments}</Text>
+              <IconSparkle size={11} color={colors.terracottaLight} />
+              <Text style={styles.pjBtnText}>{t.assistant.button}</Text>
             </Pressable>
             <Pressable
               style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
@@ -381,6 +385,9 @@ const styles = StyleSheet.create({
   // Copie a l'identique de styles.pjBtn / styles.pjBtnText de (tabs)/index.tsx.
   // Toucher l'un, toucher l'autre.
   pjBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill,
