@@ -23,6 +23,8 @@ import { IconRefresh, IconSparkle } from '@/components/icons';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
+import { BlocPremierImport } from '@/components/premier-import';
+import { usePremierImport } from '@/lib/premier-import';
 
 type Item = {
   id: string;
@@ -94,6 +96,9 @@ export default function Accueil() {
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
+  // 22/09/2026 — vrai quand ce compte n'a encore AUCUN mail en base (requête
+  // sans filtre de date vide). `null` tant qu'on ne sait pas.
+  const [aucunMail, setAucunMail] = useState<boolean | null>(null);
 
   // Prenom pour la salutation (comme l'accueil web).
   useEffect(() => {
@@ -147,6 +152,7 @@ export default function Accueil() {
         // S'il y a des emails aujourd'hui on affiche la journée complète,
         // sinon on retombe sur les plus récents.
         setItems(today.length ? today : recent);
+        setAucunMail(today.length === 0 && recent.length === 0);
         setRules((rulesRes.data ?? []) as Rule[]);
       }
     } catch (e) {
@@ -232,6 +238,11 @@ export default function Accueil() {
 
   const total = base.list.length;
 
+  // Premier import : tant qu'aucun mail n'est arrivé, on ne dit PAS « Boîte à
+  // jour » — on dit ce qui se passe, et l'écran se recharge tout seul.
+  const premierImport = usePremierImport(aucunMail, load);
+  const boiteAJour = total === 0 && premierImport === 'non';
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -290,7 +301,7 @@ export default function Accueil() {
         <Text style={styles.greeting}>{greetWithName(t.common.hello, firstName)}</Text>
 
         {total === 0 ? (
-          <Text style={styles.recapEmpty}>{t.home.boxUpToDate}</Text>
+          boiteAJour ? <Text style={styles.recapEmpty}>{t.home.boxUpToDate}</Text> : null
         ) : (
           // Chaque categorie du recap ouvre le feed deja filtre — la plomberie
           // (setPendingFeedFilter) existait mais n'etait appelee nulle part, donc
@@ -358,11 +369,13 @@ export default function Accueil() {
           );
         })}
 
-        {total === 0 ? (
+        {boiteAJour ? (
           <View style={styles.allClear}>
             <Text style={styles.allClearTitle}>{t.home.allClearTitle}</Text>
             <Text style={styles.allClearSub}>{t.home.allClearSub}</Text>
           </View>
+        ) : total === 0 && !error ? (
+          <BlocPremierImport etat={premierImport} onConnecter={() => router.push('/sources')} />
         ) : null}
       </View>
     </ScrollView>

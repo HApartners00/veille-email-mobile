@@ -126,7 +126,7 @@ const fr = {
       '{email} ne sera plus relevée. Vos emails déjà triés restent consultables. Vous pourrez la reconnecter à tout moment.',
     connectErr: 'Connexion impossible.',
     disconnectErr: 'Déconnexion impossible.',
-    note: 'Après avoir autorisé l’accès dans le navigateur, revenez à l’app. Vos prochains emails seront triés au prochain rapport.',
+    note: 'Après avoir autorisé l’accès dans le navigateur, revenez à l’app : vos derniers mails arrivent dans les minutes qui suivent.',
   },
   rules: {
     title: 'Règles de classement',
@@ -323,6 +323,14 @@ const fr = {
     download: 'Télécharger',
     downloadFail: 'Téléchargement impossible.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Vos mails arrivent',
+    texte: 'Vmail importe et trie vos derniers mails. Ça prend en général une à deux minutes.',
+    long: 'C’est plus long que prévu. Tirez vers le bas pour actualiser.',
+    sansBoiteTitre: 'Aucune boîte connectée',
+    sansBoiteTexte: 'Connectez votre boîte mail : Vmail la trie pour vous.',
+  },
 };
 
 export type Dict = typeof fr;
@@ -445,7 +453,7 @@ const en: Dict = {
       '{email} will no longer be checked. Your already-sorted emails remain available. You can reconnect it anytime.',
     connectErr: 'Connection failed.',
     disconnectErr: 'Disconnection failed.',
-    note: 'After authorizing access in the browser, return to the app. Your next emails will be sorted at the next report.',
+    note: 'After authorizing access in the browser, return to the app: your latest emails arrive within a few minutes.',
   },
   rules: {
     title: 'Classification rules',
@@ -634,6 +642,14 @@ const en: Dict = {
     download: 'Download',
     downloadFail: 'Download failed.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Your emails are on their way',
+    texte: 'Vmail is importing and sorting your latest emails. This usually takes a minute or two.',
+    long: 'This is taking longer than expected. Pull down to refresh.',
+    sansBoiteTitre: 'No mailbox connected',
+    sansBoiteTexte: 'Connect your mailbox and Vmail will sort it for you.',
+  },
 };
 
 const es: Dict = {
@@ -754,7 +770,7 @@ const es: Dict = {
       '{email} ya no se revisará. Tus correos ya clasificados siguen disponibles. Puedes reconectarlo cuando quieras.',
     connectErr: 'No se pudo conectar.',
     disconnectErr: 'No se pudo desconectar.',
-    note: 'Tras autorizar el acceso en el navegador, vuelve a la app. Tus próximos correos se clasificarán en el siguiente informe.',
+    note: 'Tras autorizar el acceso en el navegador, vuelve a la app: tus últimos correos llegan en unos minutos.',
   },
   rules: {
     title: 'Reglas de clasificación',
@@ -943,6 +959,14 @@ const es: Dict = {
     download: 'Descargar',
     downloadFail: 'Descarga fallida.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Tus correos están llegando',
+    texte: 'Vmail está importando y ordenando tus últimos correos. Suele tardar uno o dos minutos.',
+    long: 'Está tardando más de lo previsto. Desliza hacia abajo para actualizar.',
+    sansBoiteTitre: 'Ningún buzón conectado',
+    sansBoiteTexte: 'Conecta tu buzón de correo: Vmail lo ordena por ti.',
+  },
 };
 
 const de: Dict = {
@@ -1063,7 +1087,7 @@ const de: Dict = {
       '{email} wird nicht mehr abgerufen. Deine bereits sortierten E-Mails bleiben verfügbar. Du kannst es jederzeit wieder verbinden.',
     connectErr: 'Verbindung fehlgeschlagen.',
     disconnectErr: 'Trennen fehlgeschlagen.',
-    note: 'Nachdem du den Zugriff im Browser erlaubt hast, kehre zur App zurück. Deine nächsten E-Mails werden beim nächsten Bericht sortiert.',
+    note: 'Nachdem du den Zugriff im Browser erlaubt hast, kehre zur App zurück: Deine neuesten E-Mails kommen in wenigen Minuten.',
   },
   rules: {
     title: 'Klassifizierungsregeln',
@@ -1252,6 +1276,14 @@ const de: Dict = {
     download: 'Herunterladen',
     downloadFail: 'Download fehlgeschlagen.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Deine E-Mails kommen gleich',
+    texte: 'Vmail importiert und sortiert deine neuesten E-Mails. Das dauert meist ein bis zwei Minuten.',
+    long: 'Das dauert länger als erwartet. Zum Aktualisieren nach unten ziehen.',
+    sansBoiteTitre: 'Kein Postfach verbunden',
+    sansBoiteTexte: 'Verbinde dein Postfach – Vmail sortiert es für dich.',
+  },
 };
 
 const pt: Dict = {
@@ -1372,7 +1404,7 @@ const pt: Dict = {
       '{email} deixará de ser verificada. Os seus emails já organizados continuam disponíveis. Pode reconectá-la a qualquer momento.',
     connectErr: 'Não foi possível conectar.',
     disconnectErr: 'Não foi possível desconectar.',
-    note: 'Depois de autorizar o acesso no navegador, volte à app. Os seus próximos emails serão organizados no próximo relatório.',
+    note: 'Depois de autorizar o acesso no navegador, volte à app: os seus emails mais recentes chegam dentro de minutos.',
   },
   rules: {
     title: 'Regras de classificação',
@@ -1561,6 +1593,14 @@ const pt: Dict = {
     download: 'Transferir',
     downloadFail: 'Falha na transferência.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Os seus emails estão a chegar',
+    texte: 'O Vmail está a importar e a organizar os seus emails mais recentes. Normalmente demora um ou dois minutos.',
+    long: 'Está a demorar mais do que o previsto. Puxe para baixo para atualizar.',
+    sansBoiteTitre: 'Nenhuma caixa conectada',
+    sansBoiteTexte: 'Conecte a sua caixa de correio: o Vmail organiza-a por si.',
+  },
 };
 
 const it: Dict = {
@@ -1681,7 +1721,7 @@ const it: Dict = {
       '{email} non verrà più controllata. Le tue email già ordinate restano consultabili. Puoi ricollegarla in qualsiasi momento.',
     connectErr: 'Connessione non riuscita.',
     disconnectErr: 'Scollegamento non riuscito.',
-    note: 'Dopo aver autorizzato l’accesso nel browser, torna all’app. Le tue prossime email verranno ordinate al prossimo report.',
+    note: 'Dopo aver autorizzato l’accesso nel browser, torna all’app: le tue email più recenti arrivano in pochi minuti.',
   },
   rules: {
     title: 'Regole di classificazione',
@@ -1870,6 +1910,14 @@ const it: Dict = {
     download: 'Scarica',
     downloadFail: 'Download non riuscito.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Le tue email stanno arrivando',
+    texte: 'Vmail sta importando e ordinando le tue email più recenti. Di solito ci vogliono uno o due minuti.',
+    long: 'Ci vuole più del previsto. Tira verso il basso per aggiornare.',
+    sansBoiteTitre: 'Nessuna casella collegata',
+    sansBoiteTexte: 'Collega la tua casella di posta: Vmail la ordina per te.',
+  },
 };
 
 const ar: Dict = {
@@ -1990,7 +2038,7 @@ const ar: Dict = {
       'لن تتم مراجعة {email} بعد الآن. تبقى رسائلك المُرتَّبة متاحة. يمكنك إعادة ربطه في أي وقت.',
     connectErr: 'تعذّر الاتصال.',
     disconnectErr: 'تعذّر الفصل.',
-    note: 'بعد السماح بالوصول في المتصفح، عُد إلى التطبيق. سيتم ترتيب رسائلك القادمة في التقرير التالي.',
+    note: 'بعد السماح بالوصول في المتصفح، عُد إلى التطبيق: ستصل أحدث رسائلك خلال دقائق.',
   },
   rules: {
     title: 'قواعد التصنيف',
@@ -2179,6 +2227,14 @@ const ar: Dict = {
     download: 'تنزيل',
     downloadFail: 'تعذّر التنزيل.',
   },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'رسائلك في الطريق',
+    texte: 'يستورد Vmail أحدث رسائلك ويرتّبها. يستغرق ذلك عادةً دقيقة أو دقيقتين.',
+    long: 'يستغرق الأمر وقتًا أطول من المتوقع. اسحب للأسفل للتحديث.',
+    sansBoiteTitre: 'لا يوجد بريد متصل',
+    sansBoiteTexte: 'اربط بريدك الإلكتروني وسيرتّبه Vmail لك.',
+  },
 };
 
 const ru: Dict = {
@@ -2299,7 +2355,7 @@ const ru: Dict = {
       '{email} больше не будет проверяться. Ваши уже отсортированные письма останутся доступны. Вы можете подключить его снова в любой момент.',
     connectErr: 'Не удалось подключить.',
     disconnectErr: 'Не удалось отключить.',
-    note: 'После того как вы разрешите доступ в браузере, вернитесь в приложение. Ваши следующие письма будут отсортированы в следующем отчёте.',
+    note: 'После того как вы разрешите доступ в браузере, вернитесь в приложение: ваши последние письма появятся в течение нескольких минут.',
   },
   rules: {
     title: 'Правила классификации',
@@ -2487,6 +2543,14 @@ const ru: Dict = {
     undone: 'Отменено',
     download: 'Скачать',
     downloadFail: 'Не удалось скачать.',
+  },
+  // Premier import (22/09/2026) : ce que l'app dit tant qu'aucun mail n'est arrivé.
+  premierImport: {
+    titre: 'Ваши письма уже в пути',
+    texte: 'Vmail импортирует и сортирует ваши последние письма. Обычно это занимает одну-две минуты.',
+    long: 'Это занимает больше времени, чем ожидалось. Потяните вниз, чтобы обновить.',
+    sansBoiteTitre: 'Почтовый ящик не подключён',
+    sansBoiteTexte: 'Подключите почтовый ящик — Vmail отсортирует его за вас.',
   },
 };
 

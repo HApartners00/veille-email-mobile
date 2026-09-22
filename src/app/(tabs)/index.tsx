@@ -22,6 +22,8 @@ import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/p
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconCheck, IconMore, IconPlus, IconSearch, IconSparkle } from '@/components/icons';
+import { BlocPremierImport } from '@/components/premier-import';
+import { usePremierImport } from '@/lib/premier-import';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
@@ -100,6 +102,9 @@ export default function Feed() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 22/09/2026 — vrai quand ce compte n'a encore AUCUN mail en base. Mis à jour
+  // seulement par une lecture SANS recherche : une recherche vide ne dit rien.
+  const [aucunMail, setAucunMail] = useState<boolean | null>(null);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -220,6 +225,7 @@ export default function Feed() {
       } else {
         const rows = (itemsRes.data ?? []) as Item[];
         setItems(rows);
+        if (!term) setAucunMail(rows.length === 0);
         setHasMore(rows.length === PAGE);
         setRules((rulesRes.data ?? []) as Rule[]);
       }
@@ -283,6 +289,10 @@ export default function Feed() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedQuery]),
   );
+
+  // Premier import (22/09/2026) : même crochet que l'Accueil — une seule relève
+  // et un seul chrono pour les deux onglets.
+  const premierImport = usePremierImport(aucunMail, () => load(debouncedQuery));
 
   useEffect(() => {
     (async () => {
@@ -786,7 +796,9 @@ export default function Feed() {
           if (hasMore && !loadingMore && !loading) void loadMore();
         }}
         ListEmptyComponent={
-          !error ? (
+          !error && !debouncedQuery && aucunMail === true ? (
+            <BlocPremierImport etat={premierImport} onConnecter={() => router.push('/sources')} />
+          ) : !error ? (
             <View style={styles.emptyWrap}>
               <IconCheck size={28} color={colors.sage} />
               <Text style={styles.empty}>
