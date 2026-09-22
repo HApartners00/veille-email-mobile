@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { apiGet } from './api';
-import { demarrerOpenAI, type SessionOpenAI } from './voix-openai';
+import { demarrerOpenAI, RefusVoix, type SessionOpenAI } from './voix-openai';
 
 /**
  * L'ASSISTANT VOCAL, CÔTÉ APP — 17/09/2026, basculé sur OpenAI le 18/09.
@@ -65,6 +65,12 @@ export type EtatVoix = {
    * sur le chrono.
    */
   secondes: number;
+  /**
+   * TEMPS VOCAL DU JOUR — 22/09/2026 (10 min par 24 h, décision de HA).
+   * `bientot` : moins d'une minute restante, l'écran le dit.
+   * `atteint` : l'app a raccroché, ou le serveur a refusé d'ouvrir l'appel.
+   */
+  plafond: 'bientot' | 'atteint' | null;
 };
 
 const VIDE: EtatVoix = {
@@ -80,6 +86,7 @@ const VIDE: EtatVoix = {
   erreur: null,
   debutMs: null,
   secondes: 0,
+  plafond: null,
 };
 
 let etat: EtatVoix = VIDE;
@@ -96,6 +103,15 @@ let appel: SessionOpenAI | null = null;
  */
 let ticketCourant: string | null = null;
 let horloge: ReturnType<typeof setInterval> | null = null;
+/**
+ * Le temps vocal restant à l'ouverture de CET appel (secondes), donné par
+ * /api/voice/start. `null` = pas de limite connue : on ne coupe rien.
+ *
+ * ⚠️ C'EST L'APP QUI COUPE. La liaison va directement de l'app à OpenAI : le
+ * serveur ne peut pas raccrocher à notre place. Il refuse seulement d'ouvrir un
+ * appel quand le temps du jour est épuisé.
+ */
+let limiteSecondes: number | null = null;
 
 function arreterHorloge() {
   if (horloge) {
@@ -109,8 +125,30 @@ function demarrerHorloge() {
   arreterHorloge();
   const t0 = Date.now();
   horloge = setInterval(() => {
-    poser({ secondes: Math.max(0, Math.round((Date.now() - t0) / 1000)) });
+    const secondes = Math.max(0, Math.round((Date.now() - t0) / 1000));
+    poser({ secondes });
+    // Le temps vocal du jour : on prévient à une minute, on raccroche à zéro.
+    if (limiteSecondes !== null && etat.etape === 'en_cours') {
+      if (secondes >= limiteSecondes) finirParPlafond();
+      else if (secondes >= limiteSecondes - 60 && etat.plafond === null) poser({ plafond: 'bientot' });
+    }
   }, 1000);
+}
+
+/** Temps vocal du jour épuisé PENDANT l'appel : on raccroche proprement. */
+function finirParPlafond() {
+  arreterHorloge();
+  try {
+    // La raison part dans le rapport de coût : on saura combien d'appels la
+    // limite a coupés.
+    appel?.arreter('plafond_vocal');
+  } catch (e) {
+    console.error('[voix] arrêt sur plafond :', message(e));
+  }
+  appel = null;
+  ticketCourant = null;
+  limiteSecondes = null;
+  poser({ etape: 'fin', quiParle: null, confirmation: false, plafond: 'atteint' });
 }
 
 function poser(partiel: Partial<EtatVoix>) {
@@ -218,6 +256,7 @@ type Demarrage = {
 export async function demarrerVoix(p: Demarrage): Promise<void> {
   if (etat.etape === 'demarrage' || etat.etape === 'en_cours') return;
   poser({ ...VIDE, etape: 'demarrage', itemId: p.itemId, brouillon: p.brouillon });
+  limiteSecondes = null;
   demarrerHorloge();
 
   try {
@@ -235,6 +274,11 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
       surEtape: (t) => console.log('[voix]', t),
       surTicket: (t) => {
         ticketCourant = t;
+      },
+      surLimite: (s) => {
+        limiteSecondes = s;
+        // Moins d'une minute dès l'ouverture : on le dit tout de suite.
+        if (s !== null && s <= 60) poser({ plafond: 'bientot' });
       },
 
       /**
@@ -292,7 +336,13 @@ export async function demarrerVoix(p: Demarrage): Promise<void> {
     if (ticketCourant) void rafraichir(ticketCourant);
   } catch (e) {
     arreterHorloge();
-    poser({ etape: 'fin', erreur: message(e) });
+    limiteSecondes = null;
+    if (e instanceof RefusVoix && e.code === 'plafond_vocal') {
+      // Pas une panne : le temps du jour est épuisé. On le dit calmement.
+      poser({ etape: 'fin', plafond: 'atteint' });
+    } else {
+      poser({ etape: 'fin', erreur: message(e) });
+    }
     try {
       appel?.arreter('echec_demarrage');
     } catch {
@@ -330,6 +380,7 @@ export async function arreterVoix(): Promise<void> {
   // Le compteur s'arrete, mais sa derniere valeur reste affichee : on veut voir
   // combien a dure l'appel qu'on vient de terminer.
   arreterHorloge();
+  limiteSecondes = null;
   try {
     appel?.arreter('termine_par_utilisateur');
   } catch {

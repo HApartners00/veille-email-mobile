@@ -1,4 +1,4 @@
-import { apiPost } from './api';
+import { apiPost, apiPostBrut } from './api';
 
 /**
  * L'ASSISTANT VOCAL PAR OPENAI, EN DIRECT. 18/09/2026.
@@ -273,7 +273,26 @@ type Rappels = {
   surTicket?: (ticket: string | null) => void;
   /** Où sort le son, une fois la liaison ouverte et le réglage vérifié. */
   surSortieAudio?: (s: SortieAudio) => void;
+  /**
+   * Le temps vocal qu'il reste aujourd'hui, en secondes, tel que le serveur l'a
+   * compté à l'ouverture (22/09/2026). `null` = le serveur n'en a rien dit.
+   */
+  surLimite?: (resteSecondes: number | null) => void;
 };
+
+/**
+ * Un refus du serveur, avec son CODE — 22/09/2026. `apiPost` ne gardait que le
+ * texte : l'app ne pouvait pas distinguer « temps vocal du jour épuisé » (un
+ * état normal, à dire calmement) d'une panne (à afficher en erreur).
+ */
+export class RefusVoix extends Error {
+  code: string | null;
+  constructor(message: string, code: string | null) {
+    super(message);
+    this.name = 'RefusVoix';
+    this.code = code;
+  }
+}
 
 export async function demarrerOpenAI(
   params: {
@@ -291,7 +310,7 @@ export async function demarrerOpenAI(
 
   // ---------------------------------------------------------------- 1. le jeton
   noter('1. demande du jeton au serveur…');
-  const r = await apiPost<{
+  const brut = await apiPostBrut<{
     ok?: boolean;
     jeton?: string;
     modele?: string;
@@ -302,9 +321,17 @@ export async function demarrerOpenAI(
     /** Les instructions SANS section d'ouverture. Voir `retirerOuverture`. */
     instructionsSuite?: string;
     contexte?: ContexteAppel;
+    /** 22/09 : le temps vocal restant aujourd'hui (secondes). */
+    resteSecondes?: number;
     error?: string;
+    code?: string;
   }>(params.route, params.corps);
+  const r = brut.json;
+  if (!brut.ok) {
+    throw new RefusVoix(r?.error || `Erreur ${brut.status}`, typeof r?.code === 'string' ? r.code : null);
+  }
   if (!r?.jeton) throw new Error(r?.error || "Le serveur n'a pas renvoyé de jeton.");
+  params.surLimite?.(typeof r.resteSecondes === 'number' && Number.isFinite(r.resteSecondes) ? r.resteSecondes : null);
 
   const modele = String(r.modele || '');
   const voix = String(r.voix || '');

@@ -37,6 +37,10 @@ const T = {
     envoye: 'La réponse est partie.',
     fin: 'Conversation terminée',
     fermer: 'Fermer',
+    // Temps vocal du jour (22/09/2026) : 10 minutes par 24 h.
+    bientot: 'Moins d’une minute de temps vocal aujourd’hui.',
+    plafond: 'Temps vocal du jour épuisé. Il revient demain.',
+    refuse: 'Temps vocal épuisé',
   },
   en: {
     demarrage: 'Connecting…',
@@ -51,6 +55,9 @@ const T = {
     envoye: 'The reply has been sent.',
     fin: 'Conversation ended',
     fermer: 'Close',
+    bientot: 'Less than a minute of voice time left today.',
+    plafond: "Today's voice time is used up. It comes back tomorrow.",
+    refuse: 'Voice time used up',
   },
 } as const;
 
@@ -97,8 +104,12 @@ export default function PanneauVoix({
   const t = locale === 'en' ? T.en : T.fr;
   const insets = useSafeAreaInsets();
   const parle = etat.quiParle === 'assistant';
-  const titre =
-    etat.etape === 'demarrage'
+  // Refusé à l'ouverture (temps du jour déjà épuisé) : aucune conversation n'a eu
+  // lieu, on ne dit donc pas « conversation terminée », et on n'affiche pas de durée.
+  const refuse = etat.etape === 'fin' && etat.plafond === 'atteint' && !etat.session;
+  const titre = refuse
+    ? t.refuse
+    : etat.etape === 'demarrage'
       ? t.demarrage
       : etat.etape === 'fin'
         ? t.fin
@@ -119,10 +130,12 @@ export default function PanneauVoix({
         )}
         <View style={styles.colonne}>
           <Text style={styles.titre}>{titre}</Text>
-          <Text style={styles.sousTitre}>
-            {duree(etat.secondes)}
-            {etat.muet ? ' · micro coupé' : ''}
-          </Text>
+          {refuse ? null : (
+            <Text style={styles.sousTitre}>
+              {duree(etat.secondes)}
+              {etat.muet ? ' · micro coupé' : ''}
+            </Text>
+          )}
         </View>
         {etat.etape === 'en_cours' ? (
           <Pressable
@@ -146,6 +159,13 @@ export default function PanneauVoix({
           {etat.phrase}
         </Text>
       ) : null}
+
+      {/* ------------------------------------------ temps vocal du jour */}
+      {/* Pas une erreur : un état normal, dit calmement (pas en rouge). */}
+      {etat.plafond === 'bientot' && etat.etape === 'en_cours' ? (
+        <Text style={styles.plafondBientot}>{t.bientot}</Text>
+      ) : null}
+      {etat.plafond === 'atteint' ? <Text style={styles.plafondAtteint}>{t.plafond}</Text> : null}
 
       {/* ----------------------------------------------------- l'erreur */}
       {/* RIEN EN SILENCE : le message brut, pas un « une erreur est survenue ». */}
@@ -206,6 +226,8 @@ const styles = StyleSheet.create({
     color: colors.onDark,
   },
   erreur: { fontFamily: fonts.sans, fontSize: 12.5, lineHeight: 19, color: colors.danger },
+  plafondBientot: { fontFamily: fonts.sansSemibold, fontSize: 13, lineHeight: 19, color: colors.terracottaLight },
+  plafondAtteint: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 21, color: colors.onDark },
   confirmation: {
     borderWidth: 1,
     borderColor: colors.terracottaLight,
