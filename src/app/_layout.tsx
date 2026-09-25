@@ -10,6 +10,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import CreditOverlay from '@/components/credit-overlay';
 import { AuthProvider } from '@/context/auth';
 import { I18nProvider } from '@/context/i18n';
 import { interFonts } from '@/lib/fonts';
@@ -30,12 +31,16 @@ export default function RootLayout() {
           <AuthProvider>
           <StatusBar style="light" />
           {fontsLoaded ? (
+            <>
             <Stack
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.fond },
               }}
             />
+            {/* Crédit du jour (25/09/2026) : barre fine + panneau « épuisé », sans offre (App Store 3.1.1). */}
+            <CreditOverlay />
+            </>
           ) : (
             <View
               style={{

@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
+import { verifierReponseCredit } from './credit';
 import { supabase } from './supabase';
 
 /** Base de l'API web (routes Next.js déployées sur Vercel). Surchargeable via .env. */
@@ -14,6 +15,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 export async function apiGet<T = any>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, { headers: await authHeaders() });
   const json = await res.json().catch(() => ({}));
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
   if (!res.ok) throw new Error((json as any)?.error || `Erreur ${res.status}`);
   return json as T;
 }
@@ -25,6 +27,7 @@ export async function apiPost<T = any>(path: string, body: unknown): Promise<T> 
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
   if (!res.ok) throw new Error((json as any)?.error || `Erreur ${res.status}`);
   return json as T;
 }
@@ -47,6 +50,7 @@ export async function apiPostBrut<T = any>(
     body: JSON.stringify(body),
   });
   const json = (await res.json().catch(() => ({}))) as T;
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
   return { ok: res.ok, status: res.status, json };
 }
 
@@ -56,6 +60,7 @@ export async function apiDelete<T = any>(path: string): Promise<T> {
     headers: await authHeaders(),
   });
   const json = await res.json().catch(() => ({}));
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
   if (!res.ok) throw new Error((json as any)?.error || `Erreur ${res.status}`);
   return json as T;
 }
@@ -69,6 +74,7 @@ export async function apiUpload<T = any>(path: string, form: FormData): Promise<
     body: form,
   });
   const json = await res.json().catch(() => ({}));
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
   if (!res.ok) throw new Error((json as any)?.error || `Erreur ${res.status}`);
   return json as T;
 }
