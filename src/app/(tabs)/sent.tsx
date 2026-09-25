@@ -111,24 +111,12 @@ export default function SentScreen() {
    * ⚠️ TROIS ETATS NE SUFFISENT PAS ICI. Vide, echec, « je ne sais pas encore »
    * — il en manquait un QUATRIEME : en pause.
    */
-  const [enPause, setEnPause] = useState<boolean | null>(null);
+  // 25/09/2026 — PLUS DE PAUSE. La relève des Envoyés (n8n « App Sent Sync ») ne se
+  // limite plus aux abonnés : la formule Gratuite a toutes les fonctionnalités, et
+  // cette relève ne coûte pas d'IA. Lire `entitled` ici annoncerait une pause fausse
+  // à tout compte gratuit. Le libellé « en pause » reste en place, inutilisé.
+  const enPause = false as boolean;
 
-  // Meme source que le bandeau d'essai : deux endroits qui affirmeraient des
-  // choses contraires seraient pires que le silence. `null` tant qu'on n'a pas
-  // lu — on n'annonce jamais une pause qu'on n'a pas constatee.
-  useEffect(() => {
-    let vivant = true;
-    apiGet<{ entitled?: boolean }>('/api/billing/status')
-      .then((j) => {
-        if (vivant) setEnPause(j?.entitled === false);
-      })
-      .catch(() => {
-        if (vivant) setEnPause(null);
-      });
-    return () => {
-      vivant = false;
-    };
-  }, []);
   const [items, setItems] = useState<SentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
