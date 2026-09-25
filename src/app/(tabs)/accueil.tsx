@@ -13,13 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
-import { apiPost } from '@/lib/api';
 import { setPendingFeedFilter } from '@/lib/feed-filter';
 import { marqueurDe } from '@/lib/mail-state';
 import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconRefresh, IconSparkle } from '@/components/icons';
+import BoutonVmailIA from '@/components/bouton-vmail-ia';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
@@ -93,7 +92,6 @@ export default function Accueil() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshingNow, setRefreshingNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   // 22/09/2026 — vrai quand ce compte n'a encore AUCUN mail en base (requête
@@ -181,19 +179,6 @@ export default function Accueil() {
     setRefreshing(false);
   }, [load]);
 
-  const refreshNow = useCallback(async () => {
-    if (refreshingNow) return;
-    setRefreshingNow(true);
-    try {
-      await apiPost('/api/refresh', {});
-    } catch {
-      // on rechargera quand même
-    }
-    setTimeout(async () => {
-      await load();
-      setRefreshingNow(false);
-    }, 7000);
-  }, [load, refreshingNow]);
 
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
 
@@ -263,38 +248,10 @@ export default function Accueil() {
       <View style={[styles.top, { paddingTop: insets.top + spacing.md }]}>
         <View style={styles.topRow}>
           <LogoVmail size={24} />
-          <View style={styles.actions}>
-            {/* 11/08/2026 — même bouton que l'onglet Emails (styles.pjBtn de
-                (tabs)/index.tsx) : pilule bordée et libellé en toutes lettres, à la
-                place du trombone seul. Les deux écrans lisent le MÊME libellé
-                `t.feed.attachments`, donc les 8 langues restent alignées. */}
-            {/* 21/09/2026 — « Pièces jointes » devient « Assistant » (choix de HA) :
-                l'écran ne cherche plus seulement des pièces jointes, il répond à toute
-                question sur les mails. Même pilule, même place ; l'étincelle dit l'IA. */}
-            <Pressable
-              style={styles.pjBtn}
-              onPress={() => router.push('/assistant')}
-              accessibilityLabel={t.assistant.button}
-              hitSlop={6}
-            >
-              <IconSparkle size={11} color={colors.terracottaLight} />
-              <Text style={styles.pjBtnText}>{t.assistant.button}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.refreshBtn, refreshingNow && styles.refreshBtnBusy]}
-              onPress={refreshNow}
-              disabled={refreshingNow}
-            >
-              {refreshingNow ? (
-                <ActivityIndicator size="small" color={colors.terracottaLight} />
-              ) : (
-                <IconRefresh size={13} color={colors.terracottaLight} />
-              )}
-              <Text style={styles.refreshBtnText}>
-                {refreshingNow ? t.common.refreshing : t.common.refresh}
-              </Text>
-            </Pressable>
-          </View>
+          {/* 25/09/2026 — choix de HA : la pilule « Assistant » et le bouton
+              « Actualiser » laissent la place à la bille « Vmail IA ». Les mails
+              arrivent seuls ; tirer l'écran vers le bas recharge toujours la liste. */}
+          <BoutonVmailIA />
         </View>
 
         <Text style={styles.date}>{todayLabel(intl)}</Text>
@@ -395,31 +352,6 @@ const styles = StyleSheet.create({
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  // Copie a l'identique de styles.pjBtn / styles.pjBtnText de (tabs)/index.tsx.
-  // Toucher l'un, toucher l'autre.
-  pjBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.charline,
-  },
-  pjBtnText: { fontFamily: fonts.sansSemibold, fontSize: 11.5, color: colors.onDarkMuted },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(240,151,90,0.5)',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md + 1,
-    paddingVertical: spacing.sm,
-  },
-  refreshBtnBusy: { opacity: 0.6 },
-  refreshBtnText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 12.5 },
   date: {
     fontFamily: fonts.sans,
     fontSize: 12,

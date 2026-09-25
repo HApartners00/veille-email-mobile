@@ -21,7 +21,8 @@ import { cleanText, formatDateCourte, senderInitials, senderName } from '@/lib/m
 import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconCheck, IconMore, IconPlus, IconSearch, IconSparkle } from '@/components/icons';
+import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
+import BoutonVmailIA from '@/components/bouton-vmail-ia';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
 import { EmailRow } from '@/components/email-row';
@@ -667,14 +668,10 @@ export default function Feed() {
                   {/* 21/09/2026 — « Pièces jointes » devient « Assistant » (choix de HA) :
                       l'écran ne cherche plus seulement des pièces jointes, il répond à toute
                       question sur les mails. Même pilule, même place ; l'étincelle dit l'IA. */}
-                  <Pressable
-                    style={styles.pjBtn}
-                    onPress={() => router.push('/assistant')}
-                    hitSlop={6}
-                  >
-                    <IconSparkle size={11} color={colors.terracottaLight} />
-                    <Text style={styles.pjBtnText}>{t.assistant.button}</Text>
-                  </Pressable>
+                  {/* 25/09/2026 — la pilule « Assistant » devient la bille « Vmail IA »,
+                      comme sur l'Accueil. Ici sans le mot ni la bulle : la rangée
+                      est déjà pleine, et l'Accueil les a déjà présentés. */}
+                  <BoutonVmailIA taille={30} libelle={false} presentation={false} />
                   {/* ÉCRIRE UN MAIL — 13/08/2026, demande de HA. Le seul bouton
                       de cet écran qui CRÉE quelque chose plutôt que de filtrer ce
                       qui est déjà là : il est donc plein, pas en contour, et posé
@@ -890,17 +887,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  pjBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.charline,
-  },
-  pjBtnText: { fontFamily: fonts.sansSemibold, fontSize: 11.5, color: colors.onDarkMuted },
   // Bouton rond a icone seule (loupe, ⋯). 32 px de cible visible, elargie par
   // `hitSlop` : en dessous de ~44 px au total, on rate la cible au pouce.
   iconBtn: {

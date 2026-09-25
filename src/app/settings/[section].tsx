@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconChevronLeft } from '@/components/icons';
 import { SettingsPanel, settingsSectionTitle, type SettingsSection } from '@/components/settings-panel';
 import { signatureTitle } from '@/components/signature-section';
+import Utilisation, { utilisationTitre } from '@/components/utilisation';
 import { useI18n } from '@/context/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
@@ -19,6 +20,9 @@ const KNOWN: SettingsSection[] = [
   'compte',
 ];
 
+/** Rubriques qui ne vivent pas dans SettingsPanel : elles ont leur propre écran. */
+const PROPRES = ['utilisation'] as const;
+
 /**
  * Sous-ecran d'une section de reglages. Meme systeme visuel que le reste de l'app :
  * bandeau charbon (retour + titre), contenu sur creme.
@@ -27,6 +31,7 @@ export default function SettingsSectionScreen() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { section } = useLocalSearchParams<{ section: string }>();
+  const propre = (PROPRES as readonly string[]).includes(String(section)) ? String(section) : null;
   const key = (KNOWN.includes(section as SettingsSection) ? section : 'langue') as SettingsSection;
 
   const titles: Record<string, string> = {
@@ -48,13 +53,13 @@ export default function SettingsSectionScreen() {
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           <Text style={styles.title} numberOfLines={1}>
-            {titles[key]}
+            {propre === 'utilisation' ? utilisationTitre(locale) : titles[key]}
           </Text>
         </View>
       </SafeAreaView>
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-        <SettingsPanel only={key} />
+        {propre === 'utilisation' ? <Utilisation /> : <SettingsPanel only={key} />}
       </ScrollView>
     </View>
   );

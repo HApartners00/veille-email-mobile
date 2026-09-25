@@ -1,3 +1,4 @@
+import { utilisationTitre } from '@/components/utilisation';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -895,6 +896,9 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <NavRow label={signatureTitle(locale)} onPress={() => router.push('/settings/signature')} />
               <View style={styles.hubSep} />
               <NavRow label={t.settings.account} onPress={() => router.push('/settings/compte')} />
+              <View style={styles.hubSep} />
+              {/* 25/09/2026 — Utilisation : où en est le crédit du jour (demande de HA). */}
+              <NavRow label={utilisationTitre(locale)} onPress={() => router.push('/settings/utilisation')} />
               {referral?.code ? (
                 <>
                   <View style={styles.hubSep} />
