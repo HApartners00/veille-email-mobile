@@ -78,8 +78,8 @@ export function BilleVmailIA({ taille = 38 }: { taille?: number }) {
  * (apps/web/src/components/bille-vmail-ia.tsx).
  */
 function LibelleIrise() {
-  const l = 58;
-  const h = 15;
+  const l = 50;
+  const h = 13;
   return (
     <Svg width={l} height={h} style={styles.libelle} accessible={false}>
       <Defs>
@@ -91,10 +91,10 @@ function LibelleIrise() {
       </Defs>
       <SvgText
         x={l / 2}
-        y={11.5}
+        y={10}
         textAnchor="middle"
         fontFamily={fonts.sansSemibold}
-        fontSize={11}
+        fontSize={9.5}
         letterSpacing={0.1}
         fill="url(#vmia-iris)"
       >
