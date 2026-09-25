@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -50,43 +51,80 @@ const STR: Record<string, Dict> = {
 const CLE_VUES = 'vmailia.presentation.vues';
 const VUES_MAX = 3;
 
-/** La bille seule, animée. Réutilisable (Accueil, Emails). */
+/**
+ * La bille seule, animée. Réutilisable (Accueil, Emails).
+ *
+ * 25/09 soir, retour de HA sur téléphone : « je le veux animé et le halo plus
+ * fondu ».
+ *   · HALO : plus grand (2,6 × la bille) et un dégradé en 7 paliers qui s'éteint
+ *     en douceur (courbe en cloche), au lieu de 2 paliers qui laissaient un
+ *     disque sombre au bord. Il respire (taille + intensité).
+ *   · MOUVEMENT : trois calques de couleur tournent à trois vitesses, dont un qui
+ *     gonfle et dégonfle ; la bille entière respire un peu. Les taches sont
+ *     décentrées, sinon la rotation ne se voit pas.
+ *   · « RÉDUIRE LES ANIMATIONS » (iPhone) : avant, Reanimated coupait tout
+ *     (réglage par défaut ReduceMotion.System) → bille figée. Maintenant elle
+ *     bouge quand même, 2 × plus lentement et sans respiration de taille :
+ *     c'est un petit mouvement de couleur, pas un déplacement à l'écran.
+ */
+const JAMAIS = { reduceMotion: ReduceMotion.Never } as const;
+
 export function BilleVmailIA({ taille = 38 }: { taille?: number }) {
   const s = taille;
   const reduit = useReducedMotion();
   const a = useSharedValue(0);
   const b = useSharedValue(0);
+  const c = useSharedValue(0);
+  const g = useSharedValue(0);
   const p = useSharedValue(0);
 
   useEffect(() => {
-    if (reduit) return;
-    a.value = withRepeat(withTiming(360, { duration: 14000, easing: Easing.linear }), -1, false);
-    b.value = withRepeat(withTiming(-360, { duration: 9000, easing: Easing.linear }), -1, false);
-    p.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [reduit, a, b, p]);
+    const k = reduit ? 2 : 1;
+    const tour = (sv: typeof a, fin: number, ms: number) => {
+      sv.value = withRepeat(withTiming(fin, { duration: ms * k, easing: Easing.linear, ...JAMAIS }), -1, false, undefined, ReduceMotion.Never);
+    };
+    const va = (sv: typeof a, ms: number) => {
+      sv.value = withRepeat(withTiming(1, { duration: ms * k, easing: Easing.inOut(Easing.sin), ...JAMAIS }), -1, true, undefined, ReduceMotion.Never);
+    };
+    tour(a, 360, 7000);
+    tour(b, -360, 5000);
+    tour(c, 360, 11000);
+    va(g, 3400);
+    va(p, 2800);
+  }, [reduit, a, b, c, g, p]);
 
   const rotA = useAnimatedStyle(() => ({ transform: [{ rotate: `${a.value}deg` }] }));
   const rotB = useAnimatedStyle(() => ({ transform: [{ rotate: `${b.value}deg` }] }));
-  const halo = useAnimatedStyle(() => ({ opacity: 0.45 + 0.2 * p.value }));
+  const rotC = useAnimatedStyle(() => ({ transform: [{ rotate: `${c.value}deg` }, { scale: 0.85 + 0.35 * g.value }] }));
+  const souffle = useAnimatedStyle(() => ({ transform: [{ scale: reduit ? 1 : 1 + 0.035 * p.value }] }));
+  const halo = useAnimatedStyle(() => ({
+    opacity: 0.7 + 0.3 * p.value,
+    transform: [{ scale: reduit ? 1 : 0.92 + 0.14 * p.value }],
+  }));
 
-  const h = s * 1.8;
+  const h = s * 2.6;
   return (
     <View style={{ width: s, height: s }}>
-      {/* Halo */}
-      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: (s - h) / 2, top: (s - h) / 2 }, halo]}>
+      {/* Halo : courbe en cloche, aucun bord visible */}
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: (s - h) / 2, top: (s - h) / 2, width: h, height: h }, halo]}>
         <Svg width={h} height={h}>
           <Defs>
             <RadialGradient id="halo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0.45" stopColor="#ff6a2a" stopOpacity="0.8" />
-              <Stop offset="1" stopColor="#ff6a2a" stopOpacity="0" />
+              <Stop offset="0" stopColor="#ff7433" stopOpacity="0.9" />
+              <Stop offset="0.3" stopColor="#ff7433" stopOpacity="0.8" />
+              <Stop offset="0.4" stopColor="#ff7a36" stopOpacity="0.58" />
+              <Stop offset="0.52" stopColor="#ff8a3d" stopOpacity="0.32" />
+              <Stop offset="0.66" stopColor="#ff8a3d" stopOpacity="0.14" />
+              <Stop offset="0.82" stopColor="#ff8a3d" stopOpacity="0.04" />
+              <Stop offset="1" stopColor="#ff8a3d" stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Circle cx={h / 2} cy={h / 2} r={h / 2} fill="url(#halo)" />
         </Svg>
       </Animated.View>
 
-      {/* Bille : fond + deux calques de voiles qui tournent */}
-      <View style={{ width: s, height: s, borderRadius: s / 2, overflow: 'hidden' }}>
+      {/* Bille : fond + trois calques de couleur qui tournent */}
+      <Animated.View style={[{ width: s, height: s, borderRadius: s / 2, overflow: 'hidden' }, souffle]}>
         <Svg width={s} height={s} style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="fond" cx="50%" cy="55%" r="55%">
@@ -101,32 +139,41 @@ export function BilleVmailIA({ taille = 38 }: { taille?: number }) {
           <Svg width={s} height={s}>
             <Defs>
               <RadialGradient id="rose" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor="#ff4f8b" stopOpacity="0.95" />
-                <Stop offset="1" stopColor="#ff4f8b" stopOpacity="0" />
-              </RadialGradient>
-              <RadialGradient id="or" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor="#ffc15a" stopOpacity="0.9" />
-                <Stop offset="1" stopColor="#ffc15a" stopOpacity="0" />
+                <Stop offset="0" stopColor="#ff3d7f" stopOpacity="1" />
+                <Stop offset="0.55" stopColor="#ff3d7f" stopOpacity="0.45" />
+                <Stop offset="1" stopColor="#ff3d7f" stopOpacity="0" />
               </RadialGradient>
             </Defs>
-            <Ellipse cx={s * 0.74} cy={s * 0.62} rx={s * 0.42} ry={s * 0.3} fill="url(#rose)" />
-            <Ellipse cx={s * 0.3} cy={s * 0.28} rx={s * 0.4} ry={s * 0.26} fill="url(#or)" />
+            <Ellipse cx={s * 0.8} cy={s * 0.68} rx={s * 0.44} ry={s * 0.3} fill="url(#rose)" />
           </Svg>
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFill, rotB]}>
           <Svg width={s} height={s}>
             <Defs>
               <RadialGradient id="violet" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor="#8a63ff" stopOpacity="0.85" />
+                <Stop offset="0" stopColor="#8a63ff" stopOpacity="0.95" />
+                <Stop offset="0.55" stopColor="#8a63ff" stopOpacity="0.4" />
                 <Stop offset="1" stopColor="#8a63ff" stopOpacity="0" />
               </RadialGradient>
+            </Defs>
+            <Ellipse cx={s * 0.76} cy={s * 0.22} rx={s * 0.4} ry={s * 0.24} fill="url(#violet)" />
+          </Svg>
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFill, rotC]}>
+          <Svg width={s} height={s}>
+            <Defs>
+              <RadialGradient id="or" cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor="#ffd27a" stopOpacity="0.95" />
+                <Stop offset="0.55" stopColor="#ffc15a" stopOpacity="0.4" />
+                <Stop offset="1" stopColor="#ffc15a" stopOpacity="0" />
+              </RadialGradient>
               <RadialGradient id="coeur" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor="#ffecd7" stopOpacity="0.6" />
-                <Stop offset="1" stopColor="#ffecd7" stopOpacity="0" />
+                <Stop offset="0" stopColor="#fff1e2" stopOpacity="0.7" />
+                <Stop offset="1" stopColor="#fff1e2" stopOpacity="0" />
               </RadialGradient>
             </Defs>
-            <Ellipse cx={s * 0.72} cy={s * 0.28} rx={s * 0.36} ry={s * 0.22} fill="url(#violet)" />
-            <Circle cx={s * 0.5} cy={s * 0.55} r={s * 0.28} fill="url(#coeur)" />
+            <Ellipse cx={s * 0.24} cy={s * 0.34} rx={s * 0.38} ry={s * 0.26} fill="url(#or)" />
+            <Circle cx={s * 0.42} cy={s * 0.6} r={s * 0.24} fill="url(#coeur)" />
           </Svg>
         </Animated.View>
         {/* Verre : reflet, bord assombri, liseré */}
@@ -138,14 +185,14 @@ export function BilleVmailIA({ taille = 38 }: { taille?: number }) {
             </RadialGradient>
             <RadialGradient id="bord" cx="50%" cy="50%" r="50%">
               <Stop offset="0.62" stopColor="#140600" stopOpacity="0" />
-              <Stop offset="1" stopColor="#140600" stopOpacity="0.55" />
+              <Stop offset="1" stopColor="#140600" stopOpacity="0.3" />
             </RadialGradient>
           </Defs>
           <Circle cx={s / 2} cy={s / 2} r={s / 2} fill="url(#bord)" />
           <Ellipse cx={s * 0.37} cy={s * 0.22} rx={s * 0.3} ry={s * 0.17} fill="url(#reflet)" />
           <Circle cx={s / 2} cy={s / 2} r={s / 2 - 0.5} stroke="rgba(255,235,215,0.24)" strokeWidth={1} fill="none" />
         </Svg>
-      </View>
+      </Animated.View>
     </View>
   );
 }
