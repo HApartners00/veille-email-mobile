@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 
 import { useI18n } from '@/context/i18n';
 import { colors, fonts } from '@/lib/theme';
@@ -71,6 +72,39 @@ export function BilleVmailIA({ taille = 38 }: { taille?: number }) {
 }
 
 /**
+ * « Vmail IA » sous la goutte — style « Irisée » choisi par HA le 25/09 : le texte
+ * reprend les couleurs de la goutte (violet → rose → cyan). Dessiné en SVG car un
+ * texte en dégradé n'existe pas en React Native de base. Même rendu que le web
+ * (apps/web/src/components/bille-vmail-ia.tsx).
+ */
+function LibelleIrise() {
+  const l = 58;
+  const h = 15;
+  return (
+    <Svg width={l} height={h} style={styles.libelle} accessible={false}>
+      <Defs>
+        <LinearGradient id="vmia-iris" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#b38cff" />
+          <Stop offset="0.5" stopColor="#ff7ad9" />
+          <Stop offset="1" stopColor="#7fe6ff" />
+        </LinearGradient>
+      </Defs>
+      <SvgText
+        x={l / 2}
+        y={11.5}
+        textAnchor="middle"
+        fontFamily={fonts.sansSemibold}
+        fontSize={11}
+        letterSpacing={0.1}
+        fill="url(#vmia-iris)"
+      >
+        Vmail IA
+      </SvgText>
+    </Svg>
+  );
+}
+
+/**
  * Le bouton complet : la bille, le mot « Vmail IA » dessous (option), et la bulle
  * d'explication les 3 premières fois (option). Ouvre l'écran de l'assistant.
  */
@@ -125,7 +159,7 @@ export default function BoutonVmailIA({
         style={styles.bouton}
       >
         <BilleVmailIA taille={taille} />
-        {libelle ? <Text style={styles.libelle}>Vmail IA</Text> : null}
+        {libelle ? <LibelleIrise /> : null}
       </Pressable>
       {bulle ? (
         <Pressable onPress={() => setBulle(false)} style={[styles.bulle, { top: taille + (libelle ? 26 : 10) }]}>
@@ -141,13 +175,7 @@ export default function BoutonVmailIA({
 const styles = StyleSheet.create({
   racine: { alignItems: 'flex-end', zIndex: 20, elevation: 20 },
   bouton: { alignItems: 'center' },
-  libelle: {
-    marginTop: 5,
-    fontFamily: fonts.sansSemibold,
-    fontSize: 10,
-    letterSpacing: 0.2,
-    color: colors.onDarkMuted,
-  },
+  libelle: { marginTop: 4 },
   bulle: {
     position: 'absolute',
     right: 0,
