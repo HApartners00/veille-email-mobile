@@ -13,7 +13,6 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 const KNOWN: SettingsSection[] = [
   'langue',
   'notifications',
-  'rapport',
   'parrainage',
   'personnalisation',
   'signature',
@@ -37,7 +36,6 @@ export default function SettingsSectionScreen() {
   const titles: Record<string, string> = {
     langue: t.settings.language,
     notifications: settingsSectionTitle('notifications', locale) ?? t.settings.groupApp,
-    rapport: t.settings.dailyReport,
     parrainage: settingsSectionTitle('parrainage', locale) ?? t.settings.groupAccount,
     personnalisation: settingsSectionTitle('personnalisation', locale) ?? t.settings.groupAccount,
     signature: signatureTitle(locale),

@@ -21,12 +21,9 @@ import { useI18n } from '@/context/i18n';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
 import { isRtl, locales, localeNames, type Locale } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconChevronRight, IconFunnel, IconInbox, IconMinus, IconPlus } from '@/components/icons';
+import { IconChevronRight, IconFunnel, IconInbox } from '@/components/icons';
 import { LogoVmail } from '@/components/logo-v';
 import { SignatureSection, signatureTitle } from '@/components/signature-section';
-
-// Jours dans l'ordre Lun→Dim ; le libellé vient du dictionnaire (daysShort, indexé 0=Dim).
-const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
 // Mot de confirmation de la suppression de compte.
 // 🔴 NE PAS TRADUIRE ni modifier : /api/account/delete attend exactement 'SUPPRIMER'.
@@ -495,14 +492,13 @@ export type SettingsSection =
   | 'index'
   | 'langue'
   | 'notifications'
-  | 'rapport'
   | 'parrainage'
   | 'personnalisation'
   | 'signature'
   | 'compte';
 
 /**
- * Panneau des reglages. UN seul composant porte tout l'etat (rapport quotidien,
+ * Panneau des reglages. UN seul composant porte tout l'etat (
  * facturation, personnalisation, parrainage) ; `only` choisit ce qu'il affiche :
  * l'index cliquable, ou une seule section quand on est entre dedans.
  *
@@ -514,12 +510,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const email = session?.user?.email ?? '—';
-  const [loading, setLoading] = useState(true);
-  const [hasAccounts, setHasAccounts] = useState(false);
-  const [hour, setHour] = useState(7);
-  const [days, setDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   // Preferences de notification (memes defauts que le web : info desactive).
   const nt = NOTIF[locale] ?? NOTIF.en;
@@ -757,60 +747,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     ]);
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await apiGet<{ hasAccounts: boolean; hour: number; days: string }>(
-          '/api/digest-settings',
-        );
-        setHasAccounts(!!r.hasAccounts);
-        setHour(typeof r.hour === 'number' ? r.hour : 7);
-        setDays(
-          new Set(
-            (r.days || '1,2,3,4,5')
-              .split(',')
-              .map((d) => Number(d))
-              // Meme garde que le web : on borne a 0-6, pas seulement « pas NaN ».
-              .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6),
-          ),
-        );
-      } catch {
-        // pas de boîte / non configuré : on garde les valeurs par défaut
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  function toggleDay(v: number) {
-    setDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(v)) next.delete(v);
-      else next.add(v);
-      return next;
-    });
-  }
-
-  async function save() {
-    // Le bouton est deja desactive quand aucun jour n'est coche ; garde
-    // supplementaire pour ne jamais poster une liste vide (= digest coupe).
-    if (days.size === 0) {
-      setMsg({ type: 'err', text: t.settings.saveErr });
-      return;
-    }
-    setSaving(true);
-    setMsg(null);
-    try {
-      const daysStr = Array.from(days).sort((a, b) => a - b).join(',');
-      await apiPost('/api/digest-settings', { hour, days: daysStr });
-      setMsg({ type: 'ok', text: t.settings.saved });
-    } catch (e: any) {
-      setMsg({ type: 'err', text: e?.message || t.settings.saveErr });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   // 27/08/2026 — l'appel a /api/billing/status est RETIRE de l'app iOS.
   // Refus App Store du 27/08 (regles 3.1.1 et 3.1.3(c)) : l'app ne doit ni parler
   // d'abonnement, ni lire un etat d'abonnement, tant qu'elle ne permet pas d'acheter.
@@ -860,12 +796,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                 label={t.settings.language}
                 value={localeNames[locale]}
                 onPress={() => router.push('/settings/langue')}
-              />
-              <View style={styles.hubSep} />
-              <NavRow
-                label={t.settings.dailyReport}
-                value={loading ? undefined : `${String(hour).padStart(2, '0')}h00`}
-                onPress={() => router.push('/settings/rapport')}
               />
               <View style={styles.hubSep} />
               <NavRow
@@ -1063,66 +993,6 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
           </View>
         ) : null}
 
-        {show('rapport') ? (
-        <View style={styles.card}>
-            {loading ? (
-            <ActivityIndicator color={colors.terracotta} style={{ marginVertical: spacing.md }} />
-          ) : (
-            <>
-              {!hasAccounts ? (
-                <Text style={styles.hint}>{t.settings.connectBoxHint}</Text>
-              ) : null}
-
-              <Text style={styles.subLabel}>{t.settings.hourLabel}</Text>
-              <View style={styles.hourRow}>
-                <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.max(0, h - 1))}>
-                  <IconMinus size={20} color={D.text} />
-                </Pressable>
-                <Text style={styles.hourValue}>{String(hour).padStart(2, '0')}h00</Text>
-                <Pressable style={styles.hourBtn} onPress={() => setHour((h) => Math.min(23, h + 1))}>
-                  <IconPlus size={20} color={D.text} />
-                </Pressable>
-              </View>
-
-              <Text style={styles.subLabel}>{t.settings.daysLabel}</Text>
-              <View style={styles.daysRow}>
-                {DAY_VALUES.map((value) => {
-                  const on = days.has(value);
-                  return (
-                    <Pressable
-                      key={value}
-                      style={[styles.day, on && styles.dayOn]}
-                      onPress={() => toggleDay(value)}
-                    >
-                      <Text style={[styles.dayText, on && styles.dayTextOn]}>
-                        {t.settings.daysShort[value]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Pressable
-                style={[styles.saveBtn, (saving || days.size === 0 || !hasAccounts) && styles.btnDisabled]}
-                onPress={save}
-                disabled={saving || days.size === 0 || !hasAccounts}
-              >
-                {saving ? (
-                  <ActivityIndicator color={colors.onDark} />
-                ) : (
-                  <Text style={styles.saveBtnText}>{t.settings.saveBtn}</Text>
-                )}
-              </Pressable>
-
-              {msg ? (
-                <Text style={[styles.msg, msg.type === 'ok' ? styles.msgOk : styles.msgErr]}>
-                  {msg.text}
-                </Text>
-              ) : null}
-            </>
-          )}
-        </View>
-        ) : null}
 
 
         {/* Parrainage (programme ambassadeur) */}
@@ -1480,19 +1350,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: spacing.md,
   },
-  hourRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.xs },
-  hourBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderColor: D.line,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: D.voile,
-  },
-  hourBtnText: { fontFamily: fonts.sans, fontSize: 24, color: D.text, lineHeight: 26 },
-  hourValue: { fontFamily: fonts.sansBold, fontSize: 26, color: D.text, minWidth: 110, textAlign: 'center' },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   langChip: {
     paddingHorizontal: 14,
@@ -1505,18 +1362,6 @@ const styles = StyleSheet.create({
   langChipOn: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
   langChipText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.muted },
   langChipTextOn: { color: colors.surface },
-  daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
-  day: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: radius.sm,
-    borderColor: D.line,
-    borderWidth: 1,
-    backgroundColor: D.voile,
-  },
-  dayOn: { backgroundColor: colors.onDark, borderColor: colors.onDark },
-  dayText: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.muted },
-  dayTextOn: { color: colors.charcoal },
   saveBtn: {
     marginTop: spacing.lg,
     backgroundColor: colors.terracottaVivid,
