@@ -251,7 +251,7 @@ export default function Accueil() {
           {/* 25/09/2026 — choix de HA : la pilule « Assistant » et le bouton
               « Actualiser » laissent la place à la bille « Vmail IA ». Les mails
               arrivent seuls ; tirer l'écran vers le bas recharge toujours la liste. */}
-          <BoutonVmailIA />
+          <BoutonVmailIA taille={30} />
         </View>
 
         <Text style={styles.date}>{todayLabel(intl)}</Text>

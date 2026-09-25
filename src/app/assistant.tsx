@@ -17,7 +17,8 @@ import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 
-import { IconChevronLeft, IconClose, IconPlus, IconSend, IconSparkle } from '@/components/icons';
+import { BilleVmailIA } from '@/components/bouton-vmail-ia';
+import { IconChevronLeft, IconClose, IconPlus, IconSend } from '@/components/icons';
 import { useI18n } from '@/context/i18n';
 import { apiDownloadToFile, apiPost, apiPostBrut } from '@/lib/api';
 import { prioLabel } from '@/lib/i18n';
@@ -240,8 +241,9 @@ export default function Assistant() {
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           <View style={styles.titreBloc}>
-            <IconSparkle size={15} color={colors.terracottaLight} />
-            <Text style={styles.titre}>{a.button}</Text>
+            {/* Comme le web (25/09) : la goutte + « Vmail IA » (nom de marque, identique dans les 8 langues). */}
+            <BilleVmailIA taille={24} />
+            <Text style={styles.titre}>Vmail IA</Text>
           </View>
           {!vide ? (
             <Pressable
@@ -277,8 +279,8 @@ export default function Assistant() {
         >
           {vide ? (
             <View style={styles.accueil}>
-              <View style={styles.pastille}>
-                <IconSparkle size={22} color={colors.onDark} />
+              <View style={styles.goutteAccueil}>
+                <BilleVmailIA taille={64} />
               </View>
               <Text style={styles.bonjour}>{a.hello}</Text>
               <Text style={styles.intro}>{a.intro}</Text>
@@ -314,7 +316,7 @@ export default function Assistant() {
           )}
           {enCours ? (
             <View style={styles.cherche}>
-              <ActivityIndicator size="small" color={colors.terracottaLight} />
+              <BilleVmailIA taille={18} />
               <Text style={styles.chercheTexte}>{a.thinking}</Text>
             </View>
           ) : null}
@@ -433,7 +435,7 @@ function CarteDeReponse({ carte }: { carte: CarteReponse }) {
       </Text>
       {etat === 'ecrit' ? (
         <View style={styles.reponseAttente}>
-          <ActivityIndicator size="small" color={colors.terracotta} />
+          <BilleVmailIA taille={16} />
           <Text style={styles.reponseAttenteTexte}>{a.writing}</Text>
         </View>
       ) : etat === 'envoye' ? (
@@ -571,15 +573,7 @@ const styles = StyleSheet.create({
   contenuVide: { flexGrow: 1, justifyContent: 'center' },
 
   accueil: { gap: spacing.md },
-  pastille: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.terracottaVivid,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
+  goutteAccueil: { alignSelf: 'flex-start', marginBottom: spacing.xs },
   bonjour: { fontFamily: fonts.sansExtrabold, fontSize: 28, lineHeight: 34, letterSpacing: -0.6, color: colors.onDark },
   intro: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 23, color: colors.onDarkMuted },
   exemples: { gap: spacing.sm, marginTop: spacing.md },
