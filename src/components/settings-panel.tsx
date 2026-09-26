@@ -1,4 +1,5 @@
 import { utilisationTitre } from '@/components/utilisation';
+import { abonnementTitre } from '@/components/abonnement';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -747,6 +748,8 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
     ]);
   }
 
+  // 26/09/2026 — ⚠️ L'ÉCRAN ABONNEMENT REVIENT, À PART : components/abonnement.tsx
+  // (demande de HA, risque 3.1.1 assumé). Ce panneau-ci ne lit toujours rien.
   // 27/08/2026 — l'appel a /api/billing/status est RETIRE de l'app iOS.
   // Refus App Store du 27/08 (regles 3.1.1 et 3.1.3(c)) : l'app ne doit ni parler
   // d'abonnement, ni lire un etat d'abonnement, tant qu'elle ne permet pas d'acheter.
@@ -829,6 +832,10 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <View style={styles.hubSep} />
               {/* 25/09/2026 — Utilisation : où en est le crédit du jour (demande de HA). */}
               <NavRow label={utilisationTitre(locale)} onPress={() => router.push('/settings/utilisation')} />
+              <View style={styles.hubSep} />
+              {/* 26/09/2026 — Abonnement revient dans l'app (demande de HA, risque 3.1.1
+                  assumé) : la formule + un bouton vers la page Abonnement du web. */}
+              <NavRow label={abonnementTitre(locale)} onPress={() => router.push('/settings/abonnement')} />
               {referral?.code ? (
                 <>
                   <View style={styles.hubSep} />

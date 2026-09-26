@@ -7,6 +7,7 @@ import { IconChevronLeft } from '@/components/icons';
 import { SettingsPanel, settingsSectionTitle, type SettingsSection } from '@/components/settings-panel';
 import { signatureTitle } from '@/components/signature-section';
 import Utilisation, { utilisationTitre } from '@/components/utilisation';
+import Abonnement, { abonnementTitre } from '@/components/abonnement';
 import { useI18n } from '@/context/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
@@ -20,7 +21,7 @@ const KNOWN: SettingsSection[] = [
 ];
 
 /** Rubriques qui ne vivent pas dans SettingsPanel : elles ont leur propre écran. */
-const PROPRES = ['utilisation'] as const;
+const PROPRES = ['utilisation', 'abonnement'] as const;
 
 /**
  * Sous-ecran d'une section de reglages. Meme systeme visuel que le reste de l'app :
@@ -51,13 +52,23 @@ export default function SettingsSectionScreen() {
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           <Text style={styles.title} numberOfLines={1}>
-            {propre === 'utilisation' ? utilisationTitre(locale) : titles[key]}
+            {propre === 'utilisation'
+              ? utilisationTitre(locale)
+              : propre === 'abonnement'
+                ? abonnementTitre(locale)
+                : titles[key]}
           </Text>
         </View>
       </SafeAreaView>
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-        {propre === 'utilisation' ? <Utilisation /> : <SettingsPanel only={key} />}
+        {propre === 'utilisation' ? (
+          <Utilisation />
+        ) : propre === 'abonnement' ? (
+          <Abonnement />
+        ) : (
+          <SettingsPanel only={key} />
+        )}
       </ScrollView>
     </View>
   );
