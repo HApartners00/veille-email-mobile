@@ -26,8 +26,13 @@ import { colors, fonts } from '@/lib/theme';
  * 2 minutes) — il n'affiche plus rien d'autre que les panneaux.
  *
  * 🔴 DIFFÉRENCE VOULUE AVEC LE WEB : AUCUNE OFFRE, AUCUN PRIX, AUCUN LIEN vers une
- * formule ou vers le site (règle App Store 3.1.1, et la même chez Google). La
- * proposition de formule part par email, hors de l'app.
+ * formule (règle App Store 3.1.1, et la même chez Google). La proposition de
+ * formule part par email, hors de l'app.
+ *
+ * ⚠️ 26/09/2026 — EXCEPTION DÉCIDÉE PAR HA, RISQUE ASSUMÉ : pour un compte
+ * GRATUIT ou ESSENTIEL, le panneau « épuisé » ajoute « Pour changer de formule, rendez-vous
+ * sur vmail-app.com. » — texte simple, pas de lien, pas de prix. La règle 3.1.1
+ * (lue le 26/09) l'interdit hors des États-Unis ; HA a choisi « partout ».
  */
 
 type Dict = {
@@ -38,6 +43,8 @@ type Dict = {
   /** 26/09/2026 — {p} = 75 ou 90. */
   seuilTitre: string;
   seuilTexte: string;
+  /** 26/09/2026 — Gratuit et Essentiel seulement, texte simple (pas de lien). */
+  site: string;
 };
 
 const STR: Record<string, Dict> = {
@@ -48,6 +55,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Compris',
     seuilTitre: '{p} % de votre crédit du jour utilisé',
     seuilTexte: 'Il se recharge à minuit.',
+    site: 'Pour changer de formule, rendez-vous sur vmail-app.com.',
   },
   en: {
     titre: 'Today’s credit is used up',
@@ -56,6 +64,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Got it',
     seuilTitre: '{p}% of today’s credit used',
     seuilTexte: 'It refills at midnight.',
+    site: 'To change your plan, go to vmail-app.com.',
   },
   es: {
     titre: 'Crédito de hoy agotado',
@@ -64,6 +73,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Entendido',
     seuilTitre: 'Has usado el {p} % del crédito de hoy',
     seuilTexte: 'Se recarga a medianoche.',
+    site: 'Para cambiar de plan, entra en vmail-app.com.',
   },
   de: {
     titre: 'Heutiges Guthaben aufgebraucht',
@@ -72,6 +82,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Verstanden',
     seuilTitre: '{p} % des heutigen Guthabens verbraucht',
     seuilTexte: 'Es wird um Mitternacht aufgeladen.',
+    site: 'Um Ihren Tarif zu wechseln, besuchen Sie vmail-app.com.',
   },
   pt: {
     titre: 'Crédito de hoje esgotado',
@@ -80,6 +91,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Entendido',
     seuilTitre: '{p} % do crédito de hoje utilizado',
     seuilTexte: 'Recarrega à meia-noite.',
+    site: 'Para mudar de plano, aceda a vmail-app.com.',
   },
   it: {
     titre: 'Credito di oggi esaurito',
@@ -88,6 +100,7 @@ const STR: Record<string, Dict> = {
     fermer: 'Ho capito',
     seuilTitre: '{p}% del credito di oggi utilizzato',
     seuilTexte: 'Si ricarica a mezzanotte.',
+    site: 'Per cambiare piano, vai su vmail-app.com.',
   },
   ar: {
     titre: 'نفد رصيد اليوم',
@@ -96,6 +109,7 @@ const STR: Record<string, Dict> = {
     fermer: 'حسنًا',
     seuilTitre: 'استُخدم {p}٪ من رصيد اليوم',
     seuilTexte: 'يُجدَّد عند منتصف الليل.',
+    site: 'لتغيير باقتك، تفضّل بزيارة vmail-app.com.',
   },
   ru: {
     titre: 'Кредит на сегодня исчерпан',
@@ -104,12 +118,14 @@ const STR: Record<string, Dict> = {
     fermer: 'Понятно',
     seuilTitre: 'Использовано {p} % сегодняшнего кредита',
     seuilTexte: 'Пополняется в полночь.',
+    site: 'Чтобы сменить тариф, зайдите на vmail-app.com.',
   },
 };
 
 const CLE_PANNEAU = 'credit.panneau.';
 
 type Panneau = null | 'epuise' | 75 | 90;
+// null = formule inconnue (on n'ajoute rien) ; true = Gratuit ou Essentiel.
 
 export default function CreditOverlay() {
   const { session } = useAuth();
@@ -122,15 +138,20 @@ function CreditOverlayConnecte() {
   const t = STR[locale] ?? STR.en!;
   const insets = useSafeAreaInsets();
   const [panneau, setPanneau] = useState<Panneau>(null);
+  const [changerFormule, setChangerFormule] = useState<boolean | null>(null);
   const dernierRefus = useRef(0);
 
   const lire = useCallback(async () => {
     try {
-      const j = await apiGet<{ epuise?: boolean; reinitialise_a?: string; seuil?: number | null }>(
+      const j = await apiGet<{ epuise?: boolean; reinitialise_a?: string; seuil?: number | null; changer_formule?: boolean }>(
         '/api/credit',
       );
       if (j?.epuise === true) {
-        signalerCreditEpuise({ source: 'jauge', reinitialise_a: j?.reinitialise_a ?? null });
+        signalerCreditEpuise({
+          source: 'jauge',
+          reinitialise_a: j?.reinitialise_a ?? null,
+          changerFormule: typeof j?.changer_formule === 'boolean' ? j.changer_formule : undefined,
+        });
         return;
       }
       if (j?.seuil === 75 || j?.seuil === 90) {
@@ -179,6 +200,7 @@ function CreditOverlayConnecte() {
           if (maintenant - dernierRefus.current < 5000) return;
           dernierRefus.current = maintenant;
         }
+        setChangerFormule(typeof s.changerFormule === 'boolean' ? s.changerFormule : null);
         setPanneau('epuise');
       })();
     });
@@ -209,6 +231,7 @@ function CreditOverlayConnecte() {
               </Text>
               <Text style={styles.corps}>{t.tri}</Text>
               <Text style={styles.demain}>{t.demain}</Text>
+              {changerFormule === true ? <Text style={styles.site}>{t.site}</Text> : null}
             </>
           )}
           <Pressable onPress={fermer} style={styles.bouton} accessibilityRole="button">
@@ -236,6 +259,7 @@ const styles = StyleSheet.create({
   titre: { color: colors.cream, fontFamily: fonts.sansSemibold, fontSize: 19, letterSpacing: -0.2 },
   corps: { color: colors.onDarkMuted, fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 21, marginTop: 8 },
   demain: { color: colors.cream, fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 21, marginTop: 16 },
+  site: { color: colors.cream, fontFamily: fonts.sansSemibold, fontSize: 14.5, lineHeight: 21, marginTop: 12 },
   bouton: {
     marginTop: 22,
     backgroundColor: colors.terracottaVivid,

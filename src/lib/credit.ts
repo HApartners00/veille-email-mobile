@@ -12,7 +12,9 @@
  */
 
 export type SourceEpuise = 'refus' | 'jauge';
-export type SignalEpuise = { source: SourceEpuise; reinitialise_a: string | null };
+/** `changerFormule` (26/09/2026) : Gratuit ou Essentiel — le panneau ajoute
+ *  « rendez-vous sur vmail-app.com ». Inconnu (undefined) = on ne l'affiche pas. */
+export type SignalEpuise = { source: SourceEpuise; reinitialise_a: string | null; changerFormule?: boolean };
 
 type Ecouteur = (s: SignalEpuise) => void;
 const ecouteurs = new Set<Ecouteur>();
@@ -38,7 +40,11 @@ export function signalerCreditEpuise(s: SignalEpuise): void {
 /** Appelé par api.ts sur CHAQUE réponse : ne fait rien sauf sur un 402 du crédit. */
 export function verifierReponseCredit(status: number, json: unknown): void {
   if (status !== 402) return;
-  const j = (json || {}) as { code?: string; reinitialise_a?: string | null };
+  const j = (json || {}) as { code?: string; reinitialise_a?: string | null; plan?: string };
   if (j.code !== 'credit_epuise') return;
-  signalerCreditEpuise({ source: 'refus', reinitialise_a: j.reinitialise_a ?? null });
+  signalerCreditEpuise({
+    source: 'refus',
+    reinitialise_a: j.reinitialise_a ?? null,
+    changerFormule: j.plan === 'gratuit' || j.plan === 'essentiel',
+  });
 }
