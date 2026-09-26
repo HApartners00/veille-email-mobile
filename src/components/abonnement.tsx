@@ -32,6 +32,8 @@ type Dict = {
   gratuit: string;
   offert: string;
   essai: string;
+  essaiNom: string;
+  creditPremium: string;
   renouv: string;
   fin: string;
   changer: string;
@@ -48,6 +50,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Gratuit',
     offert: 'Accès offert',
     essai: 'Essai Premium jusqu’au {d}',
+    essaiNom: 'Essai gratuit',
+    creditPremium: 'Crédit Premium jusqu’au {d}',
     renouv: 'Renouvellement le {d}',
     fin: 'Se termine le {d}',
     changer: 'Changer de formule',
@@ -62,6 +66,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Free',
     offert: 'Complimentary access',
     essai: 'Premium trial until {d}',
+    essaiNom: 'Free trial',
+    creditPremium: 'Premium credit until {d}',
     renouv: 'Renews on {d}',
     fin: 'Ends on {d}',
     changer: 'Change plan',
@@ -76,6 +82,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Gratuito',
     offert: 'Acceso ofrecido',
     essai: 'Prueba Premium hasta el {d}',
+    essaiNom: 'Prueba gratuita',
+    creditPremium: 'Crédito Premium hasta el {d}',
     renouv: 'Se renueva el {d}',
     fin: 'Termina el {d}',
     changer: 'Cambiar de plan',
@@ -90,6 +98,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Gratis',
     offert: 'Kostenloser Zugang',
     essai: 'Premium-Test bis {d}',
+    essaiNom: 'Kostenloser Test',
+    creditPremium: 'Premium-Guthaben bis {d}',
     renouv: 'Verlängerung am {d}',
     fin: 'Endet am {d}',
     changer: 'Tarif wechseln',
@@ -104,6 +114,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Gratuito',
     offert: 'Acesso oferecido',
     essai: 'Teste Premium até {d}',
+    essaiNom: 'Teste gratuito',
+    creditPremium: 'Crédito Premium até {d}',
     renouv: 'Renova a {d}',
     fin: 'Termina a {d}',
     changer: 'Mudar de plano',
@@ -118,6 +130,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Gratuito',
     offert: 'Accesso offerto',
     essai: 'Prova Premium fino al {d}',
+    essaiNom: 'Prova gratuita',
+    creditPremium: 'Credito Premium fino al {d}',
     renouv: 'Rinnovo il {d}',
     fin: 'Termina il {d}',
     changer: 'Cambia piano',
@@ -132,6 +146,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'المجانية',
     offert: 'وصول مجاني',
     essai: 'تجربة Premium حتى {d}',
+    essaiNom: 'تجربة مجانية',
+    creditPremium: 'رصيد Premium حتى {d}',
     renouv: 'يتجدد في {d}',
     fin: 'ينتهي في {d}',
     changer: 'تغيير الباقة',
@@ -146,6 +162,8 @@ const STR: Record<string, Dict> = {
     gratuit: 'Бесплатный',
     offert: 'Бесплатный доступ',
     essai: 'Пробный Premium до {d}',
+    essaiNom: 'Бесплатный пробный период',
+    creditPremium: 'Кредит Premium до {d}',
     renouv: 'Продление {d}',
     fin: 'Заканчивается {d}',
     changer: 'Сменить тариф',
@@ -232,17 +250,22 @@ export default function Abonnement() {
   const offert = s.source === 'offert' || s.acces_offert === true;
   const abonne = s.source === 'subscription';
   const essai = s.source === 'trial';
+  // Essai gratuit (sans abonnement) : on ne dit pas « Premium » en gros, pour ne
+  // pas laisser croire qu'il paie déjà (choix de HA, 26/09) ; le crédit Premium
+  // de l'essai est dit en dessous.
   const nom = offert
     ? t.offert
-    : abonne || essai
-      ? s.premium_trial_active || essai || s.plan === 'premium'
-        ? 'Premium'
-        : 'Essentiel'
-      : t.gratuit;
+    : essai
+      ? t.essaiNom
+      : abonne
+        ? s.premium_trial_active || s.plan === 'premium'
+          ? 'Premium'
+          : 'Essentiel'
+        : t.gratuit;
   const sous = offert
     ? null
     : essai
-      ? t.essai.replace('{d}', date(s.free_trial_ends_at, intl) || '')
+      ? t.creditPremium.replace('{d}', date(s.free_trial_ends_at, intl) || '')
       : s.premium_trial_active
         ? t.essai.replace('{d}', date(s.premium_trial_ends_at, intl) || '')
         : abonne && date(s.current_period_end, intl)
