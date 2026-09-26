@@ -20,6 +20,7 @@ import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import BoutonVmailIA from '@/components/bouton-vmail-ia';
 import { JaugeAvancee } from '@/components/jauge-avancee';
+import { PanneauParrainage } from '@/components/panneau-parrainage';
 import { calculerAvancee } from '@/lib/avancee';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
@@ -310,6 +311,10 @@ export default function Accueil() {
 
       <View style={styles.body}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Programme ambassadeur (26/09/2026, HA) : grand panneau ; le serveur
+            décide quand (3 jours après l'inscription, 1×/semaine, 4 fois en tout). */}
+        <PanneauParrainage />
 
         {/* Jauge d'avancée (26/09/2026) — juste au-dessus de la section Urgent.
             Rien s'il n'y a aucun mail à traiter aujourd'hui. */}
