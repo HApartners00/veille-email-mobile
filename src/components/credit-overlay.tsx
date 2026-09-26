@@ -5,136 +5,111 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/auth';
 import { useI18n } from '@/context/i18n';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { ecouterCreditEpuise, signalerCreditEpuise, type SignalEpuise } from '@/lib/credit';
 import { colors, fonts } from '@/lib/theme';
 
 /**
- * LA JAUGE ET LE PANNEAU DU CRÉDIT DU JOUR — APP — 25/09/2026.
+ * LES PANNEAUX DU CRÉDIT DU JOUR — APP.
  *
- * Même comportement que le web (décisions de HA) :
- *   · une barre fine en haut de l'écran ; un toucher dit « il vous reste N % » ;
- *   · un panneau « crédit du jour épuisé » dès qu'une action est refusée, et une
- *     fois par jour à l'ouverture si le crédit est déjà vide.
+ * 25/09/2026 : une barre fine en haut de l'écran + un panneau « crédit épuisé ».
+ * 26/09/2026 — DÉCISION DE HA : LA BARRE EST RETIRÉE. À la place, un PANNEAU
+ * prévient à 75 % puis à 90 % du crédit du jour (« 75 % de votre crédit du jour
+ * utilisé — Il se recharge à minuit. »). Une fois par COMPTE et par jour : le
+ * serveur réserve le panneau (POST /api/credit/seuil) avant qu'on l'affiche, donc
+ * vu sur le web = pas remontré ici. Le suivi reste dans Réglages › Utilisation.
+ * Le panneau « épuisé » à 100 % est gardé tel quel.
+ *
+ * ⚠️ La barre faisait aussi un travail invisible : elle ouvrait le panneau
+ * « épuisé » une fois par jour quand le crédit était déjà vide à l'ouverture.
+ * Ce composant garde donc la LECTURE (ouverture, retour dans l'app, toutes les
+ * 2 minutes) — il n'affiche plus rien d'autre que les panneaux.
  *
  * 🔴 DIFFÉRENCE VOULUE AVEC LE WEB : AUCUNE OFFRE, AUCUN PRIX, AUCUN LIEN vers une
- * formule ou vers le site (règle App Store 3.1.1, et la même chez Google). Le
- * panneau dit seulement que le crédit revient à minuit. La proposition de
- * formule part par email, hors de l'app.
- *
- * TROIS ÉTATS pour la jauge, jamais confondus : en lecture (rien), lue (la
- * barre à sa vraie longueur), illisible (barre grise, « indisponible »).
+ * formule ou vers le site (règle App Store 3.1.1, et la même chez Google). La
+ * proposition de formule part par email, hors de l'app.
  */
 
 type Dict = {
-  reste: string; // {p}
-  vide: string;
-  recharge: string;
-  indispo: string;
   titre: string;
   tri: string;
   demain: string;
   fermer: string;
-  aria: string;
+  /** 26/09/2026 — {p} = 75 ou 90. */
+  seuilTitre: string;
+  seuilTexte: string;
 };
 
 const STR: Record<string, Dict> = {
   fr: {
-    reste: 'Il vous reste {p} % de votre crédit du jour.',
-    vide: 'Crédit du jour épuisé. Revenez demain.',
-    recharge: 'Se recharge à minuit.',
-    indispo: 'Crédit du jour indisponible pour le moment.',
     titre: 'Crédit du jour épuisé',
     tri: 'Il se recharge à minuit. Le tri de vos nouveaux emails reprendra à ce moment-là.',
     demain: 'Revenez demain : tout reprendra automatiquement.',
     fermer: 'Compris',
-    aria: 'Crédit du jour',
+    seuilTitre: '{p} % de votre crédit du jour utilisé',
+    seuilTexte: 'Il se recharge à minuit.',
   },
   en: {
-    reste: 'You have {p}% of today’s credit left.',
-    vide: 'Today’s credit is used up. Come back tomorrow.',
-    recharge: 'Refills at midnight.',
-    indispo: 'Today’s credit is unavailable right now.',
     titre: 'Today’s credit is used up',
     tri: 'It refills at midnight. Sorting of your new emails resumes then.',
     demain: 'Come back tomorrow: everything restarts on its own.',
     fermer: 'Got it',
-    aria: 'Today’s credit',
+    seuilTitre: '{p}% of today’s credit used',
+    seuilTexte: 'It refills at midnight.',
   },
   es: {
-    reste: 'Te queda un {p} % del crédito de hoy.',
-    vide: 'El crédito de hoy se ha agotado. Vuelve mañana.',
-    recharge: 'Se recarga a medianoche.',
-    indispo: 'El crédito de hoy no está disponible en este momento.',
     titre: 'Crédito de hoy agotado',
     tri: 'Se recarga a medianoche. La clasificación de tus nuevos correos se reanudará entonces.',
     demain: 'Vuelve mañana: todo se reanudará solo.',
     fermer: 'Entendido',
-    aria: 'Crédito de hoy',
+    seuilTitre: 'Has usado el {p} % del crédito de hoy',
+    seuilTexte: 'Se recarga a medianoche.',
   },
   de: {
-    reste: 'Ihnen bleiben {p} % des heutigen Guthabens.',
-    vide: 'Das heutige Guthaben ist aufgebraucht. Kommen Sie morgen wieder.',
-    recharge: 'Wird um Mitternacht aufgeladen.',
-    indispo: 'Das heutige Guthaben ist gerade nicht verfügbar.',
     titre: 'Heutiges Guthaben aufgebraucht',
     tri: 'Es wird um Mitternacht aufgeladen. Dann wird auch die Sortierung neuer E-Mails fortgesetzt.',
     demain: 'Kommen Sie morgen wieder: alles läuft von selbst weiter.',
     fermer: 'Verstanden',
-    aria: 'Heutiges Guthaben',
+    seuilTitre: '{p} % des heutigen Guthabens verbraucht',
+    seuilTexte: 'Es wird um Mitternacht aufgeladen.',
   },
   pt: {
-    reste: 'Resta-lhe {p} % do crédito de hoje.',
-    vide: 'O crédito de hoje esgotou-se. Volte amanhã.',
-    recharge: 'Recarrega à meia-noite.',
-    indispo: 'O crédito de hoje está indisponível de momento.',
     titre: 'Crédito de hoje esgotado',
     tri: 'Recarrega à meia-noite. A triagem dos seus novos emails retoma nessa altura.',
     demain: 'Volte amanhã: tudo recomeça sozinho.',
     fermer: 'Entendido',
-    aria: 'Crédito de hoje',
+    seuilTitre: '{p} % do crédito de hoje utilizado',
+    seuilTexte: 'Recarrega à meia-noite.',
   },
   it: {
-    reste: 'Ti resta il {p}% del credito di oggi.',
-    vide: 'Il credito di oggi è esaurito. Torna domani.',
-    recharge: 'Si ricarica a mezzanotte.',
-    indispo: 'Il credito di oggi non è disponibile al momento.',
     titre: 'Credito di oggi esaurito',
     tri: 'Si ricarica a mezzanotte. L’ordinamento delle nuove email riprenderà allora.',
     demain: 'Torna domani: tutto ripartirà da solo.',
     fermer: 'Ho capito',
-    aria: 'Credito di oggi',
+    seuilTitre: '{p}% del credito di oggi utilizzato',
+    seuilTexte: 'Si ricarica a mezzanotte.',
   },
   ar: {
-    reste: 'تبقّى لك {p}٪ من رصيد اليوم.',
-    vide: 'نفد رصيد اليوم. عُد غدًا.',
-    recharge: 'يُجدَّد عند منتصف الليل.',
-    indispo: 'رصيد اليوم غير متاح حاليًا.',
     titre: 'نفد رصيد اليوم',
     tri: 'يتجدّد عند منتصف الليل، ويُستأنف حينها فرز رسائلك الجديدة.',
     demain: 'عُد غدًا: سيعود كل شيء تلقائيًا.',
     fermer: 'حسنًا',
-    aria: 'رصيد اليوم',
+    seuilTitre: 'استُخدم {p}٪ من رصيد اليوم',
+    seuilTexte: 'يُجدَّد عند منتصف الليل.',
   },
   ru: {
-    reste: 'У вас осталось {p} % сегодняшнего кредита.',
-    vide: 'Кредит на сегодня исчерпан. Возвращайтесь завтра.',
-    recharge: 'Пополняется в полночь.',
-    indispo: 'Кредит на сегодня сейчас недоступен.',
     titre: 'Кредит на сегодня исчерпан',
     tri: 'Он пополнится в полночь. Тогда же возобновится сортировка новых писем.',
     demain: 'Возвращайтесь завтра: всё возобновится само.',
     fermer: 'Понятно',
-    aria: 'Кредит на сегодня',
+    seuilTitre: 'Использовано {p} % сегодняшнего кредита',
+    seuilTexte: 'Пополняется в полночь.',
   },
 };
 
-type Etat =
-  | { kind: 'lecture' }
-  | { kind: 'lu'; part: number; epuise: boolean }
-  | { kind: 'illisible' };
-
 const CLE_PANNEAU = 'credit.panneau.';
+
+type Panneau = null | 'epuise' | 75 | 90;
 
 export default function CreditOverlay() {
   const { session } = useAuth();
@@ -146,28 +121,30 @@ function CreditOverlayConnecte() {
   const { locale } = useI18n();
   const t = STR[locale] ?? STR.en!;
   const insets = useSafeAreaInsets();
-  const [etat, setEtat] = useState<Etat>({ kind: 'lecture' });
-  const [bulle, setBulle] = useState(false);
-  const [panneau, setPanneau] = useState(false);
+  const [panneau, setPanneau] = useState<Panneau>(null);
   const dernierRefus = useRef(0);
 
   const lire = useCallback(async () => {
     try {
-      const j = await apiGet<{ part_restante?: number; epuise?: boolean; reinitialise_a?: string }>(
+      const j = await apiGet<{ epuise?: boolean; reinitialise_a?: string; seuil?: number | null }>(
         '/api/credit',
       );
-      const part = Math.max(0, Math.min(1, Number(j?.part_restante)));
-      if (!Number.isFinite(part)) {
-        console.error('[jauge] réponse sans part_restante exploitable');
-        setEtat({ kind: 'illisible' });
+      if (j?.epuise === true) {
+        signalerCreditEpuise({ source: 'jauge', reinitialise_a: j?.reinitialise_a ?? null });
         return;
       }
-      const epuise = j?.epuise === true;
-      setEtat({ kind: 'lu', part, epuise });
-      if (epuise) signalerCreditEpuise({ source: 'jauge', reinitialise_a: j?.reinitialise_a ?? null });
+      if (j?.seuil === 75 || j?.seuil === 90) {
+        // Le serveur réserve le panneau : s'il a déjà été montré (web, autre
+        // appareil), il répond null et on n'affiche rien.
+        const k = await apiPost<{ seuil?: number | null }>('/api/credit/seuil', {});
+        if (k?.seuil === 75 || k?.seuil === 90) {
+          const s = k.seuil;
+          // Jamais par-dessus le panneau « épuisé ».
+          setPanneau((p) => (p === 'epuise' ? p : s));
+        }
+      }
     } catch (e) {
-      console.error('[jauge] lecture impossible', e);
-      setEtat({ kind: 'illisible' });
+      console.error('[crédit] lecture impossible', e);
     }
   }, []);
 
@@ -184,7 +161,8 @@ function CreditOverlayConnecte() {
     };
   }, [lire]);
 
-  // Le panneau : à chaque refus (sauf rafale), une fois par jour quand c'est la jauge.
+  // Le panneau « épuisé » : à chaque refus (sauf rafale), une fois par jour quand
+  // c'est la lecture à l'ouverture qui le constate.
   useEffect(() => {
     return ecouterCreditEpuise((s: SignalEpuise) => {
       void (async () => {
@@ -200,83 +178,49 @@ function CreditOverlayConnecte() {
           const maintenant = Date.now();
           if (maintenant - dernierRefus.current < 5000) return;
           dernierRefus.current = maintenant;
-          // Un refus vient d'arriver : la jauge doit le montrer tout de suite.
-          setEtat((e) => (e.kind === 'lu' ? { kind: 'lu', part: 0, epuise: true } : e));
         }
-        setPanneau(true);
+        setPanneau('epuise');
       })();
     });
   }, []);
 
-  if (etat.kind === 'lecture') return null;
-
-  const pct = etat.kind === 'lu' ? Math.round(etat.part * 100) : 0;
-  const message =
-    etat.kind === 'illisible' ? t.indispo : etat.epuise ? t.vide : t.reste.replace('{p}', String(pct));
+  const fermer = () => setPanneau(null);
+  const seuil = panneau === 75 || panneau === 90 ? panneau : null;
 
   return (
-    <>
-      <View pointerEvents="box-none" style={[styles.haut, { top: insets.top }]}>
-        <Pressable
-          onPress={() => setBulle((b) => !b)}
-          hitSlop={{ top: 8, bottom: 16, left: 0, right: 0 }}
-          accessibilityRole="button"
-          accessibilityLabel={t.aria}
-          accessibilityHint={message}
-          style={styles.piste}
-        >
-          {etat.kind === 'lu' ? (
-            <View style={[styles.rempli, { width: `${pct}%` }]} />
+    <Modal visible={panneau !== null} transparent animationType="fade" onRequestClose={fermer}>
+      <Pressable style={styles.voile} onPress={fermer}>
+        <Pressable style={[styles.feuille, { paddingBottom: 24 + insets.bottom }]} onPress={() => {}}>
+          {/* Ce qu'il reste du crédit du jour : rien (épuisé), 25 % ou 10 %. */}
+          <View style={styles.jaugeVide}>
+            {seuil ? <View style={[styles.jaugeReste, { width: `${100 - seuil}%` }]} /> : null}
+          </View>
+          {seuil ? (
+            <>
+              <Text style={styles.titre} accessibilityRole="header">
+                {t.seuilTitre.replace('{p}', String(seuil))}
+              </Text>
+              <Text style={styles.corps}>{t.seuilTexte}</Text>
+            </>
           ) : (
-            <View style={[styles.rempli, styles.gris, { width: '100%' }]} />
+            <>
+              <Text style={styles.titre} accessibilityRole="header">
+                {t.titre}
+              </Text>
+              <Text style={styles.corps}>{t.tri}</Text>
+              <Text style={styles.demain}>{t.demain}</Text>
+            </>
           )}
-        </Pressable>
-        {bulle ? (
-          <Pressable onPress={() => setBulle(false)} style={styles.bulle}>
-            <Text style={styles.bulleTexte}>{message}</Text>
-            {etat.kind === 'lu' ? <Text style={styles.bulleSous}>{t.recharge}</Text> : null}
-          </Pressable>
-        ) : null}
-      </View>
-
-      <Modal visible={panneau} transparent animationType="fade" onRequestClose={() => setPanneau(false)}>
-        <Pressable style={styles.voile} onPress={() => setPanneau(false)}>
-          <Pressable style={[styles.feuille, { paddingBottom: 24 + insets.bottom }]} onPress={() => {}}>
-            <View style={styles.jaugeVide} />
-            <Text style={styles.titre} accessibilityRole="header">
-              {t.titre}
-            </Text>
-            <Text style={styles.corps}>{t.tri}</Text>
-            <Text style={styles.demain}>{t.demain}</Text>
-            <Pressable onPress={() => setPanneau(false)} style={styles.bouton} accessibilityRole="button">
-              <Text style={styles.boutonTexte}>{t.fermer}</Text>
-            </Pressable>
+          <Pressable onPress={fermer} style={styles.bouton} accessibilityRole="button">
+            <Text style={styles.boutonTexte}>{t.fermer}</Text>
           </Pressable>
         </Pressable>
-      </Modal>
-    </>
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  haut: { position: 'absolute', left: 0, right: 0, zIndex: 50, elevation: 50 },
-  piste: { height: 3, backgroundColor: 'rgba(255,255,255,0.10)' },
-  rempli: { height: 3, backgroundColor: colors.terracottaVivid },
-  gris: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  bulle: {
-    position: 'absolute',
-    top: 10,
-    right: 16,
-    maxWidth: 300,
-    backgroundColor: colors.charcoalSoft,
-    borderColor: colors.charline,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  bulleTexte: { color: colors.cream, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
-  bulleSous: { color: colors.onDarkMuted, fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
   voile: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   feuille: {
     backgroundColor: colors.charcoal,
@@ -287,7 +231,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
   },
-  jaugeVide: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.10)', marginBottom: 20 },
+  jaugeVide: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.10)', marginBottom: 20, overflow: 'hidden' },
+  jaugeReste: { height: 3, borderRadius: 2, backgroundColor: colors.terracottaVivid },
   titre: { color: colors.cream, fontFamily: fonts.sansSemibold, fontSize: 19, letterSpacing: -0.2 },
   corps: { color: colors.onDarkMuted, fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 21, marginTop: 8 },
   demain: { color: colors.cream, fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 21, marginTop: 16 },

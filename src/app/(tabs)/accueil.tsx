@@ -19,6 +19,8 @@ import { effectivePriority, PRIORITIES, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import BoutonVmailIA from '@/components/bouton-vmail-ia';
+import { JaugeAvancee } from '@/components/jauge-avancee';
+import { calculerAvancee } from '@/lib/avancee';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
@@ -34,6 +36,8 @@ type Item = {
   status: string;
   tags: string[];
   received_at: string;
+  /** 26/09/2026 — réponse envoyée depuis Vmail (jauge d'avancée). */
+  repondu_le: string | null;
 };
 
 // Teintes claires des catégories, lisibles sur le bandeau charbon (ligne recap).
@@ -94,6 +98,10 @@ export default function Accueil() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
+  // 26/09/2026 — les mails reçus AUJOURD'HUI, bruts (archivés et supprimés
+  // compris) : la jauge d'avancée les compte comme traités. `items` peut, lui,
+  // être le repli « plus récents » : il ne sert pas à la jauge.
+  const [aujourdhui, setAujourdhui] = useState<Item[]>([]);
   // 22/09/2026 — vrai quand ce compte n'a encore AUCUN mail en base (requête
   // sans filtre de date vide). `null` tant qu'on ne sait pas.
   const [aucunMail, setAucunMail] = useState<boolean | null>(null);
@@ -131,13 +139,13 @@ export default function Accueil() {
       const [todayRes, recentRes, rulesRes] = await Promise.all([
         supabase
           .from('items')
-          .select('id, title, author, preview, url, status, tags, received_at')
+          .select('id, title, author, preview, url, status, tags, received_at, repondu_le')
           .gte('received_at', start.toISOString())
           .order('received_at', { ascending: false })
           .limit(RECAP_CAP),
         supabase
           .from('items')
-          .select('id, title, author, preview, url, status, tags, received_at')
+          .select('id, title, author, preview, url, status, tags, received_at, repondu_le')
           .order('received_at', { ascending: false })
           .limit(80),
         supabase.from('classification_rules').select('match_type, match_value, category'),
@@ -150,6 +158,7 @@ export default function Accueil() {
         // S'il y a des emails aujourd'hui on affiche la journée complète,
         // sinon on retombe sur les plus récents.
         setItems(today.length ? today : recent);
+        setAujourdhui(today);
         setAucunMail(today.length === 0 && recent.length === 0);
         setRules((rulesRes.data ?? []) as Rule[]);
       }
@@ -223,6 +232,18 @@ export default function Accueil() {
 
   const total = base.list.length;
 
+  // JAUGE D'AVANCÉE (26/09/2026, HA) : mails du jour qui demandent une action, et
+  // combien sont traités. Règle : lib/avancee.ts (jumelle du web). Les rapports
+  // Vmail sont écartés comme partout sur cet écran.
+  const avancee = useMemo(
+    () =>
+      calculerAvancee(
+        aujourdhui.filter((it) => !/^\s*vmail\s*[—–-]/i.test((it.title || '').toLowerCase())),
+        rules,
+      ),
+    [aujourdhui, rules],
+  );
+
   // Premier import : tant qu'aucun mail n'est arrivé, on ne dit PAS « Boîte à
   // jour » — on dit ce qui se passe, et l'écran se recharge tout seul.
   const premierImport = usePremierImport(aucunMail, load);
@@ -289,6 +310,10 @@ export default function Accueil() {
 
       <View style={styles.body}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Jauge d'avancée (26/09/2026) — juste au-dessus de la section Urgent.
+            Rien s'il n'y a aucun mail à traiter aujourd'hui. */}
+        <JaugeAvancee avancee={avancee} />
 
         {/* Sections par catégorie */}
         {PRIORITIES.map((p) => {

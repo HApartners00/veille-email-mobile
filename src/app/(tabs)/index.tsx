@@ -22,7 +22,6 @@ import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/p
 import { prioLabel } from '@/lib/i18n';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
-import BoutonVmailIA from '@/components/bouton-vmail-ia';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
 import { EmailRow } from '@/components/email-row';
@@ -671,7 +670,8 @@ export default function Feed() {
                   {/* 25/09/2026 — la pilule « Assistant » devient la bille « Vmail IA »,
                       comme sur l'Accueil. Ici sans le mot ni la bulle : la rangée
                       est déjà pleine, et l'Accueil les a déjà présentés. */}
-                  <BoutonVmailIA taille={30} libelle={false} presentation={false} />
+                  {/* 26/09/2026 — la goutte est RETIRÉE de l'onglet Emails (décision
+                      de HA) : elle ne vit plus que dans l'Accueil. Rien à la place. */}
                   {/* ÉCRIRE UN MAIL — 13/08/2026, demande de HA. Le seul bouton
                       de cet écran qui CRÉE quelque chose plutôt que de filtrer ce
                       qui est déjà là : il est donc plein, pas en contour, et posé
