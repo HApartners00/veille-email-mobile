@@ -39,15 +39,21 @@ export async function apiPost<T = any>(path: string, body: unknown): Promise<T> 
  * sont perdus. L'assistant en a besoin pour dire la bonne chose (plafond
  * quotidien, délai dépassé) au lieu d'afficher un message serveur en français
  * à un utilisateur anglophone. Une panne réseau, elle, jette toujours.
+ *
+ * `options.signal` (06/10/2026) : pour COUPER un appel qui dure trop. Sans lui, un réseau
+ * qui lâche laisse l'écran sur « Vérification en cours… » sans fin. L'appelant passe le
+ * signal d'un `AbortController` ; à la coupure, `fetch` jette une erreur nommée `AbortError`.
  */
 export async function apiPostBrut<T = any>(
   path: string,
   body: unknown,
+  options?: { signal?: AbortSignal },
 ): Promise<{ ok: boolean; status: number; json: T }> {
   const res = await fetch(API_BASE + path, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
   const json = (await res.json().catch(() => ({}))) as T;
   verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
