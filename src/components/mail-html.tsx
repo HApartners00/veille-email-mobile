@@ -130,7 +130,18 @@ const MESURE = `
 })();
 `;
 
-export default function MailHtml({ html }: { html: string }) {
+export default function MailHtml({
+  html,
+  fond = '#faf7f0',
+}: {
+  html: string;
+  /**
+   * Couleur de la feuille. Par defaut le presque-blanc d'origine (mails ENVOYES).
+   * La fiche d'un mail RECU passe le creme des cartes : voir la « lettre » dans
+   * app/email/[id].tsx (06/10/2026).
+   */
+  fond?: string;
+}) {
   // 160 px et non 1 : a 1 px le bloc s'effondrait completement avant de sauter
   // a sa vraie hauteur. Une reserve modeste rend l'arrivee du mail continue.
   const [hauteur, setHauteur] = useState(160);
@@ -147,7 +158,7 @@ export default function MailHtml({ html }: { html: string }) {
      l'interface passe en sombre, le message reste une feuille claire. Ces deux
      couleurs sont donc VOLONTAIREMENT ecrites en dur et ne suivent pas le
      theme — c'est le seul endroit de l'app dans ce cas. */
-  html, body { margin:0; padding:0; background:#faf7f0; -webkit-text-size-adjust:100%; }
+  html, body { margin:0; padding:0; background:${fond}; -webkit-text-size-adjust:100%; }
   /* Le texte du mail ne colle pas aux bords de la feuille — signale par HA
      le 18/08/2026 : « le mail et son encadre, c'est pas joli, ca colle les
      bords ». La marge est posee sur le body et non sur un conteneur React :
@@ -179,7 +190,7 @@ export default function MailHtml({ html }: { html: string }) {
   img { max-width:100% !important; height:auto !important; }
   a { color:${colors.terracotta}; }
 </style></head><body>${assainir(html)}</body></html>`,
-    [html],
+    [html, fond],
   );
 
   return (

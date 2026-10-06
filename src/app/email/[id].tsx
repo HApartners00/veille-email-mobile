@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,7 +34,7 @@ import {
 import { prioLabel } from '@/lib/i18n';
 import { useMailActions } from '@/components/mail-actions';
 import MailHtml from '@/components/mail-html';
-import { ressembleAHtml } from '@/lib/mail-format';
+import { ressembleAHtml, senderInitials } from '@/lib/mail-format';
 import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import PanneauVoix from '@/components/panneau-voix';
@@ -182,6 +181,17 @@ function LinkifiedText({ text, style }: { text: string; style?: any }) {
  * HA a dit « c'etait bien comme c'etait », et une couleur de marque ne se
  * retouche pas parce qu'un fond a change d'un cote seulement.
  */
+/**
+ * 06/10/2026 — « À répondre » (vert) et « Info » (gris) dans le BANDEAU SOMBRE.
+ * Leurs `color` sont faites pour une carte creme : #28704d ne donne que 2,78:1
+ * sur le charbon. Ces deux-la prennent donc leur teinte claire (8,96:1 et
+ * 6,52:1). Urgent et Important gardent leur couleur : non demande.
+ */
+const CAT_SUR_SOMBRE: Record<string, string> = {
+  human: '#7fcf9f',
+  info: '#a8a291',
+};
+
 // Libellé de la section « Message » (corps de l'email) — dict local 8 langues.
 const BODY_STR: Record<string, string> = {
   fr: 'Message',
@@ -485,7 +495,6 @@ export default function EmailDetail() {
   // sur mobile il faut la référence de la ScrollView et l'ordonnée du bloc.
   const pageRef = useRef<ScrollView | null>(null);
   const yCorps = useRef(0);
-  const { height: hauteurEcran } = useWindowDimensions();
 
   // Brouillon
   const [draft, setDraft] = useState('');
@@ -1161,14 +1170,29 @@ export default function EmailDetail() {
   // 29 000 caractères de mail pour le remplacer par 200 d'aperçu.
   let body = htmlToText(corpsServeur ?? (item?.content || item?.body || ''));
   const lireStr = LIRE_STR[locale] ?? LIRE_STR.en;
-  // 32 % de l'écran — aligné sur le web (components/mail-body-panel.tsx) après
-  // l'arbitrage HA du 11/08. Plancher à 200 px : il doit rester SOUS la valeur
-  // calculée sur les écrans courants, sinon il écraserait le réglage. Sur un
-  // écran de 844 pt : 270 pt. L'ancien plancher de 260 px l'aurait annulé dès
-  // qu'un appareil descend sous 813 pt.
-  const hauteurRepliee = Math.max(200, Math.round(hauteurEcran * 0.32));
-  // 48 px de marge : en dessous, déplier ferait sauter l'écran pour trois lignes.
-  const corpsDeborde = hauteurCorps > hauteurRepliee + 48;
+  // LA « LETTRE » — 06/10/2026, choix de HA sur maquette (« 2. Lettre crème »),
+  // avec sa réserve : « pas autant ouvert, ça prend trop de place aujourd'hui et
+  // ça fait trop d'infos pour l'utilisateur ». Repliée, la feuille ne montre plus
+  // qu'environ 4 lignes (108 pt) au lieu de 32 % de l'écran (270 pt sur un écran
+  // de 844 pt). Même valeur que le web : `HAUTEUR_LETTRE` dans
+  // components/mail-body-panel.tsx.
+  const hauteurRepliee = 108;
+  // 24 px de marge : en dessous, déplier ferait sauter l'écran pour une ligne.
+  const corpsDeborde = hauteurCorps > hauteurRepliee + 24;
+  // En-tête de la lettre : le nom seul (sans l'adresse), ses initiales, la date courte.
+  const auteurLettre = item?.author ?? '';
+  const nomLettre =
+    (auteurLettre.includes('<') ? auteurLettre.split('<')[0] : auteurLettre).replace(/"/g, '').trim() ||
+    auteurLettre ||
+    t.common.unknownSender;
+  const dateLettre = item
+    ? new Date(item.received_at).toLocaleString(intl, {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
   if (!body) {
     body = htmlToText(item?.preview || '');
   }
@@ -1229,9 +1253,9 @@ export default function EmailDetail() {
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           {p ? (
-            <View style={[styles.navCat, { borderColor: p.color }]}>
-              <View style={[styles.navCatDot, { backgroundColor: p.color }]} />
-              <Text style={[styles.navCatText, { color: p.color }]}>
+            <View style={[styles.navCat, { borderColor: CAT_SUR_SOMBRE[p.key] ?? p.color }]}>
+              <View style={[styles.navCatDot, { backgroundColor: CAT_SUR_SOMBRE[p.key] ?? p.color }]} />
+              <Text style={[styles.navCatText, { color: CAT_SUR_SOMBRE[p.key] ?? p.color }]}>
                 {prioLabel(t, p.key).toUpperCase()}
               </Text>
             </View>
@@ -1336,6 +1360,16 @@ export default function EmailDetail() {
                   hauteur RÉELLE. Pas de ScrollView imbriquée : deux zones de
                   défilement se disputeraient le doigt, et c'est exactement le
                   « overflow: scroll posé à la va-vite » dont HA ne veut pas. */}
+              <View style={styles.lettre}>
+                <View style={styles.lettreTete}>
+                  <View style={styles.lettreRond}>
+                    <Text style={styles.lettreInitiales}>{senderInitials(item?.author ?? null)}</Text>
+                  </View>
+                  <Text style={styles.lettreNom} numberOfLines={1}>
+                    {nomLettre}
+                  </Text>
+                  <Text style={styles.lettreDate}>{dateLettre}</Text>
+                </View>
               <View
                 style={
                   deplie || !corpsDeborde
@@ -1367,7 +1401,7 @@ export default function EmailDetail() {
                       (mails en texte brut), ou si la lecture chez le fournisseur a
                       échoué et qu'on n'a que l'aperçu de la base. */}
                   {corpsServeur && ressembleAHtml(corpsServeur) ? (
-                    <MailHtml html={corpsServeur} />
+                    <MailHtml html={corpsServeur} fond={colors.surface} />
                   ) : (
                     // 17/09/2026 (piste A) : meme feuille claire que le mail HTML.
                     <View style={styles.papier}>
@@ -1384,14 +1418,16 @@ export default function EmailDetail() {
                   // s'en priver, on ajoutait déjà react-native-webview.
                   <LinearGradient
                     pointerEvents="none"
-                    colors={[colors.fondT, colors.fond]}
+                    colors={[colors.surfaceT, colors.surface]}
                     style={styles.fondu}
                   />
                 ) : null}
               </View>
+              </View>
               {corpsDeborde ? (
                 <Pressable
-                  style={styles.deplierBtn}
+                  style={styles.deplierLien}
+                  hitSlop={8}
                   onPress={() => {
                     const onReplie = deplie;
                     setDeplie(!onReplie);
@@ -1408,7 +1444,7 @@ export default function EmailDetail() {
                   }}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.deplierBtnText}>
+                  <Text style={styles.linkBtnText}>
                     {deplie ? lireStr.replier : lireStr.tout}
                   </Text>
                 </Pressable>
@@ -1599,7 +1635,44 @@ export default function EmailDetail() {
                   </View>
                 ) : null}
 
-                {/* Pièces jointes */}
+                {/* Reformulations rapides */}
+                <Text style={styles.refineLabel}>{t.email.adjust}</Text>
+                <View style={styles.chipsWrap}>
+                  {QUICK_REFINEMENTS.map((q) => (
+                    <Pressable
+                      key={q.label}
+                      style={styles.refineChip}
+                      disabled={genLoading}
+                      onPress={() => generate(true, q.instruction)}
+                    >
+                      <Text style={styles.refineChipText}>{q.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* 06/10/2026, demande de HA : l'encadré « …ou une consigne libre… »
+                    prend « le même ton de couleur » que le bouton « Écrire avec
+                    l'IA » d'un message neuf (components/bouton-ia-irise.tsx) : fond
+                    sombre, contour irisé. Le contour est un dégradé posé derrière
+                    le champ, comme pour le bouton. */}
+                <LinearGradient
+                  colors={['#b38cff', '#ff7ad9', '#7fe6ff']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.instrContour}
+                >
+                  <TextInput
+                    style={styles.instrIrise}
+                    value={instructions}
+                    onChangeText={setInstructions}
+                    placeholder={t.email.instrPlaceholder}
+                    placeholderTextColor="rgba(234,225,208,0.5)"
+                  />
+                </LinearGradient>
+
+                {/* 06/10/2026, demande de HA : « la section PJ doit être en dessous des
+                    propositions de modifs ». Elle était AU-DESSUS ; le web l'avait
+                    déjà dessous (app/email/draft-button.tsx). */}
                 <Text style={styles.refineLabel}>{attStr.label}</Text>
                 {atts.map((a) => (
                   <View key={a.id} style={styles.attRow}>
@@ -1625,28 +1698,6 @@ export default function EmailDetail() {
                 </Pressable>
                 {attError ? <Text style={styles.attError}>{attError}</Text> : null}
 
-                {/* Reformulations rapides */}
-                <Text style={styles.refineLabel}>{t.email.adjust}</Text>
-                <View style={styles.chipsWrap}>
-                  {QUICK_REFINEMENTS.map((q) => (
-                    <Pressable
-                      key={q.label}
-                      style={styles.refineChip}
-                      disabled={genLoading}
-                      onPress={() => generate(true, q.instruction)}
-                    >
-                      <Text style={styles.refineChipText}>{q.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <TextInput
-                  style={styles.instr}
-                  value={instructions}
-                  onChangeText={setInstructions}
-                  placeholder={t.email.instrPlaceholder}
-                  placeholderTextColor={colors.hint}
-                />
                 <View style={styles.row}>
                   <Pressable
                     style={[styles.secondaryBtn, !instructions.trim() && styles.btnDisabled]}
@@ -2248,12 +2299,36 @@ const styles = StyleSheet.create({
   // sombre — donc invisible. Ils passent en clair. Ce sont les SEULS de l'ecran
   // dans ce cas : tout le reste vit dans une carte claire.
   content: { fontFamily: fonts.sans, fontSize: 15, color: colors.onDark, lineHeight: 24 },
+  // 06/10/2026 : le texte du mail est pose DANS la lettre, qui porte le fond et
+  // les coins. `papier` ne garde que ses marges.
   papier: {
-    backgroundColor: '#faf7f0',
-    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  // La lettre : le creme des cartes de l'app, l'expediteur et la date en tete.
+  lettre: { backgroundColor: colors.surface, borderRadius: radius.md, overflow: 'hidden' },
+  lettreTete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardline,
+  },
+  lettreRond: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.avatar,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lettreInitiales: { fontFamily: fonts.sansBold, fontSize: 10.5, color: colors.taupe },
+  lettreNom: { flex: 1, fontFamily: fonts.sansBold, fontSize: 13, color: colors.ink },
+  lettreDate: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.muted },
+  // « Afficher tout » : un simple lien sous la lettre (maquette), plus un bouton encadre.
+  deplierLien: { marginTop: spacing.sm, alignSelf: 'flex-start' },
   contentPapier: { fontFamily: fonts.sans, fontSize: 15, color: '#2a2a25', lineHeight: 24 },
   corpsNote: {
     fontFamily: fonts.sans,
@@ -2264,7 +2339,8 @@ const styles = StyleSheet.create({
   },
   // 52 px et non 76 : sur un cadre de 270 pt, l'ancien fondu rendait illisible
   // près d'un tiers de ce qu'on donne à lire. Même proportion que le web.
-  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 52 },
+  // 36 px : sur une feuille repliee a 108 pt, 52 px mangeraient la moitie du texte.
+  fondu: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 36 },
   deplierBtn: {
     marginTop: spacing.md,
     paddingVertical: 11,
@@ -2441,6 +2517,17 @@ const styles = StyleSheet.create({
     borderColor: colors.charline,
   },
   refineChipText: { fontFamily: fonts.sansMedium, fontSize: 12, color: 'rgba(234,225,208,0.85)' },
+  // Consigne libre irisee : le degrade fait le contour, le champ est pose dessus.
+  instrContour: { borderRadius: radius.sm, padding: 1.5 },
+  instrIrise: {
+    fontFamily: fonts.sans,
+    backgroundColor: colors.charcoalSoft,
+    borderRadius: radius.sm - 1.5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: colors.onDark,
+  },
   instr: {
     fontFamily: fonts.sans,
     backgroundColor: 'rgba(234,225,208,0.05)',

@@ -92,8 +92,8 @@ export const colors = {
 export const priorityColors: Record<string, string> = {
   urgent: '#c2410c',
   important: '#b8860b',
-  human: '#4a443a',
-  info: '#3f7e58',
+  human: '#28704d', // 06/10/2026 : vert (etait #4a443a)
+  info: '#6b6455', // 06/10/2026 : gris (etait #3f7e58)
 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

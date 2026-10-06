@@ -234,15 +234,17 @@ const styles = StyleSheet.create({
 const LIGNE_MOT: Record<string, string> = {
   urgent: '#e8956b',
   important: '#d9a73a',
-  human: colors.onDarkMuted,
-  info: '#6fb58a',
+  // 06/10/2026 (choix de HA) : « À répondre » en vert, « Info » en gris.
+  human: '#7fcf9f', // 8,96:1
+  info: '#a8a291', // 6,52:1
 };
 
 const LIGNE_ROND: Record<string, string> = {
   urgent: '#c2410c',
   important: '#8f6708',
-  human: '#5c554a',
-  info: '#3f7e58',
+  // 06/10/2026 : rond vert pour « À répondre » (initiales 4,41:1), gris pour « Info » (4,95:1).
+  human: '#2c7a54',
+  info: '#6b6455',
 };
 
 type LigneProps = Omit<Props, 'layout' | 'showDot'>;

@@ -485,8 +485,9 @@ type NotifPrefs = { urgent: boolean; important: boolean; human: boolean; info: b
 const NOTIF_ROWS: { key: keyof NotifPrefs; color: string }[] = [
   { key: 'urgent', color: '#c2410c' },
   { key: 'important', color: '#b8860b' },
-  { key: 'human', color: '#4a443a' },
-  { key: 'info', color: '#3f7e58' },
+  // 06/10/2026 : memes teintes que les ronds des listes (email-row.tsx).
+  { key: 'human', color: '#2c7a54' },
+  { key: 'info', color: '#6b6455' },
 ];
 
 export type SettingsSection =

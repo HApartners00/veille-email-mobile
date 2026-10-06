@@ -25,7 +25,7 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 import ChampDestinataires from '@/components/champ-destinataires';
 import ChampsCopies from '@/components/champs-copies';
 import { enListe, libellesCopies } from '@/lib/copies';
-import { IconChevronLeft, IconClose, IconDraft, IconPlus } from '@/components/icons';
+import { IconChevronLeft, IconClose, IconPlus } from '@/components/icons';
 import {
   MAX_ATT_BYTES,
   messageEchecPJ,
@@ -538,12 +538,8 @@ export default function PageBrouillon() {
           <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
-          {brouillon?.byVmail ? (
-            <View style={styles.badge}>
-              <IconDraft size={12} color={colors.terracottaLight} />
-              <Text style={styles.badgeText}>{tx.byVmail}</Text>
-            </View>
-          ) : null}
+          {/* Le badge « Vmail » (redige par Vmail) a ete retire le 06/10/2026,
+              demande de HA — comme celui des envoyes. */}
         </View>
 
         {brouillon ? (
@@ -860,22 +856,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(234,225,208,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.terracottaLight,
-    borderRadius: radius.pill,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    fontFamily: fonts.sansBold,
-    fontSize: 10.5,
-    letterSpacing: 0.8,
-    color: colors.terracottaLight,
   },
   hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, paddingTop: spacing.xs },
   subject: {

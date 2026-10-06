@@ -51,8 +51,8 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 const TEINTES = {
   urgent: '#e08a5a',
   important: '#d5b06a',
-  human: '#9aa6ac',
-  info: '#a7b199',
+  human: '#7fcf9f', // 06/10/2026 : vert
+  info: '#a8a291', // 06/10/2026 : gris
 } as const;
 
 const TRAIT = 'rgba(234,225,208,0.14)';

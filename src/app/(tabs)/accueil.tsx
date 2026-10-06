@@ -25,6 +25,7 @@ import { calculerAvancee } from '@/lib/avancee';
 import { EmailRow } from '@/components/email-row';
 import { cleanText, formatDateCourte, senderInitials } from '@/lib/mail-format';
 import { LogoVmail } from '@/components/logo-v';
+import { IconPlus } from '@/components/icons';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
 
@@ -45,8 +46,8 @@ type Item = {
 const RECAP_TINT: Record<string, string> = {
   urgent: '#e08a5a',
   important: '#d5b06a',
-  human: '#9aa6ac',
-  info: '#a7b199',
+  human: '#7fcf9f', // 06/10/2026 : vert (8,96:1)
+  info: '#a8a291', // 06/10/2026 : gris (6,52:1)
 };
 
 // ⚠️ TITRE DE SECTION « À RÉPONDRE » — 16/09/2026. Sa couleur de categorie
@@ -55,8 +56,12 @@ const RECAP_TINT: Record<string, string> = {
 // lignes de l'onglet Emails. Les autres titres gardent leur couleur.
 // Mesure au passage, NON corrige (non demande) : Urgent #c2410c 3,21:1 et
 // Info #3f7e58 3,43:1, sous le seuil de 4,5:1 pour ce corps de texte.
+// 06/10/2026 : « À répondre » passe au vert et « Info » au gris ; leurs `color`
+// (faites pour une carte creme) ne tiennent pas sur le fond sombre, d'ou ces deux
+// teintes claires — les memes que le recap au-dessus.
 const TITRE_SECTION: Record<string, string> = {
-  human: colors.onDarkMuted,
+  human: '#7fcf9f',
+  info: '#a8a291',
 };
 
 // Plafond du récap « du jour ». Suffisant pour couvrir une journée normale ;
@@ -273,7 +278,21 @@ export default function Accueil() {
           {/* 25/09/2026 — choix de HA : la pilule « Assistant » et le bouton
               « Actualiser » laissent la place à la bille « Vmail IA ». Les mails
               arrivent seuls ; tirer l'écran vers le bas recharge toujours la liste. */}
-          <BoutonVmailIA taille={30} />
+          <View style={styles.actions}>
+            {/* 06/10/2026, demande de HA : « rajouter le bouton + (pour écrire un
+                mail) dans l'onglet accueil ». Le MÊME bouton que dans l'onglet
+                Emails (`composeBtn` de (tabs)/index.tsx), à gauche de la bille. */}
+            <Pressable
+              style={styles.composeBtn}
+              onPress={() => router.push('/nouveau')}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={t.feed.compose}
+            >
+              <IconPlus size={16} color={colors.onDark} />
+            </Pressable>
+            <BoutonVmailIA taille={30} />
+          </View>
         </View>
 
         <Text style={styles.date}>{todayLabel(intl)}</Text>
@@ -381,7 +400,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl + 2,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // Copie de `composeBtn` de (tabs)/index.tsx : bouton plein, il CREE un mail.
+  composeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.terracottaVivid,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   date: {
     fontFamily: fonts.sans,
     fontSize: 12,

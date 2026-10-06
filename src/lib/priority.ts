@@ -5,8 +5,13 @@ export type Priority = { key: string; label: string; color: string };
 export const PRIORITIES: Priority[] = [
   { key: 'urgent', label: 'Urgent', color: '#c2410c' },
   { key: 'important', label: 'Important', color: '#b8860b' },
-  { key: 'human', label: 'À répondre', color: '#4a443a' },
-  { key: 'info', label: 'Info', color: '#3f7e58' },
+  // 06/10/2026, choix de HA (« 3. Vert + gris », sur maquette) : « À répondre »
+  // passe au VERT, « Info » au GRIS. Avant : #4a443a et #3f7e58. Ces `color`
+  // sont faites pour une carte creme (4,60:1 et 4,52:1) ; sur le fond sombre,
+  // prendre #7fcf9f et #a8a291 (voir RECAP_TINT, email-row, email/[id]).
+  // Memes valeurs sur le web : apps/web/src/lib/priority.ts.
+  { key: 'human', label: 'À répondre', color: '#28704d' },
+  { key: 'info', label: 'Info', color: '#6b6455' },
 ];
 
 export const PRIORITY_BY_KEY: Record<string, Priority> = Object.fromEntries(

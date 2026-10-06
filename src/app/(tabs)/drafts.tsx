@@ -362,7 +362,7 @@ export default function DraftsScreen() {
               sender={to}
               initials={initiales}
               prioColor="#5c554a"
-              badge={d.vmail ? sv.modifiable : d.byVmail ? tx.byVmail : undefined}
+              badge={d.vmail ? sv.modifiable : undefined}
               date={d.updatedAt ? formatDateCourte(d.updatedAt, intl) : undefined}
               subject={d.subject || t.common.noSubject}
               preview={cleanText(d.preview) || null}

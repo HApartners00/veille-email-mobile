@@ -27,7 +27,7 @@ const MAX_TRAITS_SEPARES = 20;
 const TEINTE: Record<CleAction, string> = {
   urgent: '#e08a5a',
   important: '#d5b06a',
-  human: '#9aa6ac',
+  human: '#7fcf9f', // 06/10/2026 : vert
 };
 
 type Dict = { compte: string; suite: string; fini: string };
