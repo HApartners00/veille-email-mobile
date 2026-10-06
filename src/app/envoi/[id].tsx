@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -216,12 +215,6 @@ export default function PageEnvoi() {
               <Text style={styles.pj}>{tx.withAttachments}</Text>
             ) : null}
 
-            {envoi.url ? (
-              <Pressable style={styles.lien} onPress={() => Linking.openURL(String(envoi.url))}>
-                <Text style={styles.lienText}>{tx.openInMailbox}</Text>
-              </Pressable>
-            ) : null}
-
             <Text style={styles.compte}>{envoi.account_email}</Text>
           </ScrollView>
 
@@ -366,8 +359,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   pj: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.onDarkMuted, marginTop: spacing.lg },
-  lien: { marginTop: spacing.lg },
-  lienText: { fontFamily: fonts.sansSemibold, color: colors.terracottaLight, fontSize: 14 },
   compte: {
     fontFamily: fonts.sans,
     fontSize: 11.5,

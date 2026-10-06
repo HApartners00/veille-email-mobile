@@ -1163,14 +1163,6 @@ export default function EmailDetail() {
       faire: () => void actions.agir('unspam'),
     });
   }
-  if (item?.url) {
-    const lien = item.url;
-    optionsPlus.push({
-      cle: 'open',
-      libelle: t.email.openInMail,
-      faire: () => void Linking.openURL(lien),
-    });
-  }
 
   return (
     <View style={styles.root}>
