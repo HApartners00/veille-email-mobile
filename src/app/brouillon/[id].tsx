@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '@/context/i18n';
 import { apiDelete, apiGet, apiPost, apiUpload } from '@/lib/api';
 import { bcp47 } from '@/lib/i18n';
-import { formatDate, recipientsEmails, recipientsLabel } from '@/lib/mail-format';
+import { formatDate, parseRecipients, recipientsEmails, recipientsLabel } from '@/lib/mail-format';
 import {
   lireBrouillon,
   oublierBrouillon,
@@ -23,6 +23,8 @@ import {
 } from '@/lib/cache-brouillons';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import ChampDestinataires from '@/components/champ-destinataires';
+import ChampsCopies from '@/components/champs-copies';
+import { enListe, libellesCopies } from '@/lib/copies';
 import { IconChevronLeft, IconClose, IconDraft, IconPlus } from '@/components/icons';
 import {
   MAX_ATT_BYTES,
@@ -128,6 +130,28 @@ export default function PageBrouillon() {
    * Tant qu'on n'envoie pas, le brouillon chez Gmail garde son ancien etat.
    */
   const [destinataires, setDestinataires] = useState('');
+  /**
+   * COPIE (Cc) ET COPIE CACHEE (Cci) — 06/10/2026, demande de HA. Jumeau de
+   * `Veille Email/apps/web/src/app/drafts/[id]/draft-editor.tsx`.
+   *
+   * ⚠️ LE DEFAUT QUE CE CHANTIER A FAIT APPARAITRE : cette page rangeait TOUS
+   * les destinataires du brouillon dans « À », ceux en copie compris. Les trois
+   * lignes sont maintenant separees, comme dans la messagerie.
+   *
+   * ⚠️ `copiesConnues` : la page ne montre les champs Cc / Cci, et n'envoie des
+   * copies, que si elle a RECU les Cci du brouillon (`bccRecipients`). Sans
+   * eux, envoyer une liste vide effacerait des Cci jamais affiches. Dans ce cas
+   * elle se comporte comme avant le 06/10 — et n8n garde les copies du
+   * brouillon.
+   *
+   * ⚠️ UN CHAMP REPLIE EST TOUJOURS VIDE : des copies deja dans le brouillon
+   * OUVRENT les champs a l'arrivee, et rien ne les replie.
+   */
+  const [cc, setCc] = useState('');
+  const [cci, setCci] = useState('');
+  const [copiesOuvertes, setCopiesOuvertes] = useState(false);
+  const [copiesConnues, setCopiesConnues] = useState(false);
+  const libCopies = libellesCopies(locale);
   const [consigne, setConsigne] = useState('');
   const [iaOccupee, setIaOccupee] = useState(false);
   const [occupe, setOccupe] = useState<null | 'send' | 'delete'>(null);
@@ -167,7 +191,26 @@ export default function PageBrouillon() {
         if (!vivant) return;
         setBrouillon(b);
         setTexte(b?.body ?? '');
-        setDestinataires(recipientsEmails(b?.recipients ?? []).join(', '));
+        const cciLus = b?.bccRecipients;
+        if (Array.isArray(cciLus)) {
+          // Chaque destinataire dans SA ligne. Un genre absent vaut « À ».
+          const tous = parseRecipients(b?.recipients ?? []);
+          const adresses = (genre: 'to' | 'cc') =>
+            tous
+              .filter((r) => r.kind === genre)
+              .map((r) => (r.email || '').toLowerCase())
+              .filter(Boolean);
+          const enCc = adresses('cc');
+          const enCci = recipientsEmails(cciLus);
+          setDestinataires(adresses('to').join(', '));
+          setCc(enCc.join(', '));
+          setCci(enCci.join(', '));
+          setCopiesConnues(true);
+          if (enCc.length > 0 || enCci.length > 0) setCopiesOuvertes(true);
+        } else {
+          // Cci inconnus : le comportement d'avant, tel quel.
+          setDestinataires(recipientsEmails(b?.recipients ?? []).join(', '));
+        }
       })
       .catch((e) => {
         // RIEN EN SILENCE : si la messagerie est injoignable, on le dit, on ne
@@ -342,6 +385,9 @@ export default function PageBrouillon() {
          */
         const boiteChangee = !!boite && boite !== brouillon.accountEmail;
         const pjAjoutees = pieces.length > 0;
+        // Les DEUX cles, meme vides — ou aucune si les Cci du brouillon ne sont
+        // pas connus (voir `copiesConnues`). Les deux chemins les recoivent.
+        const copies = copiesConnues ? { cc: enListe(cc), bcc: enListe(cci) } : {};
         if (op === 'send' && !boiteChangee && !pjAjoutees) {
           await apiPost('/api/drafts', {
             op: 'send',
@@ -351,6 +397,7 @@ export default function PageBrouillon() {
             subject: brouillon.subject ?? '',
             body: texte,
             to: pourEnvoi,
+            ...copies,
             idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           });
           oublierBrouillon(brouillon.id);
@@ -373,6 +420,7 @@ export default function PageBrouillon() {
             op: 'send',
             accountEmail: boite || brouillon.accountEmail,
             to: pourEnvoi,
+            ...copies,
             subject: brouillon.subject ?? '',
             body: texte,
             idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -429,6 +477,11 @@ export default function PageBrouillon() {
       // fichier ajoute ne partait pas — sans un mot. Le web l'avait deja.
       pieces,
       destinataires,
+      // Lues dans `agir` : sans elles ici, la derniere adresse tapee en copie
+      // ne partirait pas (meme faute que `pieces` juste au-dessus).
+      cc,
+      cci,
+      copiesConnues,
       boite,
       router,
       tx.errEmpty,
@@ -537,7 +590,16 @@ export default function PageBrouillon() {
               </Text>
             </Pressable>
 
-            <Text style={styles.sectionLabel}>{tx.to}</Text>
+            <View style={styles.ligneLabel}>
+              <Text style={styles.sectionLabel}>{tx.to}</Text>
+              {/* « Cc Cci » au bout de la ligne « À ». Absent si les Cci du
+                  brouillon ne sont pas connus, ou une fois les champs ouverts. */}
+              {copiesConnues && !copiesOuvertes ? (
+                <Pressable hitSlop={12} onPress={() => setCopiesOuvertes(true)}>
+                  <Text style={styles.lienCopies}>{libCopies.lien}</Text>
+                </Pressable>
+              ) : null}
+            </View>
             {/* Memoire des destinataires — 14/08/2026. La boite passee est celle
                 REELLEMENT choisie : sur cet ecran elle est modifiable depuis le
                 14/08, et `boite` prime sur celle d'origine du brouillon. Quand
@@ -554,6 +616,20 @@ export default function PageBrouillon() {
             {/* La limite est DITE, pas cachee : sans operation « enregistrer »
                 cote fournisseur, ce qu'on modifie ici ne vaut qu'a l'envoi. */}
             <Text style={styles.note}>{NOTE_STR[locale] ?? NOTE_STR.en}</Text>
+
+            {copiesConnues && copiesOuvertes ? (
+              <ChampsCopies
+                cc={cc}
+                cci={cci}
+                onCc={setCc}
+                onCci={setCci}
+                boite={boite || brouillon.accountEmail}
+                locale={locale}
+                placeholder="nom@exemple.com"
+                styleChamp={styles.champ}
+                styleLabel={styles.sectionLabel}
+              />
+            ) : null}
 
             <Text style={styles.sectionLabel}>{tx.edit}</Text>
             <TextInput
@@ -851,6 +927,14 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.onDarkMuted,
     marginTop: spacing.xl,
+  },
+  // « À » a gauche, le lien « Cc Cci » au bout de la meme ligne.
+  ligneLabel: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  lienCopies: {
+    fontFamily: fonts.sansBold,
+    fontSize: 12.5,
+    color: colors.terracottaVivid,
+    marginBottom: spacing.sm,
   },
   champ: {
     fontFamily: fonts.sans,

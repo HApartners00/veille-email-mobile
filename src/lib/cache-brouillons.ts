@@ -42,6 +42,17 @@ export type Brouillon = {
   attachments?:
     | { filename: string; mimeType?: string | null; size?: number | null; attachmentId?: string }[]
     | null;
+  /**
+   * COPIES CACHEES (Cci) DU BROUILLON — 06/10/2026.
+   *
+   * ⚠️ DANS UN CHAMP A PART, JAMAIS DANS `recipients`. Un ecran d'avant le 06/10
+   * range tout `recipients` dans son champ « À » : une copie cachee y serait
+   * devenue visible de tous les destinataires.
+   *
+   * `null` ou absent = JE NE SAIS PAS (serveur ou workflow anterieur).
+   * `[]` = aucune. La page distingue les deux.
+   */
+  bccRecipients?: { name?: string | null; email?: string | null }[] | null;
 };
 
 const parId = new Map<string, Brouillon>();

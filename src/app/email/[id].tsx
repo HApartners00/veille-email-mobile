@@ -39,6 +39,8 @@ import { ressembleAHtml } from '@/lib/mail-format';
 import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-mail';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import PanneauVoix from '@/components/panneau-voix';
+import ChampsCopies from '@/components/champs-copies';
+import { enListe, libellesCopies } from '@/lib/copies';
 import {
   demarrerVoix,
   ecouterVoix,
@@ -546,6 +548,32 @@ export default function EmailDetail() {
   }, [draft]);
   // Rien a envoyer : ni texte, ni fichier. Meme regle que le serveur.
   const rienAEnvoyer = !draft.trim() && atts.length === 0;
+
+  /**
+   * COPIE (Cc) ET COPIE CACHEE (Cci) SUR UNE REPONSE — 06/10/2026, demande de HA.
+   * Son choix : « juste ajouter a la main ». Pas de « Repondre a tous » : les
+   * personnes en copie du mail recu ne sont PAS reprises, on tape celles qu'on
+   * veut. Jumeau de `Veille Email/apps/web/src/app/email/draft-button.tsx`.
+   *
+   * Un lien « Cc Cci » deplie les deux champs. ⚠️ UN CHAMP REPLIE EST TOUJOURS
+   * VIDE : rien ne les replie une fois ouverts. Les copies valent pour
+   * « Envoyer » ET pour « Mettre dans ma boite ».
+   */
+  const [cc, setCc] = useState('');
+  const [cci, setCci] = useState('');
+  const [copiesOuvertes, setCopiesOuvertes] = useState(false);
+  const libCopies = libellesCopies(locale);
+  // La boite qui repond, pour proposer des adresses. Lisible seulement sur les
+  // liens Gmail (`authuser=`) ; ailleurs vide : simples saisies, sans proposition.
+  const boiteReponse = useMemo(() => {
+    const trouve = (item?.url || '').match(/[?&]authuser=([^#&]+)/);
+    if (!trouve || !trouve[1]) return '';
+    try {
+      return decodeURIComponent(trouve[1]);
+    } catch {
+      return trouve[1];
+    }
+  }, [item?.url]);
   /** Ordonnee du bloc de reponse dans le defilement, pour l'amener a l'ecran. */
   const yReponse = useRef(0);
   /** Arme au prochain `onLayout` du bloc : « une fois pose, va dessus ». */
@@ -981,6 +1009,9 @@ export default function EmailDetail() {
         generatedDraft,
         locale,
         idempotencyKey,
+        // Le brouillon depose dans la messagerie porte les copies.
+        cc: enListe(cc),
+        bcc: enListe(cci),
       });
       setMsg({ type: 'ok', text: t.email.draftCreated });
     } catch (e: any) {
@@ -995,7 +1026,17 @@ export default function EmailDetail() {
     setSending(true);
     setMsg(null);
     try {
-      await apiPost('/api/send-reply', { id, draft, generatedDraft, locale, idempotencyKey });
+      await apiPost('/api/send-reply', {
+        id,
+        draft,
+        generatedDraft,
+        locale,
+        idempotencyKey,
+        // Ce qu'on voit dans les deux champs est ce qui part. Une adresse
+        // invalide fait REFUSER l'envoi par le serveur, qui la nomme.
+        cc: enListe(cc),
+        bcc: enListe(cci),
+      });
       setSent(true);
     } catch (e: any) {
       setShowConfirm(false);
@@ -1509,6 +1550,29 @@ export default function EmailDetail() {
 
             {(draft || redactionOuverte) && !genLoading ? (
               <>
+                {/* Cc + Cci — 06/10/2026. Le lien disparait une fois les champs
+                    ouverts. */}
+                {!copiesOuvertes ? (
+                  <Pressable
+                    style={styles.lienCopiesBtn}
+                    hitSlop={12}
+                    onPress={() => setCopiesOuvertes(true)}
+                  >
+                    <Text style={styles.lienCopies}>{libCopies.lien}</Text>
+                  </Pressable>
+                ) : (
+                  <ChampsCopies
+                    cc={cc}
+                    cci={cci}
+                    onCc={setCc}
+                    onCci={setCci}
+                    boite={boiteReponse}
+                    locale={locale}
+                    placeholder="nom@exemple.com"
+                    styleChamp={styles.instr}
+                    styleLabel={styles.refineLabel}
+                  />
+                )}
                 <TextInput
                   style={styles.draftInput}
                   value={draft}
@@ -1927,6 +1991,18 @@ export default function EmailDetail() {
                   <>
                     <Text style={styles.modalTitle}>{t.email.confirmTitle}</Text>
                     <Text style={styles.modalSub}>{t.email.confirmSub}</Text>
+                    {/* Avant d'envoyer, on REVOIT qui est en copie : c'est la
+                        derniere occasion de retirer quelqu'un. */}
+                    {enListe(cc).length > 0 ? (
+                      <Text style={styles.modalSub}>
+                        {libCopies.cc} : {enListe(cc).join(', ')}
+                      </Text>
+                    ) : null}
+                    {enListe(cci).length > 0 ? (
+                      <Text style={styles.modalSub}>
+                        {libCopies.cci} : {enListe(cci).join(', ')}
+                      </Text>
+                    ) : null}
                     <ScrollView style={styles.modalPreview}>
                       <Text style={styles.modalPreviewText}>
                         {draft.trim() ? draft : atts.map((a) => a.filename).join('\n')}
@@ -2255,6 +2331,9 @@ const styles = StyleSheet.create({
   noticeText: { fontFamily: fonts.sans, flex: 1, fontSize: 12, color: colors.onDarkMuted, lineHeight: 17 },
   // « Pieces jointes » et « Ajuster : » — poses sur le fond sombre du brouillon.
   refineLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.onDarkMuted },
+  // Lien « Cc Cci » au-dessus de la reponse, cale a droite.
+  lienCopiesBtn: { alignSelf: 'flex-end' },
+  lienCopies: { fontFamily: fonts.sansBold, fontSize: 12.5, color: colors.terracottaVivid },
   attRow: {
     flexDirection: 'row',
     alignItems: 'center',

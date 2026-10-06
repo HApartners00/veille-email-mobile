@@ -26,6 +26,8 @@ import {
   typeRetenu,
 } from '@/lib/pieces-jointes';
 import ChampDestinataires from '@/components/champ-destinataires';
+import ChampsCopies from '@/components/champs-copies';
+import { enListe, libellesCopies } from '@/lib/copies';
 import { IconChevronLeft, IconClose, IconPlus } from '@/components/icons';
 
 /**
@@ -135,6 +137,22 @@ export default function NouveauMessage() {
    */
   const [boitesLues, setBoitesLues] = useState(false);
   const [destinataires, setDestinataires] = useState('');
+  /**
+   * COPIE (Cc) ET COPIE CACHEE (Cci) — 06/10/2026, demande de HA : « je dois
+   * pouvoir mettre des gens en copie sur un mail ». Jumeau de
+   * `Veille Email/apps/web/src/app/nouveau/compose-form.tsx`, meme journee.
+   *
+   * Choix de HA : un lien « Cc Cci » au bout de la ligne « À », qui deplie les
+   * deux champs.
+   *
+   * ⚠️ UN CHAMP REPLIE EST TOUJOURS VIDE. Rien ne replie les champs une fois
+   * ouverts, et un brouillon qui porte des copies les OUVRE a l'arrivee. Sans
+   * ca, un mail partirait vers des personnes que l'ecran ne montre pas.
+   */
+  const [cc, setCc] = useState('');
+  const [cci, setCci] = useState('');
+  const [copiesOuvertes, setCopiesOuvertes] = useState(false);
+  const libCopies = libellesCopies(locale);
   const [objet, setObjet] = useState('');
   const [texte, setTexte] = useState('');
   const [consigne, setConsigne] = useState('');
@@ -235,7 +253,17 @@ export default function NouveauMessage() {
   useEffect(() => {
     if (!draftId) return;
     let vivant = true;
-    apiGet<{ ok?: boolean; draft?: { accountEmail: string; to: string[]; subject: string; body: string } }>(
+    apiGet<{
+      ok?: boolean;
+      draft?: {
+        accountEmail: string;
+        to: string[];
+        cc?: string[];
+        bcc?: string[];
+        subject: string;
+        body: string;
+      };
+    }>(
       `/api/vmail-drafts?id=${encodeURIComponent(draftId)}`,
     )
       .then((j) => {
@@ -247,6 +275,12 @@ export default function NouveauMessage() {
         boiteImposee.current = true;
         setBoite(j.draft.accountEmail);
         setDestinataires((j.draft.to || []).join(', '));
+        setCc((j.draft.cc || []).join(', '));
+        setCci((j.draft.bcc || []).join(', '));
+        // Des copies enregistrees : on les MONTRE. On ne referme jamais ici.
+        if ((j.draft.cc || []).length > 0 || (j.draft.bcc || []).length > 0) {
+          setCopiesOuvertes(true);
+        }
         setObjet(j.draft.subject || '');
         setTexte(j.draft.body || '');
       })
@@ -437,6 +471,11 @@ export default function NouveauMessage() {
             accountEmail: boite,
             provider: boites.find((m) => m.email === boite)?.provider ?? null,
             to: listeDestinataires,
+            // TOUJOURS envoyes, meme vides : c'est ce qui permet de RETIRER une
+            // copie d'un brouillon. Une cle absente voudrait dire « n'y touche
+            // pas » (voir /api/vmail-drafts).
+            cc: enListe(cc),
+            bcc: enListe(cci),
             subject: objet,
             body: texte,
           });
@@ -464,6 +503,10 @@ export default function NouveauMessage() {
           op,
           accountEmail: boite,
           to: listeDestinataires,
+          // TOUJOURS envoyes, meme vides : ce qu'on voit a l'ecran est ce qui
+          // part. /api/compose refuse l'envoi si une adresse est invalide.
+          cc: enListe(cc),
+          bcc: enListe(cci),
           subject: objet,
           body: texte,
           // Le message part avec les fichiers DU brouillon, et le brouillon est
@@ -483,6 +526,12 @@ export default function NouveauMessage() {
       boites,
       draftId,
       listeDestinataires,
+      // ⚠️ Les copies sont lues DANS `agir` : sans elles ici, `agir` garderait
+      // les copies d'un rendu precedent et le mail partirait sans la derniere
+      // adresse tapee. Meme faute que `pieces`, reparee le 06/10 dans
+      // brouillon/[id].tsx.
+      cc,
+      cci,
       texte,
       pieces.length,
       objet,
@@ -495,7 +544,12 @@ export default function NouveauMessage() {
 
   /** Quelque chose a-t-il été écrit ? Sert au garde-fou du retour. */
   const commence =
-    !!texte.trim() || !!objet.trim() || listeDestinataires.length > 0 || pieces.length > 0;
+    !!texte.trim() ||
+    !!objet.trim() ||
+    listeDestinataires.length > 0 ||
+    !!cc.trim() ||
+    !!cci.trim() ||
+    pieces.length > 0;
 
   const boitePlus = boites.length > 1;
 
@@ -539,7 +593,15 @@ export default function NouveauMessage() {
           </Text>
         </Pressable>
 
-        <Text style={styles.label}>{s.a}</Text>
+        <View style={styles.ligneLabel}>
+          <Text style={styles.label}>{s.a}</Text>
+          {/* Le lien disparait une fois les champs ouverts. */}
+          {!copiesOuvertes ? (
+            <Pressable hitSlop={12} onPress={() => setCopiesOuvertes(true)}>
+              <Text style={styles.lienCopies}>{libCopies.lien}</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {/* Memoire des destinataires — 14/08/2026. Le champ reste une saisie
             libre separee par des virgules ; le composant n'ajoute que la liste
             de propositions, et il la vide des que `boite` change. */}
@@ -551,6 +613,20 @@ export default function NouveauMessage() {
           locale={locale}
           style={styles.champ}
         />
+
+        {copiesOuvertes ? (
+          <ChampsCopies
+            cc={cc}
+            cci={cci}
+            onCc={setCc}
+            onCci={setCci}
+            boite={boite}
+            locale={locale}
+            placeholder={s.aPlaceholder}
+            styleChamp={styles.champ}
+            styleLabel={styles.label}
+          />
+        ) : null}
 
         <Text style={styles.label}>{s.objet}</Text>
         <TextInput
@@ -768,6 +844,15 @@ const styles = StyleSheet.create({
     color: colors.onDarkMuted,
     marginBottom: spacing.sm,
     marginTop: spacing.lg,
+  },
+  // « À » a gauche, le lien « Cc Cci » au bout de la meme ligne.
+  ligneLabel: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  // Meme ton que « Ecrire avec l'IA » : lisible sur le fond sombre (4,75:1).
+  lienCopies: {
+    fontFamily: fonts.sansBold,
+    fontSize: 12.5,
+    color: colors.terracottaVivid,
+    marginBottom: spacing.sm,
   },
   champ: {
     fontFamily: fonts.sans,
