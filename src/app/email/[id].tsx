@@ -532,6 +532,20 @@ export default function EmailDetail() {
    * le relire en cours de redaction.
    */
   const [repondreOuvert, setRepondreOuvert] = useState(false);
+  /**
+   * REPONDRE AVEC JUSTE UNE PIECE JOINTE — 06/10/2026, demande de HA.
+   *
+   * Le bloc de redaction ne s'affichait que si `draft` n'etait pas vide : effacer
+   * tout le texte faisait disparaitre le champ, les pieces jointes et les boutons
+   * d'un coup, et il n'y avait plus aucun moyen d'envoyer un fichier seul.
+   * Une fois qu'un brouillon a existe, la redaction RESTE ouverte, meme videe.
+   */
+  const [redactionOuverte, setRedactionOuverte] = useState(false);
+  useEffect(() => {
+    if (draft) setRedactionOuverte(true);
+  }, [draft]);
+  // Rien a envoyer : ni texte, ni fichier. Meme regle que le serveur.
+  const rienAEnvoyer = !draft.trim() && atts.length === 0;
   /** Ordonnee du bloc de reponse dans le defilement, pour l'amener a l'ecran. */
   const yReponse = useRef(0);
   /** Arme au prochain `onLayout` du bloc : « une fois pose, va dessus ». */
@@ -977,7 +991,7 @@ export default function EmailDetail() {
   }
 
   async function sendReply() {
-    if (!draft.trim() || sending) return;
+    if (rienAEnvoyer || sending) return;
     setSending(true);
     setMsg(null);
     try {
@@ -1144,7 +1158,8 @@ export default function EmailDetail() {
     // qui ne decide de rien. « Repondre » lance la redaction.
     // On ne relance pas si un brouillon existe deja (retour sur le mail) ni si
     // une generation est en cours.
-    if (!draft && !genLoading) void generate(false);
+    // Ni si la personne a vide le texte expres (reponse avec un fichier seul).
+    if (!draft && !redactionOuverte && !genLoading) void generate(false);
   }
 
   const optionsPlus: { cle: string; libelle: string; danger?: boolean; faire: () => void }[] = [];
@@ -1479,7 +1494,7 @@ export default function EmailDetail() {
                 que si la redaction a echoue — sans lui, un echec laisserait le
                 bloc ouvert sur un message d'erreur et aucun moyen de reessayer.
                 (`msg` est pose par `generate` dans son `catch`.) */}
-            {!draft && !genLoading && msg?.type === 'err' ? (
+            {!draft && !redactionOuverte && !genLoading && msg?.type === 'err' ? (
               <Pressable style={styles.cta} onPress={() => generate(false)}>
                 <Text style={styles.ctaText}>{t.email.generateDraft}</Text>
               </Pressable>
@@ -1492,7 +1507,7 @@ export default function EmailDetail() {
               </View>
             ) : null}
 
-            {draft && !genLoading ? (
+            {(draft || redactionOuverte) && !genLoading ? (
               <>
                 <TextInput
                   style={styles.draftInput}
@@ -1583,7 +1598,8 @@ export default function EmailDetail() {
                       prend la place et la couleur d'action principale ; deposer un
                       brouillon dans la messagerie devient le geste de repli. */}
                   <Pressable
-                    style={[styles.cta, styles.flex1]}
+                    style={[styles.cta, styles.flex1, rienAEnvoyer && styles.btnDisabled]}
+                    disabled={rienAEnvoyer}
                     onPress={() => {
                       setSent(false);
                       setShowConfirm(true);
@@ -1593,7 +1609,13 @@ export default function EmailDetail() {
                   </Pressable>
                 </View>
 
-                <Pressable style={styles.sendBtn} onPress={pushToMailbox} disabled={pushing}>
+                {/* Un brouillon sans texte reste refuse (serveur) : le bouton est
+                    grise au lieu de ne rien faire en silence. */}
+                <Pressable
+                  style={[styles.sendBtn, !draft.trim() && styles.btnDisabled]}
+                  onPress={pushToMailbox}
+                  disabled={pushing || !draft.trim()}
+                >
                   {pushing ? (
                     <ActivityIndicator color={colors.onDark} />
                   ) : (
@@ -1906,7 +1928,9 @@ export default function EmailDetail() {
                     <Text style={styles.modalTitle}>{t.email.confirmTitle}</Text>
                     <Text style={styles.modalSub}>{t.email.confirmSub}</Text>
                     <ScrollView style={styles.modalPreview}>
-                      <Text style={styles.modalPreviewText}>{draft}</Text>
+                      <Text style={styles.modalPreviewText}>
+                        {draft.trim() ? draft : atts.map((a) => a.filename).join('\n')}
+                      </Text>
                     </ScrollView>
                     <View style={styles.row}>
                       <Pressable

@@ -286,7 +286,14 @@ export default function PageBrouillon() {
   const agir = useCallback(
     async (op: 'send' | 'delete') => {
       if (occupe || !brouillon) return;
-      if (op === 'send' && !texte.trim()) {
+      // PIECE JOINTE SANS TEXTE — 06/10/2026, demande de HA. Accepte UNIQUEMENT si
+      // un fichier a ete AJOUTE ICI : l'envoi passe alors par /api/compose, qui le
+      // joint et refuse de partir s'il ne peut pas le lire.
+      // ⚠️ PAS pour un brouillon qui n'a que ses fichiers « deja dans le brouillon » :
+      // ce chemin-la (n8n `send-draft`, branche Gmail) reecrit le brouillon en
+      // texte seul — lu le 06/10, PAS mesure. Sans texte, le mail partirait VIDE.
+      // Meme regle et meme reserve que le web (draft-editor.tsx).
+      if (op === 'send' && !texte.trim() && pieces.length === 0) {
         setErreur(tx.errEmpty);
         return;
       }
@@ -411,6 +418,11 @@ export default function PageBrouillon() {
       occupe,
       brouillon,
       texte,
+      // ⚠️ 06/10/2026 — `pieces` MANQUAIT ici alors que `agir` le lit (pjAjoutees).
+      // Fichier ajoute puis « Envoyer » sans retoucher au texte : la fonction
+      // gardait l'ancienne liste (vide), prenait le chemin `send-draft`, et le
+      // fichier ajoute ne partait pas — sans un mot. Le web l'avait deja.
+      pieces,
       destinataires,
       boite,
       router,
@@ -654,9 +666,13 @@ export default function PageBrouillon() {
 
           <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
             <Pressable
-              style={[styles.cta, styles.flex1, (!!occupe || !texte.trim()) && styles.off]}
+              style={[
+                styles.cta,
+                styles.flex1,
+                (!!occupe || (!texte.trim() && pieces.length === 0)) && styles.off,
+              ]}
               onPress={() => void agir('send')}
-              disabled={!!occupe || !texte.trim()}
+              disabled={!!occupe || (!texte.trim() && pieces.length === 0)}
             >
               {occupe === 'send' ? (
                 <ActivityIndicator color={colors.onDark} />
