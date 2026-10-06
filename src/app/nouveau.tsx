@@ -408,7 +408,10 @@ export default function NouveauMessage() {
         setErreur(s.sansDestinataire);
         return;
       }
-      if (op === 'send' && !texte.trim()) {
+      // PIECE JOINTE SANS TEXTE — 06/10/2026, demande de HA : « l'app ne me laisse
+      // pas envoyer la PJ sans texte ». Un fichier seul EST un message. N'est vide
+      // qu'un envoi sans texte ET sans fichier. /api/compose applique la meme regle.
+      if (op === 'send' && !texte.trim() && pieces.length === 0) {
         setErreur(s.sansTexte);
         return;
       }
@@ -481,6 +484,7 @@ export default function NouveauMessage() {
       draftId,
       listeDestinataires,
       texte,
+      pieces.length,
       objet,
       router,
       rechargerPJ,
