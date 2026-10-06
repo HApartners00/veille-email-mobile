@@ -26,6 +26,7 @@ import {
   typeRetenu,
 } from '@/lib/pieces-jointes';
 import ChampDestinataires from '@/components/champ-destinataires';
+import BoutonIaIrise from '@/components/bouton-ia-irise';
 import ChampsCopies from '@/components/champs-copies';
 import { enListe, libellesCopies } from '@/lib/copies';
 import { IconChevronLeft, IconClose, IconPlus } from '@/components/icons';
@@ -156,6 +157,8 @@ export default function NouveauMessage() {
   const [objet, setObjet] = useState('');
   const [texte, setTexte] = useState('');
   const [consigne, setConsigne] = useState('');
+  /** La ligne de consigne : un appui sur le bouton IA sans consigne y met le curseur. */
+  const consigneRef = useRef<TextInput | null>(null);
 
   const [pieces, setPieces] = useState<PJ[]>([]);
   /** Les PJ trouvées à l'arrivée : elles ne viennent PAS de cette rédaction. */
@@ -671,24 +674,28 @@ export default function NouveauMessage() {
               ))}
             </View>
             <TextInput
+              ref={consigneRef}
               style={styles.champ}
               value={consigne}
               onChangeText={setConsigne}
               placeholder={s.consigne}
               placeholderTextColor={colors.hint}
             />
-            <Pressable
-              style={[styles.secondaire, !consigne.trim() && styles.off]}
-              disabled={!consigne.trim()}
-              onPress={() => void appelerIa(consigne)}
-            >
-              {/* Orange, demande de HA le 14/08 : ce bouton FABRIQUE du texte,
-                  il ne se contente pas de le ranger. Les deux boutons du bas,
-                  eux, gardent le libelle clair sur fond sombre. */}
-              <Text style={[styles.secondaireText, styles.iaBtnText]}>
-                {texte.trim() ? t.email.reformulate : s.ecrire}
-              </Text>
-            </Pressable>
+            {/* IRISE — 06/10/2026, choix de HA (« 2, irise ») apres « le bouton
+                ecrire avec l'ia est trop sombre et pas assez mis en valeur ».
+                Il n'est plus grise tant que la consigne est vide : un appui
+                sans consigne met le curseur dans la ligne du dessus, au lieu
+                de ne rien faire. Voir components/bouton-ia-irise.tsx. */}
+            <BoutonIaIrise
+              libelle={texte.trim() ? t.email.reformulate : s.ecrire}
+              onPress={() => {
+                if (!consigne.trim()) {
+                  consigneRef.current?.focus();
+                  return;
+                }
+                void appelerIa(consigne);
+              }}
+            />
           </>
         )}
 
@@ -847,7 +854,7 @@ const styles = StyleSheet.create({
   },
   // « À » a gauche, le lien « Cc Cci » au bout de la meme ligne.
   ligneLabel: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  // Meme ton que « Ecrire avec l'IA » : lisible sur le fond sombre (4,75:1).
+  // Le ton du bouton Envoyer (terracottaVivid) : 4,75:1 sur le fond sombre.
   lienCopies: {
     fontFamily: fonts.sansBold,
     fontSize: 12.5,
@@ -969,10 +976,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaireText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 15 },
-  // Le ton EXACT du bouton Envoyer (terracottaVivid), demande de HA le 14/08 :
-  // terracottaLight paraissait delave a cote. Mesure sur le fond sombre #211e19 :
-  // 4,75:1 — au-dessus du seuil AA de 4,5:1, donc lisible, pas seulement plus vif.
-  iaBtnText: { color: colors.terracottaVivid },
 
   overlay: {
     flex: 1,
