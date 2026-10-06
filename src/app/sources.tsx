@@ -182,7 +182,10 @@ export default function Sources() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: t.tabs.sources,
+          // Le titre de l'écran porte le nom de la ligne des Réglages qui y mène
+          // (« Boîtes connectées »). Avant le 06/10/2026 l'écran s'appelait « Sources » :
+          // on appuyait sur un nom, et on arrivait sous un autre.
+          title: t.sources.connectedTitle,
           headerStyle: { backgroundColor: colors.charcoal },
           headerTintColor: colors.onDark,
           headerTitleStyle: { fontFamily: fonts.sansBold, color: colors.onDark },
@@ -192,9 +195,8 @@ export default function Sources() {
           headerBackButtonDisplayMode: 'minimal',
         }}
       />
-      {/* Boîtes connectées */}
+      {/* Boîtes connectées — sans titre dans la carte : c'est déjà celui de l'écran, juste au-dessus. */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t.sources.connectedTitle}</Text>
 
         {panne && !loadingList ? (
           <View style={styles.panne}>
@@ -226,9 +228,14 @@ export default function Sources() {
             </Text>
           )
         ) : (
-          mailboxes.map((mb) => (
+          mailboxes.map((mb, rang) => (
             // Clé = fournisseur + adresse : une même adresse peut exister deux fois.
-            <View key={`${mb.provider}:${mb.email}`} style={styles.mbRow}>
+            // La première ligne n'a pas de trait au-dessus d'elle, sauf s'il y a le message
+            // de panne à en séparer.
+            <View
+              key={`${mb.provider}:${mb.email}`}
+              style={[styles.mbRow, rang === 0 && !panne && styles.mbRowPremiere]}
+            >
               <View style={[styles.dot, { backgroundColor: couleurPastille(mb.provider) }]} />
               <View style={styles.mbInfo}>
                 <Text style={styles.mbLabel} numberOfLines={1}>
@@ -343,6 +350,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.line,
   },
+  mbRowPremiere: { borderTopWidth: 0, paddingTop: 0 },
   dot: { width: 10, height: 10, borderRadius: 5, marginEnd: spacing.md },
   mbInfo: { flex: 1 },
   mbLabel: { fontFamily: fonts.sansSemibold, fontSize: 15, color: colors.ink },

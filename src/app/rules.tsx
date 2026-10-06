@@ -117,7 +117,9 @@ export default function RulesScreen() {
     <Stack.Screen
       options={{
         headerShown: true,
-        title: t.tabs.rules,
+        // Le titre de l'écran porte le nom de la ligne des Réglages qui y mène (« Règles de
+        // classement »). Avant le 06/10/2026 l'écran s'appelait « Règles ».
+        title: t.rules.title,
         headerStyle: { backgroundColor: colors.charcoal },
         headerTintColor: colors.onDark,
         headerTitleStyle: { fontFamily: fonts.sansBold, color: colors.onDark },
