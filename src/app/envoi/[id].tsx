@@ -18,7 +18,7 @@ import { apiPost } from '@/lib/api';
 import { libellesCopies } from '@/lib/copies';
 import { cleanText, recipientsParSorte } from '@/lib/mail-format';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { IconChevronLeft, IconSend } from '@/components/icons';
+import { IconChevronLeft } from '@/components/icons';
 import { CorpsEnvoye } from '@/components/corps-envoye';
 
 /**
@@ -182,12 +182,8 @@ export default function PageEnvoi() {
           <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
-          {envoi?.sent_via_vmail ? (
-            <View style={styles.badge}>
-              <IconSend size={12} color={colors.terracottaLight} />
-              <Text style={styles.badgeText}>{tx.viaVmail}</Text>
-            </View>
-          ) : null}
+          {/* Le badge « Vmail » (envoye depuis Vmail) a ete retire le 06/10/2026,
+              demande de HA. La colonne `sent_via_vmail` reste remplie en base. */}
         </View>
 
         {envoi ? (
@@ -329,22 +325,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(234,225,208,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.terracottaLight,
-    borderRadius: radius.pill,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    fontFamily: fonts.sansBold,
-    fontSize: 10.5,
-    letterSpacing: 0.8,
-    color: colors.terracottaLight,
   },
   hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, paddingTop: spacing.xs },
   subject: {

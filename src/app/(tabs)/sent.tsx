@@ -357,7 +357,6 @@ export default function SentScreen() {
               sender={to}
               initials={initiales}
               prioColor="#5c554a"
-              badge={item.sent_via_vmail ? tx.viaVmail : undefined}
               date={formatDateCourte(item.sent_at, intl)}
               subject={item.subject || t.common.noSubject}
               preview={cleanText(item.preview) || null}
