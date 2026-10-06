@@ -165,6 +165,27 @@ export function recipientsLabel(raw: unknown, unknown: string): string {
   return list.length > 1 ? `${head} +${list.length - 1}` : head;
 }
 
+/**
+ * Les destinataires d'un envoi, RANGES PAR SORTE — pour la fiche d'un envoi.
+ *
+ * 06/10/2026, demande de HA : la personne mise en copie cachee doit se voir dans
+ * l'onglet Envoyes. La fiche affiche donc trois lignes (A, Cc, Cci) au lieu d'un
+ * seul « premier destinataire +N » qui melangeait tout.
+ *
+ * Chaque entree est le NOM s'il existe, sinon l'adresse — comme `recipientsLabel`.
+ * Une sorte inconnue ou absente vaut « A » (c'est deja la regle de
+ * `parseRecipients`) : un Cci n'est donc jamais invente, et jamais perdu.
+ */
+export function recipientsParSorte(raw: unknown): { to: string[]; cc: string[]; bcc: string[] } {
+  const out = { to: [] as string[], cc: [] as string[], bcc: [] as string[] };
+  for (const r of parseRecipients(raw)) {
+    const nom = (r.name || r.email || '').trim();
+    if (!nom) continue;
+    out[r.kind === 'cc' ? 'cc' : r.kind === 'bcc' ? 'bcc' : 'to'].push(nom);
+  }
+  return out;
+}
+
 /** Toutes les adresses, pour la recherche locale et l'affichage détaillé. */
 export function recipientsEmails(raw: unknown): string[] {
   return parseRecipients(raw)

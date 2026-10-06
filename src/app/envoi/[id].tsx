@@ -15,7 +15,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
-import { cleanText, recipientsLabel } from '@/lib/mail-format';
+import { libellesCopies } from '@/lib/copies';
+import { cleanText, recipientsParSorte } from '@/lib/mail-format';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconChevronLeft, IconSend } from '@/components/icons';
 import { CorpsEnvoye } from '@/components/corps-envoye';
@@ -150,7 +151,16 @@ export default function PageEnvoi() {
     void agir('forward', liste);
   }
 
-  const pour = envoi ? recipientsLabel(envoi.recipients, tx.noRecipient) : '';
+  // A / Cc / Cci, chacun sur sa ligne (06/10/2026) — meme regle que la fiche web.
+  // Une ligne vide ne s'affiche pas ; sans AUCUN destinataire, on garde la ligne
+  // « A : Sans destinataire » d'avant.
+  const sortes = recipientsParSorte(envoi ? envoi.recipients : null);
+  const copies = libellesCopies(locale);
+  const lignes = [
+    { cle: 'to', libelle: tx.to, noms: sortes.to },
+    { cle: 'cc', libelle: copies.cc, noms: sortes.cc },
+    { cle: 'bcc', libelle: copies.cci, noms: sortes.bcc },
+  ].filter((l) => l.noms.length > 0);
   const quand = envoi
     ? new Date(envoi.sent_at).toLocaleString(intl, {
         weekday: 'long',
@@ -184,9 +194,17 @@ export default function PageEnvoi() {
           <View style={styles.hero}>
             <Text style={styles.subject}>{envoi.subject || t.common.noSubject}</Text>
             <View style={styles.heroMeta}>
-              <Text style={styles.to} numberOfLines={1}>
-                {tx.to} {pour}
-              </Text>
+              {lignes.length === 0 ? (
+                <Text style={styles.to} numberOfLines={1}>
+                  {tx.to} {tx.noRecipient}
+                </Text>
+              ) : (
+                lignes.map((l) => (
+                  <Text key={l.cle} style={styles.to} numberOfLines={3}>
+                    {l.libelle} {l.noms.join(', ')}
+                  </Text>
+                ))
+              )}
               <Text style={styles.date}>{quand}</Text>
             </View>
           </View>
