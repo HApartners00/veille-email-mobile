@@ -289,10 +289,12 @@ export default function PageBrouillon() {
       // PIECE JOINTE SANS TEXTE — 06/10/2026, demande de HA. Accepte UNIQUEMENT si
       // un fichier a ete AJOUTE ICI : l'envoi passe alors par /api/compose, qui le
       // joint et refuse de partir s'il ne peut pas le lire.
-      // ⚠️ PAS pour un brouillon qui n'a que ses fichiers « deja dans le brouillon » :
-      // ce chemin-la (n8n `send-draft`, branche Gmail) reecrit le brouillon en
-      // texte seul — lu le 06/10, PAS mesure. Sans texte, le mail partirait VIDE.
-      // Meme regle et meme reserve que le web (draft-editor.tsx).
+      // ⚠️ PAS pour un brouillon qui n'a que ses fichiers « deja dans le brouillon ».
+      // MESURE DU 06/10/2026 (executions n8n 2285 et 2289) : un brouillon Gmail avec
+      // une piece jointe, envoye d'ici, arrivait SANS elle — n8n `send-draft`
+      // reecrivait le brouillon en texte seul. Corrige le jour meme dans n8n (noeud
+      // « Envoyer un brouillon Gmail »), essaye contre un faux Gmail, PAS ENCORE par
+      // un vrai envoi. Ce cas reste donc ferme. Meme reserve que le web.
       if (op === 'send' && !texte.trim() && pieces.length === 0) {
         setErreur(tx.errEmpty);
         return;
@@ -328,8 +330,11 @@ export default function PageBrouillon() {
          * On choisit donc selon ce qui a change :
          *
          *   rien qui l'empeche  -> `send-draft` : le fournisseur envoie SON
-         *                          brouillon, donc ses PJ suivent par
-         *                          construction. Aucun risque de perte.
+         *                          brouillon, donc ses PJ suivent.
+         *                          ⚠️ « Par construction, aucun risque », disait
+         *                          cette ligne : FAUX pour Gmail jusqu'au
+         *                          06/10/2026 (voir la mesure plus haut). Vrai
+         *                          pour Outlook depuis le debut.
          *   boite changee, ou   -> /api/compose : message neuf. C'est le seul
          *   PJ ajoutees ici        moyen de changer de boite ou d'ajouter un
          *                          fichier — mais les PJ deja dans le brouillon
