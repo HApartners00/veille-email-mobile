@@ -122,6 +122,9 @@ export default function RulesScreen() {
         headerTintColor: colors.onDark,
         headerTitleStyle: { fontFamily: fonts.sansBold, color: colors.onDark },
         headerShadowVisible: false,
+        // Une simple flèche. Sans ce réglage, l'iPhone écrit à côté le nom de l'écran d'où
+        // l'on vient, et ce nom est un nom technique : « (tabs) » (vu le 06/10/2026).
+        headerBackButtonDisplayMode: 'minimal',
       }}
     />
     <FlatList

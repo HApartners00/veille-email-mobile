@@ -110,7 +110,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Ouvrez votre compte Apple (bouton ci-dessous).',
         'Dans « Connexion et sécurité », choisissez « Mots de passe pour applications ».',
-        'Choisissez « Générer un mot de passe pour application », et écrivez « Vmail ».',
+        'Choisissez « Générer un mot de passe pour application » (ou le bouton « + »), et écrivez « Vmail ».',
         'Copiez le code affiché, et revenez ici.',
       ],
     },
@@ -165,7 +165,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Open your Apple Account (button below).',
         'In “Sign-In and Security”, select “App-Specific Passwords”.',
-        'Select “Generate an app-specific password” and type “Vmail”.',
+        'Select “Generate an app-specific password” (or the “+” button) and type “Vmail”.',
         'Copy the code shown, then come back here.',
       ],
     },
@@ -220,7 +220,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Abre tu cuenta de Apple (botón de abajo).',
         'En «Inicio de sesión y seguridad», selecciona «Contraseñas específicas para apps».',
-        'Selecciona «Generar una contraseña específica para la app» y escribe «Vmail».',
+        'Selecciona «Generar una contraseña específica para la app» (o el botón «+») y escribe «Vmail».',
         'Copia el código que aparece y vuelve aquí.',
       ],
     },
@@ -275,7 +275,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Öffne deinen Apple Account (Schaltfläche unten).',
         'Wähle unter „Anmelden und Sicherheit“ die Option „App-spezifische Passwörter“.',
-        'Wähle „App-spezifisches Passwort erstellen“ und gib „Vmail“ ein.',
+        'Wähle „App-spezifisches Passwort erstellen“ (oder die Taste „+“) und gib „Vmail“ ein.',
         'Kopiere den angezeigten Code und komm hierher zurück.',
       ],
     },
@@ -330,7 +330,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Abre a tua Conta Apple (botão abaixo).',
         'Em «Início de sessão e segurança», seleciona «Palavras-passe específicas de app».',
-        'Seleciona «Gerar uma palavra-passe específica de app» e escreve «Vmail».',
+        'Seleciona «Gerar uma palavra-passe específica de app» (ou o botão «+») e escreve «Vmail».',
         'Copia o código apresentado e volta aqui.',
       ],
     },
@@ -385,7 +385,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Apri il tuo Apple Account (pulsante qui sotto).',
         'In «Accesso e sicurezza», seleziona «Password specifiche per le app».',
-        'Seleziona «Genera una password specifica per l’app» e scrivi «Vmail».',
+        'Seleziona «Genera una password specifica per l’app» (o il pulsante «+») e scrivi «Vmail».',
         'Copia il codice mostrato e torna qui.',
       ],
     },
@@ -440,7 +440,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'افتح حساب Apple الخاص بك (الزر أدناه).',
         'في قسم «تسجيل الدخول والأمان»، اختر «كلمات السر الخاصة بالتطبيقات».',
-        'اختر «إنشاء كلمة سر خاصة بالتطبيق»، واكتب «Vmail».',
+        'اختر «إنشاء كلمة سر خاصة بالتطبيق» (أو الزر «+»)، واكتب «Vmail».',
         'انسخ الرمز الظاهر، ثم عُد إلى هنا.',
       ],
     },
@@ -495,7 +495,7 @@ export const imapMsg: Record<Locale, ImapDict> = {
       icloud: [
         'Откройте свой Аккаунт Apple (кнопка ниже).',
         'В разделе «Вход в учетную запись и безопасность» выберите «Пароли приложений».',
-        'Выберите создание пароля для приложения и введите «Vmail».',
+        'Выберите создание пароля для приложения (или кнопку «+») и введите «Vmail».',
         'Скопируйте показанный код и вернитесь сюда.',
       ],
     },
