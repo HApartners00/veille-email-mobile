@@ -606,7 +606,7 @@ function Assistant({
               <View style={styles.apercu}>
                 <Text style={styles.apercuTexte}>
                   {dire(
-                    'Aperçu administrateur : la boîte est enregistrée, mais Vmail ne lit pas encore ses mails (lot 3). Rien n’arrivera dans « Emails » pour l’instant.',
+                    'Aperçu administrateur : Vmail lit et trie les mails de cette boîte. Répondre, archiver et supprimer arrivent bientôt.',
                   )}
                 </Text>
               </View>
