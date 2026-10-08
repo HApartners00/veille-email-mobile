@@ -308,7 +308,16 @@ export default function Sources() {
                 disabled={!!busy}
                 accessibilityRole="button"
               >
-                <Text style={styles.btnText}>{ti.titre.replace('{nom}', LIBELLE_IMAP[fournisseur])}</Text>
+                <View style={styles.btnLigne}>
+                  <Text style={styles.btnText}>{ti.titre.replace('{nom}', LIBELLE_IMAP[fournisseur])}</Text>
+                  {/* (08/10/2026) Yahoo est en BÊTA : aucune vraie boîte Yahoo n'a encore été
+                      essayée. Même pastille que sur le web. */}
+                  {fournisseur === 'yahoo' ? (
+                    <View style={styles.beta} testID="beta">
+                      <Text style={styles.betaTexte}>{ti.beta}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </Pressable>
             ))
           : null}
@@ -365,6 +374,10 @@ const styles = StyleSheet.create({
   icloud: { backgroundColor: '#1a1a17' },
   btnDisabled: { opacity: 0.6 },
   btnText: { fontFamily: fonts.sansBold, color: '#fff', fontSize: 15 },
+  btnLigne: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  beta: { backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
+  // Pas d'espacement entre les lettres : il casserait la liaison de l'écriture arabe (« تجريبي »).
+  betaTexte: { fontFamily: fonts.sansBold, color: '#fff', fontSize: 10, textTransform: 'uppercase' },
   error: { fontFamily: fonts.sans, color: colors.danger, fontSize: 13 },
   note: { fontFamily: fonts.sans, color: colors.hint, fontSize: 12, lineHeight: 18, paddingHorizontal: spacing.xs },
 });

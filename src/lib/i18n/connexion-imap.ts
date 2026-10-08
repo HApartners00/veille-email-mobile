@@ -80,6 +80,13 @@ export type ImapDict = {
   errSession: string;
   /** Refus de la limite d'essais (429). {minutes} = l'attente annoncée par le serveur. */
   errTropDEssais: string;
+  /**
+   * (08/10/2026) La boîte est déjà reliée à un AUTRE compte Vmail : le serveur refuse (409) au
+   * lieu de la faire changer de compte sans un mot.
+   */
+  errDejaRattachee: string;
+  /** (08/10/2026) La pastille posée sur Yahoo, qu'aucune vraie boîte n'a encore essayé. */
+  beta: string;
 
   // ── Propres à l'app mobile (écran « Sources ») ──
   /** Liste vide, quand Yahoo et iCloud sont proposés (la phrase d'origine ne cite qu'Outlook). */
@@ -140,6 +147,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'La connexion n’a pas abouti. Réessayez dans un instant.',
     errReseau: 'Erreur réseau. Vérifiez votre connexion et réessayez.',
     errSession: 'Votre session a expiré. Reconnectez-vous à Vmail.',
+    errDejaRattachee: 'Cette boîte est déjà reliée à un autre compte Vmail. Déconnectez-la de ce compte, puis réessayez ici.',
+    beta: 'Bêta',
     errTropDEssais: 'Trop d’essais. Attendez {minutes} min avant de réessayer.',
     aucuneBoite: 'Aucune boîte connectée pour le moment.',
     listeIllisible: 'La liste des boîtes n’a pas pu être lue.',
@@ -195,6 +204,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'The connection didn’t go through. Try again in a moment.',
     errReseau: 'Network error. Check your connection and try again.',
     errSession: 'Your session has expired. Sign in to Vmail again.',
+    errDejaRattachee: 'This mailbox is already linked to another Vmail account. Disconnect it there, then try again here.',
+    beta: 'Beta',
     errTropDEssais: 'Too many attempts. Wait {minutes} min before trying again.',
     aucuneBoite: 'No mailbox connected yet.',
     listeIllisible: 'The mailbox list couldn’t be loaded.',
@@ -250,6 +261,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'La conexión no se ha completado. Inténtalo de nuevo en un momento.',
     errReseau: 'Error de red. Comprueba tu conexión e inténtalo de nuevo.',
     errSession: 'Tu sesión ha caducado. Vuelve a iniciar sesión en Vmail.',
+    errDejaRattachee: 'Este buzón ya está vinculado a otra cuenta de Vmail. Desconéctalo de esa cuenta y vuelve a intentarlo aquí.',
+    beta: 'Beta',
     errTropDEssais: 'Demasiados intentos. Espera {minutes} min antes de volver a intentarlo.',
     aucuneBoite: 'Ningún buzón conectado todavía.',
     listeIllisible: 'No se ha podido cargar la lista de buzones.',
@@ -305,6 +318,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'Die Verbindung ist nicht zustande gekommen. Versuche es gleich noch einmal.',
     errReseau: 'Netzwerkfehler. Prüfe deine Verbindung und versuche es erneut.',
     errSession: 'Deine Sitzung ist abgelaufen. Melde dich erneut bei Vmail an.',
+    errDejaRattachee: 'Dieses Postfach ist bereits mit einem anderen Vmail-Konto verbunden. Trenne es dort und versuche es dann hier erneut.',
+    beta: 'Beta',
     errTropDEssais: 'Zu viele Versuche. Warte {minutes} Min., bevor du es erneut versuchst.',
     aucuneBoite: 'Noch kein Postfach verbunden.',
     listeIllisible: 'Die Postfachliste konnte nicht geladen werden.',
@@ -360,6 +375,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'A ligação não foi concluída. Tenta de novo dentro de momentos.',
     errReseau: 'Erro de rede. Verifica a tua ligação e tenta de novo.',
     errSession: 'A tua sessão expirou. Inicia sessão no Vmail novamente.',
+    errDejaRattachee: 'Esta caixa já está ligada a outra conta Vmail. Desliga-a dessa conta e tenta de novo aqui.',
+    beta: 'Beta',
     errTropDEssais: 'Demasiadas tentativas. Aguarda {minutes} min antes de tentar de novo.',
     aucuneBoite: 'Nenhuma caixa conectada ainda.',
     listeIllisible: 'Não foi possível carregar a lista de caixas.',
@@ -415,6 +432,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'Il collegamento non è riuscito. Riprova tra un istante.',
     errReseau: 'Errore di rete. Controlla la connessione e riprova.',
     errSession: 'La sessione è scaduta. Accedi di nuovo a Vmail.',
+    errDejaRattachee: 'Questa casella è già collegata a un altro account Vmail. Scollegala da quell’account, poi riprova qui.',
+    beta: 'Beta',
     errTropDEssais: 'Troppi tentativi. Attendi {minutes} min prima di riprovare.',
     aucuneBoite: 'Nessuna casella collegata al momento.',
     listeIllisible: 'Impossibile caricare l’elenco delle caselle.',
@@ -470,6 +489,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'لم يكتمل الاتصال. حاول مجددًا بعد لحظات.',
     errReseau: 'خطأ في الشبكة. تحقّق من اتصالك وحاول مجددًا.',
     errSession: 'انتهت جلستك. سجّل الدخول إلى Vmail من جديد.',
+    errDejaRattachee: 'هذا الصندوق مرتبط بالفعل بحساب Vmail آخر. افصله عن ذلك الحساب، ثم حاول مجددًا هنا.',
+    beta: 'تجريبي',
     errTropDEssais: 'محاولات كثيرة جدًا. انتظر {minutes} دقيقة قبل المحاولة مجددًا.',
     aucuneBoite: 'لا يوجد صندوق متصل بعد.',
     listeIllisible: 'تعذّر تحميل قائمة الصناديق.',
@@ -525,6 +546,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
     errInconnue: 'Подключение не удалось. Повторите попытку чуть позже.',
     errReseau: 'Ошибка сети. Проверьте подключение и повторите попытку.',
     errSession: 'Сеанс истёк. Войдите в Vmail снова.',
+    errDejaRattachee: 'Этот ящик уже связан с другим аккаунтом Vmail. Отключите его там и повторите попытку здесь.',
+    beta: 'Бета',
     errTropDEssais: 'Слишком много попыток. Подождите {minutes} мин и повторите.',
     aucuneBoite: 'Пока нет подключённых ящиков.',
     listeIllisible: 'Не удалось загрузить список ящиков.',

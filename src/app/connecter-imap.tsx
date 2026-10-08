@@ -265,6 +265,10 @@ function Assistant({
         return { texte: dire(t.errAdresse), champ: 'adresse' };
       case 'mot_de_passe_manquant':
         return { texte: dire(t.errCodeVide), champ: 'code' };
+      case 'boite_deja_rattachee':
+        // (08/10/2026) 409 : la boîte appartient à un AUTRE compte Vmail. Elle ne change plus de
+        // compte sans un mot (serveur, lib/imap/brancher.ts) : on dit pourquoi, et quoi faire.
+        return { texte: dire(t.errDejaRattachee), champ: 'adresse' };
     }
     if (status === 401) return { texte: dire(t.errSession), champ: null };
     // 504 sans code lisible : c'est la plateforme qui a coupé, le fournisseur traînait.

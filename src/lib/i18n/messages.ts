@@ -44,9 +44,10 @@ const fr = {
     codeSentTo: 'Code envoyé à {email}. Pensez au dossier spam.',
     errSend: 'Erreur d’envoi',
     noAccount: 'Aucun compte Vmail pour cette adresse.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Aucun compte pour cette adresse. Connectez votre boîte Outlook pour essayer Vmail.',
-    createAccount: 'Connecter ma boîte Outlook',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Aucun compte pour cette adresse. Connectez votre boîte mail pour essayer Vmail.',
+    createAccount: 'Connecter ma boîte mail',
     accountCreated: 'Boîte connectée, compte créé. Saisissez le code à 8 chiffres reçu par email.',
     trialOpenFailed: 'Impossible d’ouvrir la page. Réessayez.',
     // 21/09/2026 — LE 429 N'EST PLUS MUET. Voir le commentaire de login.tsx.
@@ -362,9 +363,10 @@ const en: Dict = {
     codeSentTo: 'Code sent to {email}. Check your spam folder.',
     errSend: 'Sending failed',
     noAccount: 'No Vmail account for this address.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'No account for this address yet. Connect your Outlook mailbox to try Vmail.',
-    createAccount: 'Connect my Outlook mailbox',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'No account for this address yet. Connect your mailbox to try Vmail.',
+    createAccount: 'Connect my mailbox',
     accountCreated: 'Mailbox connected, account created. Enter the 8-digit code we just emailed you.',
     trialOpenFailed: 'Couldn’t open the page. Please try again.',
     tooSoon: 'Too many requests in a row. New code in {n} s.',
@@ -669,9 +671,10 @@ const es: Dict = {
     codeSentTo: 'Código enviado a {email}. Mira también en spam.',
     errSend: 'Error al enviar',
     noAccount: 'No hay ninguna cuenta de Vmail para esta dirección.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Aún no hay cuenta para esta dirección. Conecta tu buzón de Outlook para probar Vmail.',
-    createAccount: 'Conectar mi buzón de Outlook',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Aún no hay cuenta para esta dirección. Conecta tu buzón de correo para probar Vmail.',
+    createAccount: 'Conectar mi buzón de correo',
     accountCreated: 'Buzón conectado y cuenta creada. Introduce el código de 8 cifras que te hemos enviado.',
     trialOpenFailed: 'No se pudo abrir la página. Inténtalo de nuevo.',
     tooSoon: 'Demasiadas solicitudes seguidas. Nuevo código en {n} s.',
@@ -976,9 +979,10 @@ const de: Dict = {
     codeSentTo: 'Code gesendet an {email}. Schau auch im Spam-Ordner nach.',
     errSend: 'Senden fehlgeschlagen',
     noAccount: 'Kein Vmail-Konto für diese Adresse.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Für diese Adresse gibt es noch kein Konto. Verbinde dein Outlook-Postfach, um Vmail zu testen.',
-    createAccount: 'Mein Outlook-Postfach verbinden',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Für diese Adresse gibt es noch kein Konto. Verbinde dein Postfach, um Vmail zu testen.',
+    createAccount: 'Mein Postfach verbinden',
     accountCreated: 'Postfach verbunden, Konto erstellt. Gib den 8-stelligen Code aus der E-Mail ein.',
     trialOpenFailed: 'Die Seite konnte nicht geöffnet werden. Bitte versuche es erneut.',
     tooSoon: 'Zu viele Anfragen hintereinander. Neuer Code in {n} s.',
@@ -1283,9 +1287,10 @@ const pt: Dict = {
     codeSentTo: 'Código enviado para {email}. Veja também no spam.',
     errSend: 'Erro ao enviar',
     noAccount: 'Não existe conta Vmail para este endereço.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Ainda não existe conta para este endereço. Ligue a sua caixa Outlook para experimentar o Vmail.',
-    createAccount: 'Ligar a minha caixa Outlook',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Ainda não existe conta para este endereço. Ligue a sua caixa de correio para experimentar o Vmail.',
+    createAccount: 'Ligar a minha caixa de correio',
     accountCreated: 'Caixa ligada e conta criada. Introduza o código de 8 dígitos recebido por email.',
     trialOpenFailed: 'Não foi possível abrir a página. Tente novamente.',
     tooSoon: 'Demasiados pedidos seguidos. Novo código em {n} s.',
@@ -1590,9 +1595,10 @@ const it: Dict = {
     codeSentTo: 'Codice inviato a {email}. Controlla anche lo spam.',
     errSend: 'Errore di invio',
     noAccount: 'Nessun account Vmail per questo indirizzo.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Nessun account per questo indirizzo. Collega la tua casella Outlook per provare Vmail.',
-    createAccount: 'Collega la mia casella Outlook',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Nessun account per questo indirizzo. Collega la tua casella di posta per provare Vmail.',
+    createAccount: 'Collega la mia casella di posta',
     accountCreated: 'Casella collegata, account creato. Inserisci il codice di 8 cifre ricevuto via email.',
     trialOpenFailed: 'Impossibile aprire la pagina. Riprova.',
     tooSoon: 'Troppe richieste di seguito. Nuovo codice tra {n} s.',
@@ -1897,9 +1903,10 @@ const ar: Dict = {
     codeSentTo: 'تم إرسال الرمز إلى {email}. تحقّق من مجلد البريد غير المرغوب فيه.',
     errSend: 'فشل الإرسال',
     noAccount: 'لا يوجد حساب Vmail لهذا العنوان.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'لا يوجد حساب لهذا العنوان بعد. اربط صندوق Outlook لتجربة Vmail.',
-    createAccount: 'ربط صندوق Outlook الخاص بي',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'لا يوجد حساب لهذا العنوان بعد. اربط صندوق بريدك لتجربة Vmail.',
+    createAccount: 'ربط صندوق بريدي',
     accountCreated: 'تم ربط الصندوق وإنشاء الحساب. أدخل الرمز المكوّن من 8 أرقام الذي وصلك عبر البريد.',
     trialOpenFailed: 'تعذّر فتح الصفحة. حاول مجددًا.',
     tooSoon: 'طلبات كثيرة متتالية. رمز جديد خلال {n} ث.',
@@ -2204,9 +2211,10 @@ const ru: Dict = {
     codeSentTo: 'Код отправлен на {email}. Проверьте папку «Спам».',
     errSend: 'Ошибка отправки',
     noAccount: 'Для этого адреса нет аккаунта Vmail.',
-    // 17/09/2026 — parcours d'essai : l'app ouvre /essai (connexion Outlook) quand l'adresse n'a pas de compte.
-    noAccountTrial: 'Для этого адреса пока нет аккаунта. Подключите ящик Outlook, чтобы попробовать Vmail.',
-    createAccount: 'Подключить мой ящик Outlook',
+    // 17/09/2026 — parcours d'essai : l'app ouvre /essai quand l'adresse n'a pas de compte. 08/10/2026 : la page
+    // propose aussi iCloud et Yahoo (quand ils sont ouverts) — ces deux phrases ne nomment plus Outlook.
+    noAccountTrial: 'Для этого адреса пока нет аккаунта. Подключите свой почтовый ящик, чтобы попробовать Vmail.',
+    createAccount: 'Подключить мой почтовый ящик',
     accountCreated: 'Ящик подключён, аккаунт создан. Введите 8-значный код из письма.',
     trialOpenFailed: 'Не удалось открыть страницу. Попробуйте ещё раз.',
     tooSoon: 'Слишком много запросов подряд. Новый код через {n} с.',
