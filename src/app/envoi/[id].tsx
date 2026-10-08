@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -328,6 +330,10 @@ export default function PageEnvoi() {
             animationType="fade"
             onRequestClose={() => setFeuille(null)}
           >
+            {/* 08/10/2026 — sans ceci, la feuille (collée en bas) restait CACHÉE derrière le clavier
+                qui s'ouvre tout seul (autoFocus) : écran assombri, clavier, et rien à remplir
+                (vu par HA sur iPhone). Même règle que l'assistant et la connexion. */}
+            <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <Pressable style={styles.overlay} onPress={() => setFeuille(null)}>
               <Pressable style={styles.carte} onPress={() => {}}>
                 <Text style={styles.carteTitre}>{tx.forwardPrompt}</Text>
@@ -356,6 +362,7 @@ export default function PageEnvoi() {
                 </View>
               </Pressable>
             </Pressable>
+            </KeyboardAvoidingView>
           </Modal>
         </>
       )}
