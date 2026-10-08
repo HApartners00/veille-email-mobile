@@ -16,15 +16,23 @@ import { apiPost } from './api';
 // pas besoin). La relève et le tri prennent 12 à 20 s (MESURÉ le 07 et le 08/10) : l'écran
 // se recharge seul à 12 s puis à 25 s. Un client sans boîte Yahoo / iCloud : la route ne
 // lance rien et rend 0 — aucun rechargement en plus.
+//
+// (08/10/2026, plus tard) Si la boîte est DÉJÀ en cours de relève, ou relevée il y a moins de
+// 15 s, le serveur n'appelle pas n8n pour rien (`imapEvitees`) — mais l'écran se recharge
+// quand même : la relève en cours va finir. Le bouton « Actualiser » recharge lui aussi à
+// 12 s et 25 s quand une relève Yahoo / iCloud est partie (avant : 7 s seulement, trop tôt).
 // ──────────────────────────────────────────────────────────────────────────────
 
 const RECHARGER_APRES_MS = [12_000, 25_000];
 
-/** Demande la relève des boîtes Yahoo / iCloud. Rend le nombre de relèves lancées. Ne lève jamais. */
+/**
+ * Demande la relève des boîtes Yahoo / iCloud. Rend le nombre de relèves lancées, ou déjà en
+ * cours / tout juste faites. Ne lève jamais.
+ */
 export async function demanderReleveImap(): Promise<number> {
   try {
-    const r = await apiPost<{ imap?: number }>('/api/refresh', { imapSeulement: true });
-    return Number(r?.imap) || 0;
+    const r = await apiPost<{ imap?: number; imapEvitees?: number }>('/api/refresh', { imapSeulement: true });
+    return (Number(r?.imap) || 0) + (Number(r?.imapEvitees) || 0);
   } catch (e) {
     // Rien de cassé : l'horloge de n8n passera de toute façon. Mais ça se dit.
     console.error('[releve-imap] relève Yahoo / iCloud non demandée :', e);
@@ -33,11 +41,11 @@ export async function demanderReleveImap(): Promise<number> {
 }
 
 /**
- * Rend une fonction à appeler quand on tire : elle demande la relève, puis recharge l'écran
- * quand la relève a eu le temps d'aboutir. Les rechargements en attente sont annulés si
- * l'écran disparaît, et remplacés si on tire de nouveau.
+ * Rend `programmer(n)` : si n > 0 (des relèves Yahoo / iCloud sont parties ou en cours), recharge
+ * l'écran à 12 s puis à 25 s. Les rechargements en attente sont annulés si l'écran disparaît,
+ * et remplacés par un nouvel appel.
  */
-export function useReleveImap(recharger: () => unknown): () => Promise<void> {
+export function useRechargementsApresReleve(recharger: () => unknown): (releves: number) => void {
   const rechargerRef = useRef(recharger);
   rechargerRef.current = recharger;
   const minuteurs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -50,9 +58,8 @@ export function useReleveImap(recharger: () => unknown): () => Promise<void> {
     [],
   );
 
-  return useCallback(async () => {
-    const lancees = await demanderReleveImap();
-    if (lancees === 0) return;
+  return useCallback((releves: number) => {
+    if (!(releves > 0)) return;
     minuteurs.current.forEach(clearTimeout);
     minuteurs.current = RECHARGER_APRES_MS.map((ms) =>
       setTimeout(() => {
@@ -60,4 +67,15 @@ export function useReleveImap(recharger: () => unknown): () => Promise<void> {
       }, ms),
     );
   }, []);
+}
+
+/**
+ * Rend une fonction à appeler quand on tire : elle demande la relève, puis recharge l'écran
+ * quand la relève a eu le temps d'aboutir.
+ */
+export function useReleveImap(recharger: () => unknown): () => Promise<void> {
+  const programmer = useRechargementsApresReleve(recharger);
+  return useCallback(async () => {
+    programmer(await demanderReleveImap());
+  }, [programmer]);
 }

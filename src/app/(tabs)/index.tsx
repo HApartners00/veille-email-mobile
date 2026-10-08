@@ -24,7 +24,7 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
-import { useReleveImap } from '@/lib/releve-imap';
+import { useRechargementsApresReleve, useReleveImap } from '@/lib/releve-imap';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
@@ -327,19 +327,24 @@ export default function Feed() {
     setRefreshing(false);
   }, [load, debouncedQuery, releverImap]);
 
+  // 08/10/2026 : « Actualiser » recharge aussi à 12 s et 25 s quand une relève Yahoo / iCloud
+  // est partie (7 s, c'était trop tôt pour elles : relève + tri = 12 à 20 s, mesuré).
+  const rechargerApresReleve = useRechargementsApresReleve(() => load(debouncedQuery));
   const refreshNow = useCallback(async () => {
     if (refreshingNow) return;
     setRefreshingNow(true);
     try {
-      await apiPost('/api/refresh', {});
-    } catch {
-      // On rechargera quand meme.
+      const r = await apiPost<{ imap?: number }>('/api/refresh', {});
+      rechargerApresReleve(Number(r?.imap) || 0);
+    } catch (e) {
+      // On rechargera quand meme. Mais ça se dit.
+      console.error('[actualiser] relève non demandée :', e);
     }
     setTimeout(async () => {
       await load(debouncedQuery);
       setRefreshingNow(false);
     }, 7000);
-  }, [load, debouncedQuery, refreshingNow]);
+  }, [load, debouncedQuery, refreshingNow, rechargerApresReleve]);
 
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
 
