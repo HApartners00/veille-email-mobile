@@ -273,7 +273,9 @@ export default function Login() {
     // connexion n'envoie qu'un mail, une fois, par compte.
     // On n'attend PAS la reponse pour entrer dans l'app — mais un echec est dit
     // dans la console, jamais avale.
-    void apiPost('/api/bienvenue', {}).catch((e) => {
+    // 08/10/2026 — on donne la langue de l'app : le serveur la retient pour le compte
+    // s'il n'en a pas encore (sinon la bienvenue partait en anglais, mesuré le 08/10).
+    void apiPost('/api/bienvenue', { langue: locale }).catch((e) => {
       console.error('Email de bienvenue non declenche :', e);
     });
     router.replace('/(tabs)/accueil');

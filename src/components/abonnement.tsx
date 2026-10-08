@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useI18n } from '@/context/i18n';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPostBrut } from '@/lib/api';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 /**
@@ -224,10 +224,29 @@ export default function Abonnement() {
     return () => abo.remove();
   }, [lire]);
 
+  // 08/10/2026 — PLUS DE SECOND CODE. Constat du 07/10 : la page web redemandait un
+  // code alors qu'on est connecté dans l'app. L'app demande d'abord un lien de
+  // connexion web à usage unique (/api/session-web) et ouvre CE lien : la page
+  // s'ouvre déjà connectée. Si le lien est refusé, on ouvre la page comme avant
+  // (connexion par code) — et on le dit dans la console, jamais en silence.
   const ouvrir = async () => {
     setEchec(false);
+    let lien = LIEN_ABONNEMENT;
     try {
-      await WebBrowser.openBrowserAsync(LIEN_ABONNEMENT);
+      const r = await apiPostBrut<{ ok?: boolean; url?: string; error?: string }>('/api/session-web', {
+        suite: '/settings?s=abonnement',
+      });
+      const url = r.json?.url;
+      if (r.ok && typeof url === 'string' && url.startsWith('https://app.veille-email.fr/')) {
+        lien = url;
+      } else {
+        console.error('[abonnement] lien de connexion web refusé, ouverture sans connexion', r.status, r.json?.error);
+      }
+    } catch (e) {
+      console.error('[abonnement] lien de connexion web impossible, ouverture sans connexion', e);
+    }
+    try {
+      await WebBrowser.openBrowserAsync(lien);
       void lire();
     } catch (e) {
       console.error('[abonnement] ouverture du site impossible', e);

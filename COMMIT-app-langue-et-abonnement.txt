@@ -1,0 +1,22 @@
+App : la langue du compte, et l'abonnement sans second code
+
+1. LA LANGUE DU COMPTE (mesuré le 08/10 : 6 comptes sur 6 sans langue depuis le
+   23/09, d'où des mails en anglais à des francophones)
+   - login.tsx : l'appel /api/bienvenue donne la langue de l'app ;
+   - context/i18n.tsx : au lancement, si on est connecté, l'app donne sa langue à
+     /api/locale avec « siVide » — le serveur ne l'écrit que si le compte n'en a pas.
+
+2. « CHANGER DE FORMULE » SANS SECOND CODE
+   components/abonnement.tsx : l'app demande d'abord un lien de connexion web à
+   usage unique (/api/session-web) et ouvre ce lien ; la page Abonnement s'ouvre
+   déjà connectée. Lien refusé : la page s'ouvre comme avant, et c'est écrit dans
+   la console.
+
+Va avec le commit web « Quatre corrections générales… ». Seulement du JavaScript :
+une mise à jour à distance suffit (pas de build).
+
+PAS ENCORE VU : en vrai sur un téléphone. Relu, et `tsc` ne signale rien dans ces
+trois fichiers (les 20 lignes d'erreurs anciennes ailleurs sont inchangées).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DKKPf26SPTey38LGNyXTDZ

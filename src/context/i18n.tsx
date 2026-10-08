@@ -11,7 +11,8 @@ import {
 } from 'react';
 import { I18nManager } from 'react-native';
 
-import { apiPost } from '@/lib/api';
+import { apiPost, apiPostBrut } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import {
   bcp47,
   defaultLocale,
@@ -108,6 +109,28 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── LA LANGUE DU COMPTE — 08/10/2026 ────────────────────────────────────────
+  // Mesuré en base : les 6 comptes créés depuis le 23/09 n'avaient AUCUNE langue
+  // (`profiles.language` vide). L'app ne l'envoyait qu'au changement de langue dans
+  // les réglages. Le mail de bienvenue et les rappels partaient donc en anglais, y
+  // compris à des francophones. Au lancement, si on est connecté, on donne la langue
+  // de l'app ; le serveur ne l'écrit QUE si le compte n'en a pas (`siVide`).
+  useEffect(() => {
+    if (!ready) return;
+    let annule = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (annule || !data.session) return;
+      const r = await apiPostBrut('/api/locale', { locale, siVide: true });
+      if (!r.ok) console.error('Langue du compte non transmise :', r.status, r.json);
+    })().catch((e) => console.error('Langue du compte non transmise :', e));
+    return () => {
+      annule = true;
+    };
+    // Une fois par lancement : la langue choisie ensuite part par `setLocale`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
