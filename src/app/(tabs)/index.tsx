@@ -24,6 +24,7 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconCheck, IconMore, IconPlus, IconSearch } from '@/components/icons';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
+import { useReleveImap } from '@/lib/releve-imap';
 import { EmailRow } from '@/components/email-row';
 import { LogoVmail } from '@/components/logo-v';
 import { consumePendingFeedFilter } from '@/lib/feed-filter';
@@ -317,11 +318,14 @@ export default function Feed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
+  // 08/10/2026 : tirer va AUSSI chercher les nouveaux mails Yahoo / iCloud (lib/releve-imap.ts).
+  const releverImap = useReleveImap(() => load(debouncedQuery));
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    void releverImap();
     await load(debouncedQuery);
     setRefreshing(false);
-  }, [load, debouncedQuery]);
+  }, [load, debouncedQuery, releverImap]);
 
   const refreshNow = useCallback(async () => {
     if (refreshingNow) return;

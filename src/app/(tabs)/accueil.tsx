@@ -28,6 +28,7 @@ import { LogoVmail } from '@/components/logo-v';
 import { IconPlus } from '@/components/icons';
 import { BlocPremierImport } from '@/components/premier-import';
 import { usePremierImport } from '@/lib/premier-import';
+import { useReleveImap } from '@/lib/releve-imap';
 
 type Item = {
   id: string;
@@ -188,11 +189,14 @@ export default function Accueil() {
     }, [load]),
   );
 
+  // 08/10/2026 : tirer va AUSSI chercher les nouveaux mails Yahoo / iCloud (lib/releve-imap.ts).
+  const releverImap = useReleveImap(load);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    void releverImap();
     await load();
     setRefreshing(false);
-  }, [load]);
+  }, [load, releverImap]);
 
 
   const prio = useCallback((it: Item) => effectivePriority(it, rules), [rules]);
