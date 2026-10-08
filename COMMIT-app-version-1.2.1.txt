@@ -1,0 +1,31 @@
+App : version 1.2.1 pour l'App Store, mises à jour à distance toujours partagées avec la 1.2.0
+
+LE REFUS (mail d'App Store Connect, 09/10/2026 00:27, build 39) :
+ITMS-90186 « The train version '1.2.0' is closed for new build submissions » et
+ITMS-90062 : la version doit être plus haute que la 1.2.0 déjà approuvée. Le
+build 39 ne peut pas être envoyé à Apple.
+
+CE COMMIT
+1. `version` : 1.2.0 → 1.2.1. C'est le numéro que voit Apple.
+2. `runtimeVersion` : la règle « appVersion » est remplacée par la valeur fixe
+   « 1.2.0 ». Sans ça, passer en 1.2.1 aurait coupé l'app en deux : les mises à
+   jour à distance publiées pour la 1.2.1 n'auraient plus atteint les téléphones
+   qui ont encore la 1.2.0 de l'App Store (build 38), et inversement.
+   Avec « 1.2.0 » fixe, UNE mise à jour à distance atteint les deux.
+
+POURQUOI C'EST SANS DANGER AUJOURD'HUI : entre le build 38 (1.2.0) et celui-ci,
+le seul changement natif est le réglage `fallbackToCacheTimeout` (attente de la
+dernière version au lancement), qui ne change rien à ce que le code JavaScript
+peut appeler. Les mises à jour à distance publiées depuis le 20/09 tournent déjà
+sur le build 38.
+
+⚠️ LA RÈGLE À PARTIR DE MAINTENANT : le jour où l'app reçoit du code natif
+nouveau (un module natif ajouté, une montée d'Expo, une permission iOS), il FAUT
+changer `runtimeVersion` (par exemple « 1.3.0 ») dans le même commit. Sinon une
+mise à jour à distance pourrait arriver sur un téléphone qui n'a pas le natif
+qu'elle attend, et l'app planterait.
+
+PAS ENCORE VU : le build 40 accepté par Apple.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DKKPf26SPTey38LGNyXTDZ
