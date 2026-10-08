@@ -27,6 +27,7 @@ import {
   recipientsLabel,
   senderInitials,
 } from '@/lib/mail-format';
+import { estNonDistribue, libellesNonDistribue } from '@/lib/non-distribue';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts, spacing } from '@/lib/theme';
 
@@ -48,13 +49,17 @@ type SentItem = {
   has_attachments: boolean;
   sent_via_vmail: boolean;
   sent_at: string;
+  /** Un mail de retour est arrivé pour cet envoi (voir lib/non-distribue.ts). `null` = aucun connu. */
+  non_distribue_le?: string | null;
 };
 
 // Doit rester égal à PAGE du web (apps/web/src/app/sent/sent-list.tsx).
 const PAGE = 100;
 
+// `non_distribue_le` : la colonne existe en base depuis le 08/10/2026 (migration
+// `vmail_envoyes_non_distribue`, appliquée AVANT cette version de l'app).
 const SELECT =
-  'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at';
+  'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at, non_distribue_le';
 
 
 function sanitize(q: string): string {
@@ -91,6 +96,7 @@ export default function SentScreen() {
   const { t, locale } = useI18n();
   const intl = bcp47[locale];
   const sp = PAUSE_STR[locale] ?? PAUSE_STR.en;
+  const nd = libellesNonDistribue(locale);
   const tx = t.sent;
 
   /**
@@ -357,6 +363,8 @@ export default function SentScreen() {
               sender={to}
               initials={initiales}
               prioColor="#5c554a"
+              // « Non distribué » : la messagerie a refusé cet envoi après coup (08/10/2026).
+              badge={estNonDistribue(item) ? nd.badge : undefined}
               date={formatDateCourte(item.sent_at, intl)}
               subject={item.subject || t.common.noSubject}
               preview={cleanText(item.preview) || null}

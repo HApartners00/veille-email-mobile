@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useI18n } from '@/context/i18n';
 import { apiDelete, apiGet, apiPost, apiUpload } from '@/lib/api';
+import { boitesDEnvoi, LISTE_DES_BOITES_D_ENVOI } from '@/lib/boites-d-envoi';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import {
   MAX_ATT_BYTES,
@@ -137,6 +139,12 @@ export default function NouveauMessage() {
    * « il n'y en a pas ».
    */
   const [boitesLues, setBoitesLues] = useState(false);
+  /**
+   * ET UNE LISTE QU'ON N'A PAS PU LIRE N'EST PAS UNE LISTE VIDE — 08/10/2026.
+   * On garde ce que le serveur a dit, et c'est ce que le champ « De » affiche,
+   * pas « Aucune boîte connectée ».
+   */
+  const [boitesIllisibles, setBoitesIllisibles] = useState<string | null>(null);
   const [destinataires, setDestinataires] = useState('');
   /**
    * COPIE (Cc) ET COPIE CACHEE (Cci) — 06/10/2026, demande de HA : « je dois
@@ -166,6 +174,18 @@ export default function NouveauMessage() {
 
   const [iaOccupee, setIaOccupee] = useState(false);
   const [occupe, setOccupe] = useState<null | 'send' | 'draft'>(null);
+  /**
+   * LE MEME MESSAGE GARDE LA MEME CLE — 08/10/2026 (lot 4, relecture).
+   *
+   * Avant, chaque appui sur « Envoyer » fabriquait une cle neuve : la garde contre
+   * le double envoi de /api/compose (`idempotencyKey`) ne jouait jamais entre deux
+   * appuis. Apres « on ne sait pas si le message est parti » ou une coupure
+   * reseau, un deuxieme appui renvoyait le mail. Maintenant la cle ne change que
+   * si le MESSAGE change (boite, destinataires, objet, texte, fichiers, brouillon) :
+   * un deuxieme appui sur le meme message est reconnu par le serveur (« un envoi
+   * est deja en cours », ou « deja envoye »).
+   */
+  const cleEnvoi = useRef<{ empreinte: string; cle: string } | null>(null);
   const [televersement, setTeleversement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [feuille, setFeuille] = useState<null | 'boites' | 'quitter'>(null);
@@ -188,9 +208,11 @@ export default function NouveauMessage() {
     (async () => {
       const memorisee = await AsyncStorage.getItem(CLE_BOITE).catch(() => null);
       try {
-        const j = await apiGet<{ mailboxes?: Boite[] }>('/api/connect/list');
+        // 08/10/2026 (lot 4) : la liste COMPLETE. /api/compose sait desormais
+        // envoyer depuis une boite Yahoo ou iCloud ; elles apparaissent dans « De ».
+        const j = await apiGet<{ mailboxes?: unknown }>(LISTE_DES_BOITES_D_ENVOI);
         if (!vivant) return;
-        const liste = Array.isArray(j?.mailboxes) ? j.mailboxes.filter((m) => m?.email) : [];
+        const liste: Boite[] = boitesDEnvoi(j?.mailboxes);
         setBoites(liste);
         // La mémorisée ne gagne QUE si elle est encore connectée : une boîte
         // déconnectée entre-temps enverrait vers un 403 sans rien expliquer.
@@ -204,7 +226,11 @@ export default function NouveauMessage() {
       } catch (e) {
         if (vivant) {
           setBoitesLues(true);
-          setErreur(e instanceof Error && e.message ? e.message : s.aucuneBoite);
+          // (Une erreur de `apiGet` porte toujours un message : celui du serveur, ou
+          // celui du reseau. Le repli ne sert qu'a ne jamais afficher un champ vide.)
+          const motif = e instanceof Error && e.message ? e.message : s.aucuneBoite;
+          setBoitesIllisibles(motif);
+          setErreur(motif);
         }
       }
     })();
@@ -435,7 +461,7 @@ export default function NouveauMessage() {
     async (op: 'send' | 'draft') => {
       if (occupe) return;
       if (!boite) {
-        setErreur(s.aucuneBoite);
+        setErreur(boitesIllisibles ?? s.aucuneBoite);
         return;
       }
       // Les deux exigences ne sont PAS les mêmes, et c'est délibéré : un envoi ne
@@ -501,8 +527,13 @@ export default function NouveauMessage() {
         return;
       }
 
+      const empreinte = JSON.stringify([op, boite, listeDestinataires, enListe(cc), enListe(cci), objet, texte, draftId, pieces.map((p) => p.id)]);
+      if (cleEnvoi.current?.empreinte !== empreinte) {
+        cleEnvoi.current = { empreinte, cle: `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+      }
+      const cle = cleEnvoi.current.cle;
       try {
-        await apiPost('/api/compose', {
+        const rep = await apiPost<{ avertissement?: string }>('/api/compose', {
           op,
           accountEmail: boite,
           to: listeDestinataires,
@@ -515,8 +546,11 @@ export default function NouveauMessage() {
           // Le message part avec les fichiers DU brouillon, et le brouillon est
           // supprime une fois parti. Vide = message neuf.
           draftId: draftId || undefined,
-          idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          idempotencyKey: cle,
         });
+        // PARTI, MAIS… (Yahoo / iCloud) — 08/10/2026. Dit avant de quitter l'ecran :
+        // sinon la personne ne voit pas son mail dans Envoyes (s'il y manque) et le renvoie.
+        if (rep?.avertissement) Alert.alert(rep.avertissement);
         router.back();
       } catch (e) {
         setErreur(e instanceof Error && e.message ? e.message : t.email.genFail);
@@ -537,6 +571,9 @@ export default function NouveauMessage() {
       cci,
       texte,
       pieces.length,
+      // (Les fichiers eux-memes : ils font partie de l'empreinte de la cle d'envoi.)
+      pieces,
+      boitesIllisibles,
       objet,
       router,
       rechargerPJ,
@@ -592,7 +629,7 @@ export default function NouveauMessage() {
             style={[styles.champTexte, !boitesLues && styles.champTexteEnAttente]}
             numberOfLines={1}
           >
-            {boite || (boitesLues ? s.aucuneBoite : '…')}
+            {boite || (boitesLues ? (boitesIllisibles ?? s.aucuneBoite) : '…')}
           </Text>
         </Pressable>
 
@@ -706,7 +743,8 @@ export default function NouveauMessage() {
             <Text style={styles.pjNom} numberOfLines={1}>
               {p.filename}
             </Text>
-            <Pressable hitSlop={10} onPress={() => void retirerPJ(p.id)}>
+            {/* Pas pendant l'envoi : un fichier retire alors partirait quand meme. */}
+            <Pressable hitSlop={10} disabled={occupe !== null} onPress={() => void retirerPJ(p.id)}>
               <IconClose size={15} color={colors.onDarkMuted} />
             </Pressable>
           </View>
@@ -727,11 +765,12 @@ export default function NouveauMessage() {
              Modal dans le chemin. Un geste de moins, et une classe entiere de
              panne qui disparait. */
           <View style={styles.pjBtns}>
-            <Pressable style={styles.pjBtn} onPress={() => void depuisFichiers()}>
+            {/* Pas pendant l'envoi : un fichier ajoute alors ne partirait pas, et serait efface. */}
+            <Pressable style={[styles.pjBtn, occupe !== null && styles.off]} disabled={occupe !== null} onPress={() => void depuisFichiers()}>
               <IconPlus size={14} color={colors.onDark} />
               <Text style={styles.pjBtnText}>{s.fichiers}</Text>
             </Pressable>
-            <Pressable style={styles.pjBtn} onPress={() => void depuisPhotos()}>
+            <Pressable style={[styles.pjBtn, occupe !== null && styles.off]} disabled={occupe !== null} onPress={() => void depuisPhotos()}>
               <IconPlus size={14} color={colors.onDark} />
               <Text style={styles.pjBtnText}>{s.photos}</Text>
             </Pressable>

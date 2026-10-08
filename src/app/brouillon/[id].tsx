@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useI18n } from '@/context/i18n';
 import { apiDelete, apiGet, apiPost, apiUpload } from '@/lib/api';
+import { boitesDEnvoi, LISTE_DES_BOITES_D_ENVOI } from '@/lib/boites-d-envoi';
 import { bcp47 } from '@/lib/i18n';
 import { formatDate, parseRecipients, recipientsEmails, recipientsLabel } from '@/lib/mail-format';
 import {
@@ -227,9 +229,13 @@ export default function PageBrouillon() {
 
   // Boites connectees. Defaut = celle du brouillon, qui est la seule ou il existe.
   useEffect(() => {
-    apiGet<{ mailboxes?: { email: string; provider: string }[] }>('/api/connect/list')
-      .then((j) => setBoites(Array.isArray(j?.mailboxes) ? j.mailboxes.filter((m) => m?.email) : []))
-      .catch(() => {});
+    // 08/10/2026 (lot 4) : la liste COMPLETE. L'envoi de cette page passe par
+    // /api/compose, qui sait desormais envoyer depuis une boite Yahoo ou iCloud.
+    apiGet<{ mailboxes?: unknown }>(LISTE_DES_BOITES_D_ENVOI)
+      .then((j) => setBoites(boitesDEnvoi(j?.mailboxes)))
+      // Liste illisible : elle reste vide, le selecteur est inerte et le brouillon
+      // part de SA boite, comme avant. Pas une panne a afficher — mais pas muet.
+      .catch((e) => console.warn('[brouillon] liste des boites illisible', e));
   }, []);
 
   useEffect(() => {
@@ -416,7 +422,7 @@ export default function PageBrouillon() {
            * annonce depuis le 13/08 que les modifications s'appliquent A L'ENVOI
            * et que le brouillon n'est pas reecrit — c'etait deja son contrat.
            */
-          await apiPost('/api/compose', {
+          const rep = await apiPost<{ avertissement?: string }>('/api/compose', {
             op: 'send',
             accountEmail: boite || brouillon.accountEmail,
             to: pourEnvoi,
@@ -425,6 +431,8 @@ export default function PageBrouillon() {
             body: texte,
             idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           });
+          // PARTI, MAIS… (Yahoo / iCloud) — 08/10/2026 : dit avant de quitter l'ecran.
+          if (rep?.avertissement) Alert.alert(rep.avertissement);
           /**
            * Le brouillon d'origine n'a plus lieu d'etre. Cet appel-la n'a PAS
            * de message d'erreur, et c'est un choix : le mail est parti, c'est le

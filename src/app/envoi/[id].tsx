@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { apiPost } from '@/lib/api';
 import { libellesCopies } from '@/lib/copies';
 import { cleanText, recipientsParSorte } from '@/lib/mail-format';
+import { estNonDistribue, libellesNonDistribue } from '@/lib/non-distribue';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import { IconChevronLeft } from '@/components/icons';
 import { CorpsEnvoye } from '@/components/corps-envoye';
@@ -52,6 +53,9 @@ type Envoi = {
   has_attachments: boolean;
   sent_via_vmail: boolean;
   sent_at: string;
+  /** Un mail de retour est arrivé pour cet envoi (voir lib/non-distribue.ts). */
+  non_distribue_le?: string | null;
+  non_distribue_motif?: string | null;
 };
 
 /**
@@ -72,9 +76,26 @@ const CORPS_STR: Record<string, string> = {
 };
 
 const SELECT =
-  'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at';
+  'id, account_email, provider, subject, preview, recipients, url, has_attachments, sent_via_vmail, sent_at, non_distribue_le, non_distribue_motif';
 
 /** Meme forme que dans la liste : l'idempotence protege d'un double envoi. */
+/**
+ * « ON NE SAIT PAS » — 08/10/2026 (lot 4, relecture). Quand la reponse du serveur n'arrive pas
+ * (reseau coupe) ou n'est pas lisible sur une erreur du serveur (une page 504 de l'hebergeur),
+ * le mail a PU partir : un renvoi Yahoo / iCloud dure jusqu'a ~40 s. On ne dit donc pas
+ * « l'envoi n'a pas abouti » : on dit qu'on ne sait pas.
+ */
+const INCERTAIN: Record<string, string> = {
+  fr: "On ne sait pas si le message est parti : la liaison s'est coupée. Vérifiez auprès de votre destinataire avant de réessayer.",
+  en: "We can't tell whether the message was sent: the connection dropped. Check with your recipient before trying again.",
+  es: 'No sabemos si el mensaje se ha enviado: la conexión se cortó. Compruébalo con tu destinatario antes de volver a intentarlo.',
+  de: 'Wir wissen nicht, ob die Nachricht gesendet wurde: Die Verbindung ist abgebrochen. Frag beim Empfänger nach, bevor du es erneut versuchst.',
+  pt: 'Não sabemos se a mensagem foi enviada: a ligação caiu. Confirma com o destinatário antes de tentar de novo.',
+  it: 'Non sappiamo se il messaggio è partito: la connessione si è interrotta. Verifica con il destinatario prima di riprovare.',
+  ar: 'لا نعرف إن كانت الرسالة قد أُرسلت: انقطع الاتصال. تحقّق مع المستلم قبل إعادة المحاولة.',
+  ru: 'Неизвестно, ушло ли письмо: связь прервалась. Уточните у получателя, прежде чем пробовать снова.',
+};
+
 function nouvelleCleIdempotence(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -89,10 +110,20 @@ export default function PageEnvoi() {
   const [envoi, setEnvoi] = useState<Envoi | null>(null);
   const [chargement, setChargement] = useState(true);
   const [occupe, setOccupe] = useState(false);
+  /**
+   * LA MEME DEMANDE GARDE LA MEME CLE — 08/10/2026 (lot 4, relecture). Avant, chaque clic
+   * fabriquait une cle neuve : apres « on ne sait pas », un deuxieme clic renvoyait le mail une
+   * seconde fois. Maintenant la cle ne change que si la demande change (renvoyer / transferer,
+   * adresses), ou apres une REUSSITE (un nouveau clic est alors une nouvelle demande, voulue).
+   */
+  const cle = useRef<{ empreinte: string; cle: string } | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [avis, setAvis] = useState<string | null>(null);
   const [feuille, setFeuille] = useState<null | 'transferer'>(null);
   const [destinataire, setDestinataire] = useState('');
+  // « Non distribué » (08/10/2026) : les mots, et la phrase du serveur sur une ligne.
+  const nd = libellesNonDistribue(locale);
+  const motif = String(envoi?.non_distribue_motif ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
 
   useEffect(() => {
     let vivant = true;
@@ -120,23 +151,37 @@ export default function PageEnvoi() {
       setOccupe(true);
       setErreur(null);
       setAvis(null);
+      const empreinte = JSON.stringify([op, to ?? []]);
+      if (cle.current?.empreinte !== empreinte) cle.current = { empreinte, cle: nouvelleCleIdempotence() };
       try {
-        await apiPost('/api/sent/resend', {
+        const rep = await apiPost<{ avertissement?: string }>('/api/sent/resend', {
           id: envoi.id,
           op,
           to,
-          idempotencyKey: nouvelleCleIdempotence(),
+          idempotencyKey: cle.current.cle,
         });
-        setAvis(op === 'resend' ? tx.doneResent : tx.doneForwarded);
+        cle.current = null;
+        // Yahoo / iCloud (08/10/2026) : PARTI, mais quelque chose est a savoir — ajoute au message.
+        setAvis((op === 'resend' ? tx.doneResent : tx.doneForwarded) + (rep?.avertissement ? ` ${rep.avertissement}` : ''));
         setFeuille(null);
         setDestinataire('');
       } catch (e) {
-        setErreur(e instanceof Error && e.message ? e.message : tx.errGeneric);
+        // Pas de reponse (reseau : TypeError), ou une erreur du serveur sans message lisible
+        // (`apiPost` dit alors « Erreur 5xx ») : le mail a PU partir. On ne sait pas.
+        const incertain =
+          e instanceof TypeError || (e instanceof Error && /^Erreur 5\d\d$/.test(e.message));
+        setErreur(
+          incertain
+            ? (INCERTAIN[locale] ?? INCERTAIN.en!)
+            : e instanceof Error && e.message
+              ? e.message
+              : tx.errGeneric,
+        );
       } finally {
         setOccupe(false);
       }
     },
-    [occupe, envoi, tx.doneResent, tx.doneForwarded, tx.errGeneric],
+    [occupe, envoi, locale, tx.doneResent, tx.doneForwarded, tx.errGeneric],
   );
 
   function envoyerLeTransfert() {
@@ -218,6 +263,22 @@ export default function PageEnvoi() {
       ) : (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+            {/* ⚠️ AVANT LE CORPS, et pas en petit : la personne croit ce mail arrivé (Vmail
+                a affiché « Envoyé »). Le motif est un texte recopié d'un mail de retour :
+                affiché tel quel. PAS `cleanText` : il retirerait l'adresse que le serveur
+                cite entre chevrons. */}
+            {estNonDistribue(envoi) ? (
+              <View style={styles.nonDistribue} accessibilityRole="alert">
+                <Text style={styles.nonDistribueTitre}>{nd.titre}</Text>
+                <Text style={styles.nonDistribueTexte}>{nd.explication}</Text>
+                {motif ? (
+                  <Text style={styles.nonDistribueMotif}>
+                    {nd.raison} {motif}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             <Text style={styles.sectionLabel}>{CORPS_STR[locale] ?? CORPS_STR.en}</Text>
             <CorpsEnvoye
               sentId={envoi.id}
@@ -357,6 +418,30 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   pj: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.onDarkMuted, marginTop: spacing.lg },
+  // « Non distribué » : même fond orange très léger que la ligne sélectionnée du web.
+  nonDistribue: {
+    backgroundColor: 'rgba(232,93,12,0.12)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(232,149,107,0.35)',
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  nonDistribueTitre: { fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.onDark },
+  nonDistribueTexte: {
+    fontFamily: fonts.sans,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(234,225,208,0.82)',
+    marginTop: 4,
+  },
+  nonDistribueMotif: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.onDarkMuted,
+    marginTop: spacing.sm,
+  },
   compte: {
     fontFamily: fonts.sans,
     fontSize: 11.5,
