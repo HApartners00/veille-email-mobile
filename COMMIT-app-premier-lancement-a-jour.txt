@@ -1,0 +1,33 @@
+App : au premier lancement, l'app prend la dernière version (attente 10 s maximum)
+
+LE CONSTAT (07/10/2026, premier inscrit inconnu). Une app tout juste installée
+jouait le code embarqué dans le build de l'App Store du 20/09, pas la dernière
+mise à jour à distance : celle-ci ne s'appliquait qu'au DEUXIÈME lancement. D'où,
+pour un nouvel inscrit : l'écran du code qui ne dit rien quand le code est refusé,
+le bouton « Ouvrir dans la messagerie » retiré le 06/10 encore visible, le texte
+« Outlook » au lieu de « boîte mail ».
+
+LA CAUSE, LUE DANS app.json : `updates.fallbackToCacheTimeout` valait 0 — l'app
+n'attendait jamais la dernière version au lancement.
+
+CE COMMIT : 10 000 ms. Au lancement, l'app attend jusqu'à 10 secondes (écran de
+démarrage affiché) de récupérer la dernière mise à jour publiée. Si elle arrive,
+c'est elle qui s'ouvre, dès le premier lancement. Sinon (réseau lent ou coupé),
+l'app s'ouvre comme avant et la mise à jour s'appliquera au lancement suivant.
+
+LE PRIX : un premier lancement plus long quand le réseau est lent (10 s au pire).
+Choix accepté par HA le 08/10/2026 (« oui »). La durée de 10 s est un choix par
+défaut de Claude, annoncé.
+
+CE QUI NE CHANGE PAS : la version (1.2.0) et donc la « runtimeVersion » : les
+mises à jour à distance déjà publiées restent compatibles avec ce build.
+
+DEMANDE UN NOUVEAU BUILD : ce réglage est figé dans l'app native, une mise à jour
+à distance ne le change pas.
+
+PAS ENCORE VU : l'effet réel. La preuve : supprimer l'app, installer ce build
+depuis TestFlight, l'ouvrir une seule fois — elle doit montrer les derniers
+textes dès cette première ouverture.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DKKPf26SPTey38LGNyXTDZ

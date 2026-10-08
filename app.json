@@ -103,7 +103,7 @@
     "owner": "ha.partners",
     "updates": {
       "url": "https://u.expo.dev/c0ac22e3-d640-4c5d-a461-3b975114d614",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 10000
     },
     "runtimeVersion": {
       "policy": "appVersion"
