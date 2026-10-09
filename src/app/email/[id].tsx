@@ -39,6 +39,7 @@ import { corpsEnCache, lireCorps, lireResume, resumeEnCache } from '@/lib/cache-
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 import PanneauVoix from '@/components/panneau-voix';
 import ChampsCopies from '@/components/champs-copies';
+import PjSignature, { usePjSignature } from '@/components/pj-signature';
 import { enListe, libellesCopies } from '@/lib/copies';
 import {
   demarrerVoix,
@@ -557,6 +558,9 @@ export default function EmailDetail() {
   }, [draft]);
   // Rien a envoyer : ni texte, ni fichier. Meme regle que le serveur.
   const rienAEnvoyer = !draft.trim() && atts.length === 0;
+  // Le fichier joint à la signature de la boîte qui répond (09/10/2026). Il ne compte
+  // pas comme « quelque chose à envoyer » : même règle que le serveur.
+  const pjSig = usePjSignature({ itemId: id ? String(id) : undefined });
 
   /**
    * COPIE (Cc) ET COPIE CACHEE (Cci) SUR UNE REPONSE — 06/10/2026, demande de HA.
@@ -1021,6 +1025,8 @@ export default function EmailDetail() {
         // Le brouillon depose dans la messagerie porte les copies.
         cc: enListe(cc),
         bcc: enListe(cci),
+        // false = la personne a retiré le fichier de la signature de CE mail (✕).
+        pjSignature: pjSig.joindre,
       });
       setMsg({ type: 'ok', text: t.email.draftCreated });
     } catch (e: any) {
@@ -1045,6 +1051,7 @@ export default function EmailDetail() {
         // invalide fait REFUSER l'envoi par le serveur, qui la nomme.
         cc: enListe(cc),
         bcc: enListe(cci),
+        pjSignature: pjSig.joindre,
       });
       setSent(true);
     } catch (e: any) {
@@ -1674,6 +1681,7 @@ export default function EmailDetail() {
                     propositions de modifs ». Elle était AU-DESSUS ; le web l'avait
                     déjà dessous (app/email/draft-button.tsx). */}
                 <Text style={styles.refineLabel}>{attStr.label}</Text>
+                <PjSignature {...pjSig} locale={locale} desactive={sending || pushing} />
                 {atts.map((a) => (
                   <View key={a.id} style={styles.attRow}>
                     <Text style={styles.attName} numberOfLines={1}>

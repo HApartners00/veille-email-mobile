@@ -85,6 +85,25 @@ export async function apiUpload<T = any>(path: string, form: FormData): Promise<
   return json as T;
 }
 
+/**
+ * Upload multipart qui ne lève PAS d'exception sur un statut d'erreur — 09/10/2026.
+ * Comme `apiPostBrut` : l'appelant lit le statut (413 trop gros, 415 type refusé) pour
+ * afficher le message dans la langue de l'utilisateur. Une panne réseau, elle, jette.
+ */
+export async function apiUploadBrut<T = any>(
+  path: string,
+  form: FormData,
+): Promise<{ ok: boolean; status: number; json: T }> {
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: form,
+  });
+  const json = (await res.json().catch(() => ({}))) as T;
+  verifierReponseCredit(res.status, json); // 402 credit_epuise → panneau du crédit
+  return { ok: res.ok, status: res.status, json };
+}
+
 /** Télécharge un fichier authentifié vers le cache local et renvoie son URI.
  * Utilisé pour ouvrir/partager une pièce jointe sur mobile. */
 export async function apiDownloadToFile(path: string, fileName: string): Promise<string> {

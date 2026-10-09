@@ -30,6 +30,7 @@ import {
 import ChampDestinataires from '@/components/champ-destinataires';
 import BoutonIaIrise from '@/components/bouton-ia-irise';
 import ChampsCopies from '@/components/champs-copies';
+import PjSignature, { usePjSignature } from '@/components/pj-signature';
 import { enListe, libellesCopies } from '@/lib/copies';
 import { IconChevronLeft, IconClose, IconPlus } from '@/components/icons';
 
@@ -174,6 +175,8 @@ export default function NouveauMessage() {
 
   const [iaOccupee, setIaOccupee] = useState(false);
   const [occupe, setOccupe] = useState<null | 'send' | 'draft'>(null);
+  // Le fichier joint à la signature de la boîte choisie dans « De » (09/10/2026).
+  const pjSig = usePjSignature({ boite });
   /**
    * LE MEME MESSAGE GARDE LA MEME CLE — 08/10/2026 (lot 4, relecture).
    *
@@ -527,7 +530,7 @@ export default function NouveauMessage() {
         return;
       }
 
-      const empreinte = JSON.stringify([op, boite, listeDestinataires, enListe(cc), enListe(cci), objet, texte, draftId, pieces.map((p) => p.id)]);
+      const empreinte = JSON.stringify([op, boite, listeDestinataires, enListe(cc), enListe(cci), objet, texte, draftId, pieces.map((p) => p.id), pjSig.joindre]);
       if (cleEnvoi.current?.empreinte !== empreinte) {
         cleEnvoi.current = { empreinte, cle: `${Date.now()}-${Math.random().toString(36).slice(2)}` };
       }
@@ -547,6 +550,8 @@ export default function NouveauMessage() {
           // supprime une fois parti. Vide = message neuf.
           draftId: draftId || undefined,
           idempotencyKey: cle,
+          // false = la personne a retiré le fichier de la signature de CE mail (✕).
+          pjSignature: pjSig.joindre,
         });
         // PARTI, MAIS… (Yahoo / iCloud) — 08/10/2026. Dit avant de quitter l'ecran :
         // sinon la personne ne voit pas son mail dans Envoyes (s'il y manque) et le renvoie.
@@ -573,6 +578,7 @@ export default function NouveauMessage() {
       pieces.length,
       // (Les fichiers eux-memes : ils font partie de l'empreinte de la cle d'envoi.)
       pieces,
+      pjSig.joindre,
       boitesIllisibles,
       objet,
       router,
@@ -738,6 +744,7 @@ export default function NouveauMessage() {
 
         <Text style={styles.label}>{s.pj}</Text>
         {pjHeritees ? <Text style={styles.note}>{s.pjOrphelines}</Text> : null}
+        <PjSignature {...pjSig} locale={locale} desactive={occupe !== null} />
         {pieces.map((p) => (
           <View key={p.id} style={styles.pjLigne}>
             <Text style={styles.pjNom} numberOfLines={1}>

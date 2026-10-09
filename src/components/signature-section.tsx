@@ -1,12 +1,23 @@
+import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { useI18n } from '@/context/i18n';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPost, apiUploadBrut } from '@/lib/api';
+import { tailleLisible, textesPjSignature } from '@/lib/i18n/signature-pj';
+import { MAX_ATT_BYTES, nomLisible, typeRetenu } from '@/lib/pieces-jointes';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 type Mailbox = { email: string; provider: string };
-type Sig = { mailbox_email: string; signature_text: string | null; enabled: boolean };
+type Sig = {
+  mailbox_email: string;
+  signature_text: string | null;
+  enabled: boolean;
+  /** Fichier joint à la signature (09/10/2026). */
+  pj_nom?: string | null;
+  pj_taille?: number | null;
+};
+type PjLue = { nom: string; taille: number } | null;
 
 // i18n locale (pas de clés ajoutées au dictionnaire global — comme PERSO_STR).
 const STR: Record<
@@ -143,6 +154,7 @@ const STR: Record<
 export function SignatureSection() {
   const { locale } = useI18n();
   const s = STR[locale] ?? STR.en;
+  const tp = textesPjSignature(locale);
 
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -151,27 +163,37 @@ export function SignatureSection() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pjs, setPjs] = useState<Record<string, PjLue>>({});
+  const [pjOccupe, setPjOccupe] = useState<string | null>(null);
+  const [pjMessage, setPjMessage] = useState<Record<string, string>>({});
 
   async function load() {
     try {
+      // 09/10/2026 : `famille=toutes` — Yahoo et iCloud n'apparaissaient pas ici, et ne
+      // pouvaient donc pas avoir de signature. Une panne n'est plus une liste vide muette.
       const [mb, sg] = await Promise.all([
-        apiGet<{ mailboxes: Mailbox[] }>('/api/connect/list').catch(() => ({ mailboxes: [] })),
-        apiGet<{ signatures: Sig[] }>('/api/signature').catch(() => ({ signatures: [] })),
+        apiGet<{ mailboxes: Mailbox[] }>('/api/connect/list?famille=toutes'),
+        apiGet<{ signatures: Sig[] }>('/api/signature'),
       ]);
       const sigMap: Record<string, Sig> = {};
       for (const x of sg.signatures || []) sigMap[(x.mailbox_email || '').toLowerCase()] = x;
       const d: Record<string, string> = {};
       const e: Record<string, boolean> = {};
+      const f: Record<string, PjLue> = {};
       for (const m of mb.mailboxes || []) {
         const k = (m.email || '').toLowerCase();
         d[k] = sigMap[k]?.signature_text || '';
         e[k] = sigMap[k]?.enabled ?? true;
+        const nom = sigMap[k]?.pj_nom;
+        f[k] = nom ? { nom, taille: Number(sigMap[k]?.pj_taille) || 0 } : null;
       }
       setMailboxes(mb.mailboxes || []);
       setDrafts(d);
       setEnabled(e);
-    } catch {
-      // best-effort
+      setPjs(f);
+    } catch (err) {
+      console.error('[signature] réglages illisibles', err);
+      setMessage(s.err);
     }
     setLoading(false);
   }
@@ -196,6 +218,62 @@ export function SignatureSection() {
       setMessage(s.err);
     }
     setSavingKey(null);
+  }
+
+  // Fichier joint à la signature de CETTE boîte (lib/pj-signature.ts côté web).
+  async function joindrePj(m: Mailbox) {
+    const k = (m.email || '').toLowerCase();
+    setPjMessage((p) => ({ ...p, [k]: '' }));
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
+      if (res.canceled || !res.assets?.length) return;
+      const a = res.assets[0];
+      if (typeof a.size === 'number' && a.size > MAX_ATT_BYTES) {
+        setPjMessage((p) => ({ ...p, [k]: tp.tropGros }));
+        return;
+      }
+      setPjOccupe(k);
+      const nom = nomLisible(a.name || 'fichier');
+      const form = new FormData();
+      form.append('mailbox_email', m.email);
+      form.append('provider', m.provider);
+      form.append('file', { uri: a.uri, name: nom, type: typeRetenu(nom, a.mimeType || 'application/octet-stream') } as unknown as Blob);
+      const r = await apiUploadBrut<{ ok?: boolean; error?: string; code?: string; pj?: { nom: string; taille: number } }>(
+        '/api/signature/piece-jointe',
+        form,
+      );
+      if (r.ok && r.json?.ok && r.json.pj) {
+        const pj = r.json.pj;
+        setPjs((p) => ({ ...p, [k]: { nom: pj.nom, taille: pj.taille } }));
+      } else {
+        const msg =
+          r.status === 413 || r.json?.code === 'too_large'
+            ? tp.tropGros
+            : r.status === 415 || r.json?.code === 'bad_type'
+              ? tp.typeRefuse
+              : tp.echec;
+        console.error('[signature] fichier refusé', r.status, r.json?.error);
+        setPjMessage((p) => ({ ...p, [k]: msg }));
+      }
+    } catch (err) {
+      console.error('[signature] fichier non envoyé', err);
+      setPjMessage((p) => ({ ...p, [k]: s.err }));
+    }
+    setPjOccupe(null);
+  }
+
+  async function retirerPj(m: Mailbox) {
+    const k = (m.email || '').toLowerCase();
+    setPjOccupe(k);
+    setPjMessage((p) => ({ ...p, [k]: '' }));
+    try {
+      await apiDelete(`/api/signature/piece-jointe?mailbox_email=${encodeURIComponent(m.email)}`);
+      setPjs((p) => ({ ...p, [k]: null }));
+    } catch (err) {
+      console.error('[signature] fichier non retiré', err);
+      setPjMessage((p) => ({ ...p, [k]: tp.echec }));
+    }
+    setPjOccupe(null);
   }
 
   async function importSigs() {
@@ -262,6 +340,38 @@ export function SignatureSection() {
               >
                 <Text style={styles.saveText}>{savingKey === k ? s.saving : s.save}</Text>
               </Pressable>
+
+              {/* Fichier joint à la signature — 09/10/2026. */}
+              <View style={styles.pjBloc}>
+                <Text style={styles.pjTitre}>{tp.titre}</Text>
+                <Text style={styles.pjExplication}>{tp.explication}</Text>
+                {pjs[k] ? (
+                  <View style={styles.pjLigne}>
+                    <Text style={styles.pjNom} numberOfLines={1}>
+                      📎 {pjs[k]!.nom}
+                    </Text>
+                    <Text style={styles.pjTaille}>{tailleLisible(pjs[k]!.taille, locale)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.pjActions}>
+                  <Pressable
+                    style={[styles.importBtn, pjOccupe === k && styles.disabled]}
+                    disabled={pjOccupe === k}
+                    onPress={() => joindrePj(m)}
+                  >
+                    <Text style={styles.importText}>
+                      {pjOccupe === k ? tp.envoi : pjs[k] ? tp.remplacer : tp.joindre}
+                    </Text>
+                  </Pressable>
+                  {pjs[k] ? (
+                    <Pressable disabled={pjOccupe === k} onPress={() => retirerPj(m)} hitSlop={8}>
+                      <Text style={[styles.pjRetirer, pjOccupe === k && styles.disabled]}>{tp.retirer}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {pjs[k] && enabled[k] === false ? <Text style={styles.pjNote}>{tp.coupee}</Text> : null}
+                {pjMessage[k] ? <Text style={styles.pjErreur}>{pjMessage[k]}</Text> : null}
+              </View>
             </View>
           );
         })
@@ -341,6 +451,22 @@ const styles = StyleSheet.create({
   saveText: { fontFamily: fonts.sansBold, color: colors.onDark, fontSize: 13 },
   disabled: { opacity: 0.5 },
   message: { fontFamily: fonts.sans, fontSize: 13, color: D.muted, marginTop: spacing.md },
+  pjBloc: {
+    marginTop: spacing.md,
+    borderColor: D.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  pjTitre: { fontFamily: fonts.sansSemibold, fontSize: 13, color: D.text },
+  pjExplication: { fontFamily: fonts.sans, fontSize: 12, color: D.muted, marginTop: 2 },
+  pjLigne: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  pjNom: { fontFamily: fonts.sans, fontSize: 13, color: D.text, flexShrink: 1 },
+  pjTaille: { fontFamily: fonts.sans, fontSize: 12, color: D.muted },
+  pjActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  pjRetirer: { fontFamily: fonts.sansSemibold, fontSize: 12, color: D.danger },
+  pjNote: { fontFamily: fonts.sans, fontSize: 12, color: D.muted, marginTop: spacing.sm },
+  pjErreur: { fontFamily: fonts.sans, fontSize: 12, color: D.danger, marginTop: spacing.sm },
 });
 
 export default SignatureSection;

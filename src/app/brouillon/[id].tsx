@@ -430,6 +430,10 @@ export default function PageBrouillon() {
             subject: brouillon.subject ?? '',
             body: texte,
             idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            // 09/10/2026 : PAS le fichier de la signature. Ce brouillon est deja chez le
+            // fournisseur ; venu de « Mettre dans ma boite », il le porte deja (sinon :
+            // deux fois le meme fichier). Jumeau : web drafts/[id]/draft-editor.tsx.
+            pjSignature: false,
           });
           // PARTI, MAIS… (Yahoo / iCloud) — 08/10/2026 : dit avant de quitter l'ecran.
           if (rep?.avertissement) Alert.alert(rep.avertissement);
