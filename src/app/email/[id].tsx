@@ -40,6 +40,7 @@ import { colors, fonts, radius, spacing } from '@/lib/theme';
 import PanneauVoix from '@/components/panneau-voix';
 import ChampsCopies from '@/components/champs-copies';
 import PjSignature, { usePjSignature } from '@/components/pj-signature';
+import { textesTransfert } from '@/lib/i18n/transfert';
 import { enListe, libellesCopies } from '@/lib/copies';
 import {
   demarrerVoix,
@@ -1235,6 +1236,17 @@ export default function EmailDetail() {
   }
 
   const optionsPlus: { cle: string; libelle: string; danger?: boolean; faire: () => void }[] = [];
+  // TRANSFÉRER (09/10/2026, demande de HA) : un écran à part, app/transferer/[id].tsx. Dans
+  // « ⋯ » parce que la barre du bas porte déjà cinq boutons.
+  if (id) {
+    optionsPlus.push({
+      cle: 'transferer',
+      libelle: textesTransfert(locale).bouton,
+      // `as never` : la liste des routes typées d'expo-router est générée au lancement de
+      // Metro ; tant qu'elle ne connaît pas le nouvel écran, elle refuserait ce chemin.
+      faire: () => router.push({ pathname: '/transferer/[id]', params: { id: String(id) } } as never),
+    });
+  }
   if (!actions.estCorbeille) {
     optionsPlus.push({
       cle: 'trash',
