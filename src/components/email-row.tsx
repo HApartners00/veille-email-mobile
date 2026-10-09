@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { IconCheck } from '@/components/icons';
 import { colors, fonts, radius, spacing } from '@/lib/theme';
 
 type Props = {
@@ -33,6 +34,13 @@ type Props = {
   badge?: string;
   /** Petite ligne sous l'apercu, ex. la boite d'envoi. Utilisee par `ligne`. */
   footnote?: string;
+  /**
+   * SELECTION MULTIPLE — 09/10/2026 (`ligne` seulement). Appui long = entrer en
+   * selection ; en selection, le rond devient une case, et `selectionne` la coche.
+   */
+  onLongPress?: () => void;
+  modeSelection?: boolean;
+  selectionne?: boolean;
 };
 
 /**
@@ -58,6 +66,9 @@ export function EmailRow({
   prefix,
   badge,
   footnote,
+  onLongPress,
+  modeSelection,
+  selectionne,
 }: Props) {
   if (layout === 'ligne') {
     return (
@@ -77,6 +88,9 @@ export function EmailRow({
         badge={badge}
         footnote={footnote}
         onPress={onPress}
+        onLongPress={onLongPress}
+        modeSelection={modeSelection}
+        selectionne={selectionne}
       />
     );
   }
@@ -265,6 +279,9 @@ function EmailLigne({
   badge,
   footnote,
   onPress,
+  onLongPress,
+  modeSelection = false,
+  selectionne = false,
 }: LigneProps) {
   // Une cle inconnue retombe sur la couleur fournie par l'appelant : on ne
   // masque pas une categorie nouvelle derriere une couleur par defaut.
@@ -273,13 +290,23 @@ function EmailLigne({
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      accessibilityRole={modeSelection ? 'checkbox' : 'button'}
+      accessibilityState={modeSelection ? { checked: selectionne } : undefined}
       accessibilityLabel={subject}
-      style={({ pressed }) => [lg.row, pressed && lg.rowPressed]}
+      style={({ pressed }) => [lg.row, selectionne && lg.rowSelected, pressed && !selectionne && lg.rowPressed]}
     >
-      <View style={[lg.avatar, { backgroundColor: rond }]}>
-        <Text style={lg.initials}>{initials || '@'}</Text>
-      </View>
+      {/* En selection, le rond devient une case : cochee = rond terracotta + coche. */}
+      {modeSelection ? (
+        <View style={[lg.avatar, selectionne ? lg.caseOn : lg.caseOff]}>
+          {selectionne ? <IconCheck size={20} color="#fff" strokeWidth={2.6} /> : null}
+        </View>
+      ) : (
+        <View style={[lg.avatar, { backgroundColor: rond }]}>
+          <Text style={lg.initials}>{initials || '@'}</Text>
+        </View>
+      )}
 
       <View style={lg.body}>
         <View style={lg.top}>
@@ -338,6 +365,10 @@ const lg = StyleSheet.create({
     backgroundColor: colors.fond,
   },
   rowPressed: { backgroundColor: 'rgba(234,225,208,0.06)' },
+  // Selection (09/10/2026) : meme teinte que la ligne ouverte sur le web.
+  rowSelected: { backgroundColor: 'rgba(232,93,12,0.12)' },
+  caseOn: { backgroundColor: colors.terracottaVivid },
+  caseOff: { borderWidth: 2, borderColor: 'rgba(234,225,208,0.45)' },
   avatar: {
     width: AVATAR,
     height: AVATAR,

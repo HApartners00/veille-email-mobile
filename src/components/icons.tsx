@@ -435,3 +435,38 @@ export function IconMicOff({ size = 18, color = DEF, strokeWidth = 1.8 }: IconPr
     </Svg>
   );
 }
+
+/** Archiver - boite avec fleche vers le bas (09/10/2026, glisser / selection multiple). */
+export function IconArchive({ size = 18, color = DEF, strokeWidth = 1.9 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="5" rx="1.2" stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Polyline points="9.5 13.5 12 16 14.5 13.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Line x1="12" y1="11" x2="12" y2="16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Corbeille - poubelle (09/10/2026, glisser / selection multiple). */
+export function IconTrash({ size = 18, color = DEF, strokeWidth = 1.9 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="4" y1="6.5" x2="20" y2="6.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M9 6.5V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8v1.7" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M6 6.5l.9 12.2A1.5 1.5 0 0 0 8.4 20h7.2a1.5 1.5 0 0 0 1.5-1.3L18 6.5" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Line x1="10" y1="10.5" x2="10" y2="16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1="14" y1="10.5" x2="14" y2="16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Remettre / restaurer - fleche qui revient (09/10/2026). */
+export function IconUndo({ size = 18, color = DEF, strokeWidth = 1.9 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polyline points="9 14 4 9 9 4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

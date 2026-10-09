@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Pressable,
   RefreshControl,
@@ -16,7 +17,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/context/i18n';
 import { supabase } from '@/lib/supabase';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, apiPostBrut } from '@/lib/api';
+import {
+  agirSurPlusieurs,
+  classer,
+  inverseDe,
+  marquerLu,
+  opsDuDossier,
+  type OpBoite,
+  type Ports,
+  type Reussite,
+} from '@/lib/actions-groupees';
+import { textesSelection } from '@/lib/i18n/selection-mails';
+import { LigneGlissable } from '@/components/ligne-glissable';
+import { BandeauResultat, BarreActions } from '@/components/selection-mails';
 import { cleanText, formatDateCourte, senderInitials, senderName } from '@/lib/mail-format';
 import { effectivePriority, PRIORITIES, PRIORITY_KEYS, type Rule } from '@/lib/priority';
 import { prioLabel } from '@/lib/i18n';
@@ -453,6 +467,148 @@ export default function Feed() {
     if (updErr) setItems(before); // rollback : l'affichage ne doit pas mentir
   }
 
+  // ─── SÉLECTION MULTIPLE ET GLISSER — 09/10/2026, demande de HA ───────────────
+  // « je veux qu'on puisse sélectionner plusieurs emails d'un coup pour archiver,
+  // supprimer, etc. » et « archiver ou supprimer un mail en le swipant ».
+  // Ses choix : appui long pour sélectionner ; glisser à gauche = corbeille, à
+  // droite = archiver ; l'action part tout de suite, avec « Annuler ».
+  // La logique (un appel /api/mail-action par mail, trois à la fois, lu / non lu,
+  // catégorie) vit dans lib/actions-groupees.ts — le MÊME fichier que sur le web.
+  // ⚠️ Retour assumé sur la décision du 08/08 (« pas d'action dans la liste ») :
+  // voir l'en-tête de lib/actions-groupees.ts.
+  const ts = textesSelection(locale);
+  const ports = useMemo<Ports>(() => ({ poster: apiPostBrut, base: supabase }), []);
+  const ops = opsDuDossier(dossier);
+  const [selection, setSelection] = useState<string[]>([]);
+  const modeSelection = selection.length > 0;
+  /** Lignes retirées tout de suite à l'action (le serveur n'a pas encore répondu). */
+  const [masques, setMasques] = useState<string[]>([]);
+  const [lot, setLot] = useState<{ fait: number; total: number } | null>(null);
+  const [feuilleCategorie, setFeuilleCategorie] = useState(false);
+  const [bandeau, setBandeau] = useState<{
+    message: string;
+    erreur?: boolean;
+    annuler?: { op: OpBoite; ids: string[] };
+  } | null>(null);
+  const minuteurBandeau = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Même durée que la bannière « Annuler » d'un mail ouvert (8 s) : une seule règle.
+  const montrerBandeau = useCallback((b: NonNullable<typeof bandeau>) => {
+    if (minuteurBandeau.current) clearTimeout(minuteurBandeau.current);
+    setBandeau(b);
+    minuteurBandeau.current = setTimeout(() => setBandeau(null), 8000);
+  }, []);
+  useEffect(() => () => { if (minuteurBandeau.current) clearTimeout(minuteurBandeau.current); }, []);
+
+  const libelleOp = useCallback((op: OpBoite) => t.mailActions[op], [t]);
+  const basculer = useCallback(
+    (id: string) => setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id])),
+    [],
+  );
+  const quitterSelection = useCallback(() => setSelection([]), []);
+
+  // Changer de dossier ou quitter l'écran referme la sélection : elle ne doit jamais
+  // porter sur des mails qu'on ne voit plus.
+  useEffect(() => setSelection([]), [dossier]);
+  useFocusEffect(useCallback(() => () => setSelection([]), []));
+  // Android : le bouton retour ferme la sélection au lieu de quitter l'écran.
+  useEffect(() => {
+    if (!modeSelection) return;
+    const abo = BackHandler.addEventListener('hardwareBackPress', () => {
+      setSelection([]);
+      return true;
+    });
+    return () => abo.remove();
+  }, [modeSelection]);
+
+  /** Pose les nouveaux marqueurs rendus par le serveur ; la liste se trie toute seule. */
+  const appliquerTags = useCallback((reussis: Reussite[]) => {
+    const parId = new Map(reussis.filter((r) => r.tags).map((r) => [r.id, r.tags as string[]]));
+    if (parId.size === 0) return;
+    setItems((prev) => prev.map((it) => (parId.has(it.id) ? { ...it, tags: parId.get(it.id)! } : it)));
+  }, []);
+
+  /** Archiver / corbeille / remettre / restaurer — un mail (glisser) ou plusieurs (sélection). */
+  async function agirBoite(ids: string[], op: OpBoite, depuisAnnuler = false) {
+    if (ids.length === 0) return;
+    setBandeau(null);
+    setMasques((m) => [...m, ...ids]);
+    if (ids.length > 1) setLot({ fait: 0, total: ids.length });
+    const r = await agirSurPlusieurs(ports, ids, op, ids.length > 1 ? (f, tot) => setLot({ fait: f, total: tot }) : undefined);
+    setLot(null);
+    appliquerTags(r.reussis);
+    setMasques((m) => m.filter((id) => !ids.includes(id)));
+    // Un succès sans marqueurs rendus (rare) : on relit la liste plutôt que de deviner.
+    if (r.reussis.some((x) => !x.tags)) void load(debouncedQuery);
+    if (r.echecs.length > 0) {
+      console.error('[selection] action refusée pour', r.echecs.length, 'mail(s) :', r.echecs);
+    }
+    const inverse = depuisAnnuler ? null : inverseDe(op);
+    const morceaux = [
+      r.reussis.length > 0 && !depuisAnnuler ? ts.fait(op, r.reussis.length) : '',
+      r.echecs.length > 0 ? ts.echecs(r.echecs.length, ids.length, r.echecs[0]!.message) : '',
+    ].filter(Boolean);
+    if (morceaux.length === 0) return;
+    montrerBandeau({
+      message: morceaux.join(' '),
+      erreur: r.echecs.length > 0,
+      annuler: inverse && r.reussis.length > 0 ? { op: inverse, ids: r.reussis.map((x) => x.id) } : undefined,
+    });
+  }
+
+  async function agirSurSelection(op: OpBoite) {
+    const ids = selection;
+    quitterSelection();
+    await agirBoite(ids, op);
+  }
+
+  async function marquerSelection(lu: boolean) {
+    const ids = selection;
+    quitterSelection();
+    const avant = items;
+    setItems((prev) => prev.map((it) => (ids.includes(it.id) ? { ...it, status: lu ? 'read' : 'unread' } : it)));
+    const r = await marquerLu(ports, ids, lu);
+    if (!r.ok) {
+      setItems(avant); // l'affichage ne doit pas mentir
+      console.error('[selection] lu / non lu refusé :', r.message);
+      montrerBandeau({ message: ts.echecs(ids.length, ids.length, r.message), erreur: true });
+      return;
+    }
+    montrerBandeau({ message: ts.fait(lu ? 'lu' : 'nonlu', ids.length) });
+  }
+
+  async function classerSelection(cat: string) {
+    setFeuilleCategorie(false);
+    const mails = items
+      .filter((it) => selection.includes(it.id))
+      .map((it) => ({ id: it.id, author: it.author, tags: it.tags }));
+    quitterSelection();
+    const r = await classer(ports, mails, cat);
+    appliquerTags(r.reussis);
+    if (r.signal) console.warn('[selection] signaux d’apprentissage non enregistrés :', r.signal);
+    if (r.echecs.length > 0) {
+      console.error('[selection] classement refusé :', r.echecs);
+      montrerBandeau({ message: ts.echecs(r.echecs.length, mails.length, r.echecs[0]!.message), erreur: true });
+      return;
+    }
+    montrerBandeau({ message: ts.classes(r.reussis.length, prioLabel(t, cat)) });
+  }
+
+  function annulerBandeau() {
+    const a = bandeau?.annuler;
+    setBandeau(null);
+    if (a) void agirBoite(a.ids, a.op, true);
+  }
+
+  // Les lignes en cours d'action disparaissent tout de suite (09/10/2026).
+  const affichees = useMemo(
+    () => (masques.length === 0 ? visible : visible.filter((it) => !masques.includes(it.id))),
+    [visible, masques],
+  );
+
+  const toutCoche = affichees.length > 0 && affichees.every((it) => selection.includes(it.id));
+  const basculerTout = () => setSelection(toutCoche ? [] : affichees.map((it) => it.id));
+
   // Les trois dossiers. Ordre aligne sur la barre de gauche du web :
   // boite de reception, archives, supprimes.
   const DOSSIERS: { key: string; valeur: string | null; label: string }[] = [
@@ -621,8 +777,29 @@ export default function Feed() {
         date={formatDateCourte(item.received_at, intl)}
         preview={item.preview ? cleanText(item.preview) : null}
         unread={item.status === 'unread'}
-        onPress={() => router.push({ pathname: '/email/[id]', params: { id: item.id } })}
+        // 09/10/2026 : en sélection, un appui coche ; sinon il ouvre. Appui long = sélectionner.
+        onPress={() =>
+          modeSelection ? basculer(item.id) : router.push({ pathname: '/email/[id]', params: { id: item.id } })
+        }
+        onLongPress={() => basculer(item.id)}
+        modeSelection={modeSelection}
+        selectionne={modeSelection && selection.includes(item.id)}
       />
+    );
+  }
+
+  // GLISSER (09/10/2026) : droite = vert (archiver, ou remettre / restaurer selon le
+  // dossier), gauche = rouge (corbeille). Coupé pendant une sélection ou un lot.
+  function renderLigne({ item }: { item: Item }) {
+    return (
+      <LigneGlissable
+        actif={!modeSelection && !lot}
+        droite={ops.droite ? { op: ops.droite, libelle: libelleOp(ops.droite) } : null}
+        gauche={ops.gauche ? { op: ops.gauche, libelle: libelleOp(ops.gauche) } : null}
+        onAction={(op) => void agirBoite([item.id], op)}
+      >
+        {renderItem({ item })}
+      </LigneGlissable>
     );
   }
 
@@ -637,7 +814,15 @@ export default function Feed() {
   }
 
   return (
-    <>
+    <View style={styles.racine}>
+      <FilterSheet
+        visible={feuilleCategorie}
+        title={ts.classerDans}
+        options={PRIORITIES.map((p) => ({ key: p.key, label: prioLabel(t, p.key), selected: false }))}
+        doneLabel="OK"
+        onPick={(cle) => void classerSelection(cle)}
+        onClose={() => setFeuilleCategorie(false)}
+      />
       <FilterSheet
         visible={sheet === 'menu'}
         title={t.feed.menuTitle}
@@ -649,10 +834,11 @@ export default function Feed() {
 
       <FlatList
         style={styles.screen}
-        contentContainerStyle={styles.content}
-        data={visible}
+        contentContainerStyle={[styles.content, modeSelection && styles.contentSelection]}
+        data={affichees}
+        extraData={`${selection.join(',')}|${lot ? 1 : 0}|${dossier}`}
         keyExtractor={(it) => it.id}
-        renderItem={renderItem}
+        renderItem={renderLigne}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.terracotta} />
@@ -848,12 +1034,44 @@ export default function Feed() {
           ) : null
         }
       />
-    </>
+
+      {modeSelection || lot ? (
+        <BarreActions
+          nombre={ts.nombre(selection.length)}
+          libelleTout={ts.tout}
+          libelleFermer={ts.fermer}
+          toutCoche={toutCoche}
+          onFermer={quitterSelection}
+          onTout={basculerTout}
+          ops={ops.lot}
+          libelleOp={libelleOp}
+          libelleLu={ts.lu}
+          libelleNonLu={ts.nonLu}
+          libelleCategorie={ts.categorie}
+          enCours={lot ? ts.enCours(lot.fait, lot.total) : null}
+          onOp={(op) => void agirSurSelection(op)}
+          onLu={() => void marquerSelection(true)}
+          onNonLu={() => void marquerSelection(false)}
+          onCategorie={() => setFeuilleCategorie(true)}
+        />
+      ) : bandeau ? (
+        <BandeauResultat
+          message={bandeau.message}
+          erreur={bandeau.erreur}
+          libelleAnnuler={bandeau.annuler ? t.mailActions.undo : undefined}
+          onAnnuler={bandeau.annuler ? annulerBandeau : undefined}
+          onFermer={() => setBandeau(null)}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  racine: { flex: 1, backgroundColor: colors.fond },
   screen: { flex: 1, backgroundColor: colors.fond },
+  // 09/10/2026 : la barre d'actions de la sélection ne doit pas cacher le dernier mail.
+  contentSelection: { paddingBottom: 170 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.fond },
   content: { paddingBottom: spacing.xxl },
   rowWrap: { paddingHorizontal: spacing.xl },
