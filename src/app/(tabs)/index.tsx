@@ -26,6 +26,7 @@ import {
   opsDuDossier,
   type OpBoite,
   type Ports,
+  type ResultatLot,
   type Reussite,
 } from '@/lib/actions-groupees';
 import { textesSelection } from '@/lib/i18n/selection-mails';
@@ -56,6 +57,16 @@ type Item = {
   status: string;
   tags: string[];
   received_at: string;
+};
+
+/** Une action « Annuler » encore possible (09/10/2026). `op` = l'opération qui défait.
+ *  `annulee` est un drapeau partagé : l'action en cours le lit quand la messagerie répond. */
+type Annulable = {
+  op: OpBoite;
+  ids: string[];
+  tagsAvant: Map<string, string[]>;
+  resultat: Promise<ResultatLot>;
+  annulee: boolean;
 };
 
 
@@ -488,7 +499,7 @@ export default function Feed() {
   const [bandeau, setBandeau] = useState<{
     message: string;
     erreur?: boolean;
-    annuler?: { op: OpBoite; ids: string[] };
+    annuler?: Annulable;
   } | null>(null);
   const minuteurBandeau = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -528,32 +539,60 @@ export default function Feed() {
     setItems((prev) => prev.map((it) => (parId.has(it.id) ? { ...it, tags: parId.get(it.id)! } : it)));
   }, []);
 
-  /** Archiver / corbeille / remettre / restaurer — un mail (glisser) ou plusieurs (sélection). */
-  async function agirBoite(ids: string[], op: OpBoite, depuisAnnuler = false) {
+  /**
+   * Archiver / corbeille / remettre / restaurer — un mail (glisser) ou plusieurs (sélection).
+   *
+   * UN SEUL MAIL : la bannière « Annuler » apparaît TOUT DE SUITE, sans attendre la
+   * messagerie (09/10/2026, retour de HA : « le message pour annuler vient 2 s après,
+   * c'est trop long »). Si la messagerie refuse ensuite, la ligne revient et la bannière
+   * le dit — on n'affiche jamais un succès qui n'a pas eu lieu sans le corriger.
+   * PLUSIEURS MAILS : inchangé — la barre montre « En cours… f/t », puis la bannière.
+   */
+  async function agirBoite(ids: string[], op: OpBoite) {
     if (ids.length === 0) return;
-    setBandeau(null);
+    const unSeul = ids.length === 1;
+    const inverse = inverseDe(op);
+    const tagsAvant = new Map(items.filter((it) => ids.includes(it.id)).map((it) => [it.id, it.tags]));
+    let livrer!: (r: ResultatLot) => void;
+    const action: Annulable = {
+      op: inverse ?? op,
+      ids,
+      tagsAvant,
+      resultat: new Promise<ResultatLot>((ok) => (livrer = ok)),
+      annulee: false,
+    };
     setMasques((m) => [...m, ...ids]);
-    if (ids.length > 1) setLot({ fait: 0, total: ids.length });
-    const r = await agirSurPlusieurs(ports, ids, op, ids.length > 1 ? (f, tot) => setLot({ fait: f, total: tot }) : undefined);
-    setLot(null);
+    if (unSeul) {
+      montrerBandeau({ message: ts.fait(op, 1), annuler: inverse ? action : undefined });
+    } else {
+      setBandeau(null);
+      setLot({ fait: 0, total: ids.length });
+    }
+    const r = await agirSurPlusieurs(ports, ids, op, unSeul ? undefined : (f, tot) => setLot({ fait: f, total: tot }));
+    livrer(r);
+    if (!unSeul) setLot(null);
+    if (r.echecs.length > 0) {
+      console.error('[selection] action refusée pour', r.echecs.length, 'mail(s) :', r.echecs);
+    }
+    // « Annuler » touché avant la réponse : `annulerBandeau` a déjà remis les lignes et
+    // défait ce qui a réussi. Poser ici les nouveaux marqueurs les ferait clignoter.
+    if (action.annulee) return;
     appliquerTags(r.reussis);
     setMasques((m) => m.filter((id) => !ids.includes(id)));
     // Un succès sans marqueurs rendus (rare) : on relit la liste plutôt que de deviner.
     if (r.reussis.some((x) => !x.tags)) void load(debouncedQuery);
-    if (r.echecs.length > 0) {
-      console.error('[selection] action refusée pour', r.echecs.length, 'mail(s) :', r.echecs);
+    const annulable = inverse && r.reussis.length > 0 ? action : undefined;
+    if (unSeul) {
+      // Déjà annoncé. On ne revient dessus qu'en cas de refus.
+      if (r.echecs.length > 0) montrerBandeau({ message: ts.echecs(1, 1, r.echecs[0]!.message), erreur: true });
+      return;
     }
-    const inverse = depuisAnnuler ? null : inverseDe(op);
     const morceaux = [
-      r.reussis.length > 0 && !depuisAnnuler ? ts.fait(op, r.reussis.length) : '',
+      r.reussis.length > 0 ? ts.fait(op, r.reussis.length) : '',
       r.echecs.length > 0 ? ts.echecs(r.echecs.length, ids.length, r.echecs[0]!.message) : '',
     ].filter(Boolean);
     if (morceaux.length === 0) return;
-    montrerBandeau({
-      message: morceaux.join(' '),
-      erreur: r.echecs.length > 0,
-      annuler: inverse && r.reussis.length > 0 ? { op: inverse, ids: r.reussis.map((x) => x.id) } : undefined,
-    });
+    montrerBandeau({ message: morceaux.join(' '), erreur: r.echecs.length > 0, annuler: annulable });
   }
 
   async function agirSurSelection(op: OpBoite) {
@@ -594,10 +633,29 @@ export default function Feed() {
     montrerBandeau({ message: ts.classes(r.reussis.length, prioLabel(t, cat)) });
   }
 
-  function annulerBandeau() {
+  /**
+   * « Annuler » : les lignes reviennent TOUT DE SUITE, la messagerie suit. Si l'action
+   * n'avait pas encore répondu, on attend sa réponse, puis on ne défait que ce qui a
+   * réussi (un mail refusé n'a jamais bougé). Si la messagerie refuse de défaire, on
+   * relit la liste (le mail disparaît à nouveau) et la bannière le dit.
+   */
+  async function annulerBandeau() {
     const a = bandeau?.annuler;
     setBandeau(null);
-    if (a) void agirBoite(a.ids, a.op, true);
+    if (!a) return;
+    a.annulee = true;
+    setItems((prev) => prev.map((it) => (a.tagsAvant.has(it.id) ? { ...it, tags: a.tagsAvant.get(it.id)! } : it)));
+    setMasques((m) => m.filter((id) => !a.ids.includes(id)));
+    const r = await a.resultat;
+    const aDefaire = r.reussis.map((x) => x.id);
+    if (aDefaire.length === 0) return;
+    const r2 = await agirSurPlusieurs(ports, aDefaire, a.op);
+    appliquerTags(r2.reussis);
+    if (r2.reussis.some((x) => !x.tags) || r2.echecs.length > 0) void load(debouncedQuery);
+    if (r2.echecs.length > 0) {
+      console.error('[selection] annulation refusée pour', r2.echecs.length, 'mail(s) :', r2.echecs);
+      montrerBandeau({ message: ts.echecs(r2.echecs.length, aDefaire.length, r2.echecs[0]!.message), erreur: true });
+    }
   }
 
   // Les lignes en cours d'action disparaissent tout de suite (09/10/2026).
@@ -1059,7 +1117,7 @@ export default function Feed() {
           message={bandeau.message}
           erreur={bandeau.erreur}
           libelleAnnuler={bandeau.annuler ? t.mailActions.undo : undefined}
-          onAnnuler={bandeau.annuler ? annulerBandeau : undefined}
+          onAnnuler={bandeau.annuler ? () => void annulerBandeau() : undefined}
           onFermer={() => setBandeau(null)}
         />
       ) : null}

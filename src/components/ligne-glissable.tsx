@@ -33,6 +33,20 @@ export const ROUGE_GLISSER = '#b4321f';
 
 const SEUIL = 0.35;
 
+/**
+ * FIN DU MOUVEMENT PLUS TÔT — 09/10/2026, retour de HA : « le message pour annuler vient
+ * 2 s après, c'est trop long ».
+ *
+ * `onSwipeableOpen` n'est appelé que quand le ressort de react-native-gesture-handler
+ * 2.28 est « arrivé ». Avec son réglage (masse 2, raideur 700) et le seuil d'arrêt par
+ * défaut de Reanimated 4.1 (énergie 6e-9), c'est ~650 ms après qu'on a lâché, alors que
+ * la ligne est déjà au bord depuis longtemps. Avec un seuil à 1e-4, c'est ~350-380 ms ;
+ * il reste alors moins de 2 px à parcourir (la ligne est hors de l'écran). Calcul refait
+ * avec les formules de Reanimated 4.1.7 (springUtils.ts), pas mesuré sur un téléphone.
+ * Le même réglage vaut pour le retour en place (lâché trop tôt) : < 2 px sautés à la fin.
+ */
+const RESSORT = { energyThreshold: 1e-4 };
+
 export type ActionGlisser = { op: OpBoite; libelle: string };
 
 function iconeDe(op: OpBoite) {
@@ -92,9 +106,14 @@ export function LigneGlissable({
   onAction: (op: OpBoite) => void;
 }) {
   const { width } = useWindowDimensions();
-  if (!actif || (!droite && !gauche)) return <>{children}</>;
+  if (!droite && !gauche) return <>{children}</>;
   return (
+    // `enabled` plutôt que retirer le composant pendant une sélection (09/10/2026) :
+    // le retirer démontait et remontait TOUTES les lignes à l'entrée et à la sortie de
+    // la sélection.
     <ReanimatedSwipeable
+      enabled={actif}
+      animationOptions={RESSORT}
       friction={1}
       overshootLeft={false}
       overshootRight={false}

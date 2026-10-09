@@ -292,6 +292,10 @@ function EmailLigne({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
+      // Glisser (09/10/2026) : sans ce délai, la ligne s'éclaircit au premier contact puis
+      // redevient sombre dès que le glissement démarre — un clignement. 80 ms suffisent
+      // pour que le glissement prenne la main avant ; un appui simple reste instantané.
+      unstable_pressDelay={80}
       accessibilityRole={modeSelection ? 'checkbox' : 'button'}
       accessibilityState={modeSelection ? { checked: selectionne } : undefined}
       accessibilityLabel={subject}
@@ -364,9 +368,14 @@ const lg = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.fond,
   },
-  rowPressed: { backgroundColor: 'rgba(234,225,208,0.06)' },
+  // OPAQUES (09/10/2026, « le mail clignote quand on le glisse ») : derrière la ligne il y
+  // a le panneau rouge / vert du glissement. Une teinte transparente le laissait voir à
+  // travers la ligne pendant l'appui. Ce sont les mêmes teintes qu'avant, déjà mélangées
+  // au fond #211e19 : rgba(234,225,208,0.06) → #2d2a24 ; rgba(232,93,12,0.12) → #392617.
+  // Si `colors.fond` change, refaire ces deux mélanges.
+  rowPressed: { backgroundColor: '#2d2a24' },
   // Selection (09/10/2026) : meme teinte que la ligne ouverte sur le web.
-  rowSelected: { backgroundColor: 'rgba(232,93,12,0.12)' },
+  rowSelected: { backgroundColor: '#392617' },
   caseOn: { backgroundColor: colors.terracottaVivid },
   caseOff: { borderWidth: 2, borderColor: 'rgba(234,225,208,0.45)' },
   avatar: {
