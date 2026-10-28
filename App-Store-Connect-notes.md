@@ -11,7 +11,7 @@ demo@veille-email.fr
 
 **Password** *(le champ est obligatoire — on y met le code, en l'expliquant dans les notes)*
 ```
-48213765
+[CODE - a lire dans Supabase, SQL Editor : select code from vmail_prive.demo_app_store;]
 ```
 
 **Notes**
@@ -25,10 +25,10 @@ need to open a mailbox.
 1. Open the app and tap "Sign in".
 2. Enter the email address: demo@veille-email.fr
 3. Tap the button to request the code.
-4. Enter this 8-digit code: 48213765
+4. Enter this 8-digit code: [CODE - a lire dans Supabase, SQL Editor : select code from vmail_prive.demo_app_store;]
 
 The code is always the same for this account and never expires. If the screen
-asks you to wait before requesting a new code, simply enter 48213765 directly.
+asks you to wait before requesting a new code, simply enter [CODE - a lire dans Supabase, SQL Editor : select code from vmail_prive.demo_app_store;] directly.
 
 WHAT YOU WILL SEE
 The account is pre-loaded with 20 sample emails (all fictitious, @*.test
@@ -42,9 +42,10 @@ generation. The compose screen, the folders (Sent, Drafts, Archived, Deleted)
 and the Settings screens are all reachable from the sidebar.
 
 NO PURCHASES INSIDE THE APP
-The app contains no purchase flow, no price, no subscription screen and no link
-to any external purchase page, in line with Guideline 3.1.3(f) (free
-stand-alone companion app to a paid web-based email service).
+The app contains no purchase flow and shows no price. Settings > Subscription
+shows the user's current plan (Free, trial or paid) and a button that opens the
+user's own account page on our website (app.veille-email.fr) in a browser
+window, where the plan is managed. Nothing can be bought inside the app.
 
 NEW USERS
 If the email address entered has no Vmail account, the app opens a web page
@@ -71,10 +72,10 @@ We have set up a dedicated demo account that accepts a fixed code, so no
 mailbox access is needed:
 
   Email: demo@veille-email.fr
-  Code:  48213765
+  Code:  [CODE - a lire dans Supabase, SQL Editor : select code from vmail_prive.demo_app_store;]
 
 Steps: open the app, enter the email address, tap the button to receive the
-code, then enter 48213765. The code is always the same for this account.
+code, then enter [CODE - a lire dans Supabase, SQL Editor : select code from vmail_prive.demo_app_store;]. The code is always the same for this account.
 
 The account is pre-loaded with 20 fictitious emails covering all four sorting
 categories, so the complete feature set can be reviewed: sorting, reading, AI
@@ -89,13 +90,25 @@ Thank you for your time.
 
 - Le code fixe repose sur un déclencheur en base, limité à la seule adresse
   `demo@veille-email.fr` (migration `vmail_demo_otp_fixe_app_store`).
+- **28/10/2026 : le code a été CHANGÉ** et il n'est plus écrit nulle part dans le
+  dépôt ni dans la fonction. Il est rangé dans `vmail_prive.demo_app_store`
+  (migration `vmail_demo_code_hors_fonction_et_change`). Pour le lire : Supabase →
+  SQL Editor → `select code from vmail_prive.demo_app_store;`. À recopier dans
+  App Store Connect (champ « Password » et notes ci-dessus). L'ancien code reste
+  dans l'historique git de ce fichier, mais il ne marche plus.
+- **28/10/2026 : le paragraphe « NO PURCHASES » disait « no subscription screen and
+  no link to any external purchase page ».** C'était faux depuis le 26/09 (écran
+  Réglages › Abonnement + bouton vers le site). HA a choisi de garder le bouton
+  (décision D8, 28/10) ; le paragraphe dit maintenant la vérité. ⚠️ Risque connu :
+  refus 3.1.1 / 3.1.3(f) déjà vécu le 27/08 pour ce même écran.
 - **Une fois l'app validée**, le retirer :
   ```sql
   drop trigger vmail_demo_otp_fixe_trg on auth.users;
   drop function public.vmail_demo_otp_fixe();
   ```
 - Le compte `demo@veille-email.fr` a `acces_offert = true` : il ne se bloquera
-  jamais à la fin d'un essai.
+  jamais à la fin d'un essai. Son crédit IA est plafonné comme un Premium
+  (0,67 € par jour, réglage `credit_premium_eur_jour`, vérifié le 28/10/2026).
 
 ## 4. Parcours « nouvel utilisateur » — 17/09/2026
 
