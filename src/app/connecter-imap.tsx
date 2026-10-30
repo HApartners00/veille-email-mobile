@@ -436,6 +436,8 @@ function Assistant({
               ))}
             </View>
             {fournisseur === 'icloud' ? <Text style={styles.note}>{dire(t.noteIcloud)}</Text> : null}
+            {/* 30/10/2026 (plan n°20) : les deux limites, dites AVANT de connecter. */}
+            <Text style={styles.note}>{dire(t.noteLimites)}</Text>
 
             <Pressable
               style={({ pressed }) => [styles.boutonPlein, styles.espaceAvant, pressed && styles.appuye]}

@@ -53,6 +53,13 @@ export type ImapDict = {
   gestes: Record<FournisseurImap, [string, string, string, string]>;
   /** Apple exige l'identification à deux facteurs pour créer ce mot de passe. */
   noteIcloud: string;
+  /**
+   * (30/10/2026, plan n°20) Ce qui ne marche pas encore avec iCloud et Yahoo, dit AVANT de
+   * connecter, aux deux fournisseurs : le brouillon reste dans Vmail (il n'est pas déposé
+   * dans la boîte), et les pièces jointes reçues ne sont ni lues ni cherchables. HA garde
+   * Yahoo ouvert à condition de le dire. Même message que la FAQ du site (clé fq2a), en plus court.
+   */
+  noteLimites: string;
 
   e2Titre: string;
   e2Texte: string;
@@ -122,6 +129,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'L’identification à deux facteurs doit être activée sur votre compte Apple.',
+    noteLimites:
+      'Avec {nom}, pour l’instant : le brouillon reste dans Vmail (pas dans votre boîte {nom}), et les pièces jointes reçues ne sont pas lues.',
     e2Titre: 'Collez votre code',
     e2Texte: 'Écrivez votre adresse {nom}, puis collez le code que {editeur} vient de vous donner.',
     champAdresse: 'Votre adresse {nom}',
@@ -179,6 +188,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'Two-factor authentication must be turned on for your Apple Account.',
+    noteLimites:
+      'With {nom}, for now: the draft stays in Vmail (not in your {nom} mailbox), and attachments you receive are not read.',
     e2Titre: 'Paste your code',
     e2Texte: 'Type your {nom} address, then paste the code {editeur} just gave you.',
     champAdresse: 'Your {nom} address',
@@ -236,6 +247,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'La autenticación de doble factor debe estar activada en tu cuenta de Apple.',
+    noteLimites:
+      'Con {nom}, por ahora: el borrador se queda en Vmail (no en tu buzón de {nom}) y los archivos adjuntos que recibes no se leen.',
     e2Titre: 'Pega tu código',
     e2Texte: 'Escribe tu dirección de {nom} y pega el código que {editeur} te acaba de dar.',
     champAdresse: 'Tu dirección de {nom}',
@@ -293,6 +306,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'Die Zwei-Faktor-Authentifizierung muss für deinen Apple Account aktiviert sein.',
+    noteLimites:
+      'Mit {nom} vorerst: Der Entwurf bleibt in Vmail (nicht in deinem {nom}-Postfach), und empfangene Anhänge werden nicht gelesen.',
     e2Titre: 'Füge deinen Code ein',
     e2Texte: 'Gib deine {nom}-Adresse ein und füge den Code ein, den {editeur} dir gerade gegeben hat.',
     champAdresse: 'Deine {nom}-Adresse',
@@ -350,6 +365,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'A autenticação de dois fatores tem de estar ativa na tua Conta Apple.',
+    noteLimites:
+      'Com o {nom}, por agora: o rascunho fica no Vmail (não na tua caixa {nom}) e os anexos recebidos não são lidos.',
     e2Titre: 'Cola o teu código',
     e2Texte: 'Escreve o teu endereço {nom} e cola o código que acabaste de receber.',
     champAdresse: 'O teu endereço {nom}',
@@ -407,6 +424,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'L’autenticazione a due fattori deve essere attiva sul tuo Apple Account.',
+    noteLimites:
+      'Con {nom}, per ora: la bozza resta in Vmail (non nella tua casella {nom}) e gli allegati ricevuti non vengono letti.',
     e2Titre: 'Incolla il tuo codice',
     e2Texte: 'Scrivi il tuo indirizzo {nom}, poi incolla il codice che {editeur} ti ha appena dato.',
     champAdresse: 'Il tuo indirizzo {nom}',
@@ -464,6 +483,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'يجب تفعيل المصادقة ذات العاملين في حساب Apple الخاص بك.',
+    noteLimites:
+      'مع {nom}، في الوقت الحالي: تبقى المسودة داخل Vmail (وليس في صندوق بريدك على {nom})، ولا تُقرأ المرفقات التي تصلك.',
     e2Titre: 'الصق الرمز',
     e2Texte: 'اكتب عنوان {nom} الخاص بك، ثم الصق الرمز الذي حصلت عليه للتو من {editeur}.',
     champAdresse: 'عنوان {nom} الخاص بك',
@@ -521,6 +542,8 @@ export const imapMsg: Record<Locale, ImapDict> = {
       ],
     },
     noteIcloud: 'В вашем Аккаунте Apple должна быть включена двухфакторная аутентификация.',
+    noteLimites:
+      'С {nom} пока так: черновик остаётся в Vmail (а не в вашем ящике {nom}), а полученные вложения не читаются.',
     e2Titre: 'Вставьте код',
     e2Texte: 'Введите ваш адрес {nom}, затем вставьте код, который только что выдал {editeur}.',
     champAdresse: 'Ваш адрес {nom}',
