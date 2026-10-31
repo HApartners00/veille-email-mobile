@@ -115,7 +115,7 @@ export default function PageBrouillon() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t, locale } = useI18n();
+  const { t, f: formater, locale } = useI18n();
   const intl = bcp47[locale];
   const tx = t.drafts;
 
@@ -547,7 +547,13 @@ export default function PageBrouillon() {
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+          >
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           {/* Le badge « Vmail » (redige par Vmail) a ete retire le 06/10/2026,
@@ -724,7 +730,12 @@ export default function PageBrouillon() {
                 <Text style={styles.pjNom} numberOfLines={1}>
                   {p.filename}
                 </Text>
-                <Pressable hitSlop={10} onPress={() => void retirerPJ(p.id)}>
+                <Pressable
+                  hitSlop={10}
+                  onPress={() => void retirerPJ(p.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={formater(t.common.removeAttachment, { name: p.filename })}
+                >
                   <IconClose size={15} color={colors.onDarkMuted} />
                 </Pressable>
               </View>

@@ -124,7 +124,7 @@ export default function NouveauMessage() {
    */
   const parametres = useLocalSearchParams<{ draft?: string }>();
   const insets = useSafeAreaInsets();
-  const { t, locale } = useI18n();
+  const { t, f: formater, locale } = useI18n();
   const s = STR[locale] ?? STR.en;
 
   const [boites, setBoites] = useState<Boite[]>([]);
@@ -608,6 +608,8 @@ export default function NouveauMessage() {
           <Pressable
             style={styles.backBtn}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
             // On ne perd pas un message commencé sur un geste de retour.
             onPress={() => (commence ? setFeuille('quitter') : router.back())}
           >
@@ -751,7 +753,13 @@ export default function NouveauMessage() {
               {p.filename}
             </Text>
             {/* Pas pendant l'envoi : un fichier retire alors partirait quand meme. */}
-            <Pressable hitSlop={10} disabled={occupe !== null} onPress={() => void retirerPJ(p.id)}>
+            <Pressable
+              hitSlop={10}
+              disabled={occupe !== null}
+              onPress={() => void retirerPJ(p.id)}
+              accessibilityRole="button"
+              accessibilityLabel={formater(t.common.removeAttachment, { name: p.filename })}
+            >
               <IconClose size={15} color={colors.onDarkMuted} />
             </Pressable>
           </View>

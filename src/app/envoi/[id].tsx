@@ -226,7 +226,13 @@ export default function PageEnvoi() {
           les trois ecrans de lecture se ressemblent. */}
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+          >
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           {/* Le badge « Vmail » (envoye depuis Vmail) a ete retire le 06/10/2026,

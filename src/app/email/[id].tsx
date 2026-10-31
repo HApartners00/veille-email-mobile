@@ -1268,7 +1268,13 @@ export default function EmailDetail() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+          >
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           {p ? (
@@ -1581,7 +1587,12 @@ export default function EmailDetail() {
                 <Text style={styles.draftTitle}>{t.email.draftTitle}</Text>
               </View>
               {/* Replier — sinon le bloc, une fois ouvert, ne se referme jamais. */}
-              <Pressable onPress={() => setRepondreOuvert(false)} hitSlop={10}>
+              <Pressable
+                onPress={() => setRepondreOuvert(false)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={t.common.close}
+              >
                 <IconClose size={18} color={colors.onDarkMuted} />
               </Pressable>
             </View>
@@ -1648,7 +1659,12 @@ export default function EmailDetail() {
                 {notice ? (
                   <View style={styles.noticeBox}>
                     <Text style={styles.noticeText}>{persoStr.notice}</Text>
-                    <Pressable onPress={() => setNotice(false)} hitSlop={8}>
+                    <Pressable
+                      onPress={() => setNotice(false)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t.common.close}
+                    >
                       <IconClose size={15} color={colors.hint} />
                     </Pressable>
                   </View>
@@ -1699,7 +1715,12 @@ export default function EmailDetail() {
                     <Text style={styles.attName} numberOfLines={1}>
                       {a.filename}
                     </Text>
-                    <Pressable onPress={() => removeAtt(a.id)} hitSlop={8}>
+                    <Pressable
+                      onPress={() => removeAtt(a.id)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={f(t.common.removeAttachment, { name: a.filename })}
+                    >
                       <IconClose size={15} color={colors.hint} />
                     </Pressable>
                   </View>
@@ -1800,7 +1821,8 @@ export default function EmailDetail() {
           {microDispo === true ? (
             <Pressable
               style={styles.dockBtnEtroit}
-              accessibilityLabel={locale === 'en' ? 'Talk to the assistant' : "Parler à l'assistant"}
+              accessibilityRole="button"
+              accessibilityLabel={t.email.talkToAssistant}
               onPress={() =>
                 void demarrerVoix({ itemId: String(id), locale, brouillon: draft })
               }
@@ -2112,7 +2134,13 @@ export default function EmailDetail() {
             onRequestClose={() => setPreviewUri(null)}
           >
             <View style={styles.previewOverlay}>
-              <Pressable style={styles.previewClose} onPress={() => setPreviewUri(null)} hitSlop={12}>
+              <Pressable
+                style={styles.previewClose}
+                onPress={() => setPreviewUri(null)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={t.common.close}
+              >
                 <IconClose size={26} color={colors.onDark} />
               </Pressable>
               {previewUri ? (

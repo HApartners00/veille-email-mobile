@@ -319,6 +319,7 @@ export function SignatureSection() {
                 <View style={styles.enableRow}>
                   <Text style={styles.enableLabel}>{s.enabled}</Text>
                   <Switch
+                    accessibilityLabel={`${s.title} — ${m.email}`}
                     value={enabled[k] !== false}
                     onValueChange={(v) => setEnabled((p) => ({ ...p, [k]: v }))}
                     trackColor={{ true: colors.terracotta, false: D.line }}

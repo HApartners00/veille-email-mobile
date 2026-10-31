@@ -16,6 +16,10 @@ const fr = {
     unknownSender: 'Expéditeur inconnu',
     cancel: 'Annuler',
     close: 'Fermer',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Retour',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Retirer la pièce jointe {name}',
   },
   prio: {
     urgent: 'Urgent',
@@ -159,6 +163,8 @@ const fr = {
     rtlRestart: 'La mise en page droite-à-gauche s’appliquera au prochain démarrage de l’app.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Parler à l’assistant',
     back: '‹ Retour',
     notFound: 'Email introuvable.',
     category: 'Catégorie',
@@ -335,6 +341,10 @@ const en: Dict = {
     unknownSender: 'Unknown sender',
     cancel: 'Cancel',
     close: 'Close',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Back',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Remove attachment {name}',
   },
   prio: {
     urgent: 'Urgent',
@@ -477,6 +487,8 @@ const en: Dict = {
     rtlRestart: 'Right-to-left layout will apply the next time you open the app.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Talk to the assistant',
     back: '‹ Back',
     notFound: 'Email not found.',
     category: 'Category',
@@ -643,6 +655,10 @@ const es: Dict = {
     unknownSender: 'Remitente desconocido',
     cancel: 'Cancelar',
     close: 'Cerrar',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Volver',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Quitar el archivo adjunto {name}',
   },
   prio: {
     urgent: 'Urgente',
@@ -785,6 +801,8 @@ const es: Dict = {
     rtlRestart: 'El diseño de derecha a izquierda se aplicará la próxima vez que abras la app.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Hablar con el asistente',
     back: '‹ Volver',
     notFound: 'Correo no encontrado.',
     category: 'Categoría',
@@ -951,6 +969,10 @@ const de: Dict = {
     unknownSender: 'Unbekannter Absender',
     cancel: 'Abbrechen',
     close: 'Schließen',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Zurück',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Anhang {name} entfernen',
   },
   prio: {
     urgent: 'Dringend',
@@ -1093,6 +1115,8 @@ const de: Dict = {
     rtlRestart: 'Das Rechts-nach-links-Layout wird beim nächsten Öffnen der App angewendet.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Mit dem Assistenten sprechen',
     back: '‹ Zurück',
     notFound: 'E-Mail nicht gefunden.',
     category: 'Kategorie',
@@ -1259,6 +1283,10 @@ const pt: Dict = {
     unknownSender: 'Remetente desconhecido',
     cancel: 'Cancelar',
     close: 'Fechar',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Voltar',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Remover o anexo {name}',
   },
   prio: {
     urgent: 'Urgente',
@@ -1401,6 +1429,8 @@ const pt: Dict = {
     rtlRestart: 'O layout da direita para a esquerda será aplicado da próxima vez que abrir a app.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Falar com o assistente',
     back: '‹ Voltar',
     notFound: 'Email não encontrado.',
     category: 'Categoria',
@@ -1567,6 +1597,10 @@ const it: Dict = {
     unknownSender: 'Mittente sconosciuto',
     cancel: 'Annulla',
     close: 'Chiudi',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Indietro',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Rimuovi l’allegato {name}',
   },
   prio: {
     urgent: 'Urgente',
@@ -1709,6 +1743,8 @@ const it: Dict = {
     rtlRestart: 'Il layout da destra a sinistra verrà applicato al prossimo avvio dell’app.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Parla con l’assistente',
     back: '‹ Indietro',
     notFound: 'Email non trovata.',
     category: 'Categoria',
@@ -1875,6 +1911,10 @@ const ar: Dict = {
     unknownSender: 'مُرسِل غير معروف',
     cancel: 'إلغاء',
     close: 'إغلاق',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'رجوع',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'إزالة المرفق {name}',
   },
   prio: {
     urgent: 'عاجل',
@@ -2017,6 +2057,8 @@ const ar: Dict = {
     rtlRestart: 'سيُطبَّق التخطيط من اليمين إلى اليسار عند فتح التطبيق في المرة القادمة.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'التحدث إلى المساعد',
     back: '› رجوع',
     notFound: 'الرسالة غير موجودة.',
     category: 'الفئة',
@@ -2183,6 +2225,10 @@ const ru: Dict = {
     unknownSender: 'Неизвестный отправитель',
     cancel: 'Отмена',
     close: 'Закрыть',
+    /** Lu par VoiceOver sur la flèche de retour (plan n°30). */
+    back: 'Назад',
+    /** Lu par VoiceOver sur la croix d’une pièce jointe ; {name} = nom du fichier. */
+    removeAttachment: 'Удалить вложение {name}',
   },
   prio: {
     urgent: 'Срочное',
@@ -2325,6 +2371,8 @@ const ru: Dict = {
     rtlRestart: 'Раскладка справа налево будет применена при следующем запуске приложения.',
   },
   email: {
+    /** Lu par VoiceOver sur le bouton micro d’un mail (plan n°30). */
+    talkToAssistant: 'Поговорить с ассистентом',
     back: '‹ Назад',
     notFound: 'Письмо не найдено.',
     category: 'Категория',

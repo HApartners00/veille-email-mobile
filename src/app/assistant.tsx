@@ -237,7 +237,13 @@ export default function Assistant() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView edges={['top']} style={styles.haut}>
         <View style={styles.barre}>
-          <Pressable style={styles.retour} onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            style={styles.retour}
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+          >
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           <View style={styles.titreBloc}>
@@ -350,7 +356,13 @@ export default function Assistant() {
 
       <Modal visible={!!apercu} transparent animationType="fade" onRequestClose={() => setApercu(null)}>
         <View style={styles.apercuFond}>
-          <Pressable style={styles.apercuFermer} onPress={() => setApercu(null)} hitSlop={12}>
+          <Pressable
+            style={styles.apercuFermer}
+            onPress={() => setApercu(null)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.close}
+          >
             <IconClose size={26} color={colors.onDark} />
           </Pressable>
           {apercu ? <Image source={{ uri: apercu.uri }} style={styles.apercuImage} resizeMode="contain" /> : null}

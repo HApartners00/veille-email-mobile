@@ -987,6 +987,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
                       <Text style={styles.persoLabel}>{nt[row.key]}</Text>
                     </View>
                     <Switch
+                      accessibilityLabel={`${nt.title} — ${nt[row.key]}`}
                       value={notifPrefs[row.key]}
                       onValueChange={() => toggleNotif(row.key)}
                       trackColor={{ true: colors.terracotta, false: D.line }}
@@ -1166,6 +1167,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <Text style={styles.hint}>{ps.masterHint}</Text>
             </View>
             <Switch
+              accessibilityLabel={ps.master}
               value={persoEnabled}
               disabled={!persoLoaded || persoLocked}
               onValueChange={(v) => savePerso({ personalization_enabled: v })}
@@ -1186,6 +1188,7 @@ export function SettingsPanel({ only = 'index' }: { only?: SettingsSection }) {
               <Text style={styles.hint}>{ps.learnHint}</Text>
             </View>
             <Switch
+              accessibilityLabel={ps.learn}
               value={persoLearn}
               disabled={!persoLoaded || !persoEnabled || persoLocked}
               onValueChange={(v) => savePerso({ learn_from_replies: v })}

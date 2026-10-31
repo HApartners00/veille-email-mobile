@@ -44,7 +44,7 @@ export default function TransfererMail() {
   const id = String(brut || '');
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { locale } = useI18n();
+  const { t, f: formater, locale } = useI18n();
   const tt = textesTransfert(locale);
   const attStr = pjStr(locale);
   const libCopies = libellesCopies(locale);
@@ -237,7 +237,13 @@ export default function TransfererMail() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topbar}>
-          <Pressable style={styles.backBtn} hitSlop={12} onPress={() => router.back()}>
+          <Pressable
+            style={styles.backBtn}
+            hitSlop={12}
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+          >
             <IconChevronLeft size={19} color={colors.onDark} />
           </Pressable>
           <Text style={styles.titre}>{tt.titre}</Text>
@@ -298,7 +304,13 @@ export default function TransfererMail() {
             <Text style={styles.pjNom} numberOfLines={1}>
               {f.filename}
             </Text>
-            <Pressable hitSlop={10} disabled={envoi} onPress={() => void retirerFichier(f.id)}>
+            <Pressable
+              hitSlop={10}
+              disabled={envoi}
+              onPress={() => void retirerFichier(f.id)}
+              accessibilityRole="button"
+              accessibilityLabel={formater(t.common.removeAttachment, { name: f.filename })}
+            >
               <IconClose size={15} color={colors.onDarkMuted} />
             </Pressable>
           </View>
